@@ -119,6 +119,26 @@
     { name: 'music', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><ellipse cx="18" cy="50" rx="10" ry="7" fill="#555"/><ellipse cx="50" cy="44" rx="10" ry="7" fill="#555"/><line x1="28" y1="50" x2="28" y2="10" stroke="#555" stroke-width="3"/><line x1="60" y1="44" x2="60" y2="8" stroke="#555" stroke-width="3"/><path d="M28 10 Q44 4 60 8" fill="none" stroke="#555" stroke-width="3"/></svg>' },
   ];
 
+  // ── File-based stickers (PNG assets) ──
+  const FILE_STICKERS = [
+    { name: 'Dino', src: 'assets/stickers/sticker_02.png' },
+    { name: 'Cupcake', src: 'assets/stickers/sticker_04.png' },
+    { name: 'Caticorn', src: 'assets/stickers/sticker_06.png' },
+    { name: 'Cloud', src: 'assets/stickers/sticker_08.png' },
+    { name: 'Palette', src: 'assets/stickers/sticker_10.png' },
+    { name: 'Sloth', src: 'assets/stickers/sticker_12.png' },
+    { name: 'Ice Cream', src: 'assets/stickers/sticker_14.png' },
+    { name: 'Jelly', src: 'assets/stickers/sticker_16.png' },
+    { name: 'Glue', src: 'assets/stickers/sticker_18.png' },
+    { name: 'Strawberry', src: 'assets/stickers/sticker_20.png' },
+    { name: 'Narwhal', src: 'assets/stickers/sticker_22.png' },
+    { name: 'Yarn', src: 'assets/stickers/sticker_24.png' },
+    { name: 'Eggplant', src: 'assets/stickers/sticker_26.png' },
+    { name: 'Octopus', src: 'assets/stickers/sticker_28.png' },
+    { name: 'Flying Pig', src: 'assets/stickers/sticker_30.png' },
+    { name: 'Paint', src: 'assets/stickers/sticker_32.png' },
+  ];
+
   const DEFAULT_SWATCHES = [
     '#222222', '#ffffff', '#e87461', '#f7c948', '#6ab04c',
     '#4a90d9', '#9b59b6', '#e0a080', '#f0a0c0', '#7ec8e3',
@@ -698,6 +718,8 @@
   function renderStickers() {
     const list = $('#sticker-list');
     list.innerHTML = '';
+
+    // Inline SVG stickers
     STICKERS.forEach(st => {
       const btn = document.createElement('button');
       btn.className = 'sticker-btn';
@@ -706,6 +728,20 @@
       btn.querySelector('svg').style.width = '28px';
       btn.querySelector('svg').style.height = '28px';
       btn.addEventListener('click', () => { enterStickerMode(st); closeToolbarIfMobile(); });
+      list.appendChild(btn);
+    });
+
+    // File-based PNG stickers
+    FILE_STICKERS.forEach(st => {
+      const btn = document.createElement('button');
+      btn.className = 'sticker-btn sticker-btn-img';
+      btn.title = st.name;
+      const img = document.createElement('img');
+      img.src = st.src;
+      img.alt = st.name;
+      img.draggable = false;
+      btn.appendChild(img);
+      btn.addEventListener('click', () => { enterStickerModeFromFile(st); closeToolbarIfMobile(); });
       list.appendChild(btn);
     });
   }
@@ -751,6 +787,36 @@
       }
     };
     img.src = url;
+  }
+
+  function enterStickerModeFromFile(sticker) {
+    exitStickerMode();
+
+    const size = state.brushSize * 6 + 40;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const aspect = img.naturalWidth / img.naturalHeight || 1;
+      state.stickerMode = { img, size, name: sticker.name, aspect };
+      state.stickerPos = { x: state.canvasWidth / 2, y: state.canvasHeight / 2 };
+      state.stickerRotation = 0;
+      state.stickerDragging = false;
+      previewCanvas.style.cursor = 'none';
+      container.classList.add('sticker-mode');
+      document.querySelectorAll('.sticker-btn').forEach(b => b.classList.remove('placing'));
+      document.querySelectorAll('.sticker-btn').forEach(b => {
+        if (b.title === sticker.name) b.classList.add('placing');
+      });
+      $('#sticker-touch-controls').classList.remove('hidden');
+      drawStickerPreview();
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      if (isTouchDevice) {
+        showToast('Tap to place. Pinch to resize & rotate.');
+      } else {
+        showToast('Click to place. Scroll to resize. Shift+scroll to rotate. Esc to cancel.');
+      }
+    };
+    img.src = sticker.src;
   }
 
   function exitStickerMode() {

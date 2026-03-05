@@ -505,6 +505,9 @@ input[type="number"]:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .sticker-btn {
@@ -537,6 +540,18 @@ input[type="number"]:focus {
 .sticker-btn svg {
   width: 28px;
   height: 28px;
+}
+
+.sticker-btn-img {
+  padding: 2px;
+  overflow: hidden;
+}
+
+.sticker-btn-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
 }
 
 /* Sticker mode canvas indicator */
