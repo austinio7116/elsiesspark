@@ -164,6 +164,8 @@
     canvasWidth: 1080,
     canvasHeight: 1080,
     zoom: 1,
+    panX: 0,
+    panY: 0,
     fitZoomLevel: 1,
     // Tools
     activeBrush: 'pen',
@@ -272,22 +274,32 @@
 
   function fitZoom() {
     state.zoom = 1;
+    state.panX = 0;
+    state.panY = 0;
     state.fitZoomLevel = 1;
     applyZoom();
   }
 
   function applyZoom() {
     if (!container) return;
-    const dispW = Math.round(state.canvasWidth  * state.zoom);
-    const dispH = Math.round(state.canvasHeight * state.zoom);
-    container.style.width  = dispW + 'px';
-    container.style.height = dispH + 'px';
+    const area = $('#canvas-area');
+    const areaW = area.clientWidth;
+    const areaH = area.clientHeight;
+    // Container is native canvas size; transform handles zoom + pan
+    container.style.width  = state.canvasWidth + 'px';
+    container.style.height = state.canvasHeight + 'px';
     [traceCanvas, previewCanvas, ...state.layers.map(l => l.canvas)]
       .filter(Boolean)
-      .forEach(c => { c.style.width = dispW + 'px'; c.style.height = dispH + 'px'; });
+      .forEach(c => { c.style.width = state.canvasWidth + 'px'; c.style.height = state.canvasHeight + 'px'; });
+    // Center in area, then apply pan offset
+    const tx = (areaW - state.canvasWidth * state.zoom) / 2 + state.panX;
+    const ty = (areaH - state.canvasHeight * state.zoom) / 2 + state.panY;
+    container.style.transformOrigin = '0 0';
+    container.style.transform = `translate(${tx}px, ${ty}px) scale(${state.zoom})`;
     const resetBtn = $('#btn-zoom-reset');
     if (resetBtn) {
-      const atFit = Math.abs(state.zoom - (state.fitZoomLevel || state.zoom)) < 0.005;
+      const atFit = Math.abs(state.zoom - (state.fitZoomLevel || state.zoom)) < 0.005
+                 && Math.abs(state.panX) < 1 && Math.abs(state.panY) < 1;
       resetBtn.classList.toggle('hidden', atFit);
     }
   }
@@ -302,10 +314,6 @@
     canvas.height = state.canvasHeight;
     canvas.className = 'drawing-canvas';
     canvas.style.zIndex = id;
-    const dispW = Math.round(state.canvasWidth * state.zoom);
-    const dispH = Math.round(state.canvasHeight * state.zoom);
-    canvas.style.width  = dispW + 'px';
-    canvas.style.height = dispH + 'px';
     container.insertBefore(canvas, previewCanvas);
     const ctx = canvas.getContext('2d');
     const layer = { id, name: name || `Layer ${id}`, canvas, ctx, visible: true, opacity: 1 };
@@ -435,6 +443,10 @@
     pinchStartValue: 0,
     pinchStartAngle: 0,
     rotateStartValue: 0,
+    pinchStartMidX: 0,
+    pinchStartMidY: 0,
+    pinchStartPanX: 0,
+    pinchStartPanY: 0,
     isGesture: false,
   };
 
@@ -483,6 +495,10 @@
         touch.rotateStartValue  = state.stickerRotation;
       } else {
         touch.pinchStartValue = state.zoom;
+        touch.pinchStartMidX  = pinch.midX;
+        touch.pinchStartMidY  = pinch.midY;
+        touch.pinchStartPanX  = state.panX;
+        touch.pinchStartPanY  = state.panY;
       }
       return;
     }
@@ -525,7 +541,22 @@
         };
         drawStickerPreview();
       } else {
-        state.zoom = Math.max(0.1, Math.min(4, touch.pinchStartValue * scale));
+        const newZoom = Math.max(0.1, Math.min(4, touch.pinchStartValue * scale));
+        const area = $('#canvas-area');
+        const areaRect = area.getBoundingClientRect();
+        const areaW = area.clientWidth;
+        const areaH = area.clientHeight;
+        // Canvas point under the initial pinch midpoint
+        const oldCX = (areaW - state.canvasWidth * touch.pinchStartValue) / 2 + touch.pinchStartPanX;
+        const oldCY = (areaH - state.canvasHeight * touch.pinchStartValue) / 2 + touch.pinchStartPanY;
+        const canvasX = (touch.pinchStartMidX - areaRect.left - oldCX) / touch.pinchStartValue;
+        const canvasY = (touch.pinchStartMidY - areaRect.top  - oldCY) / touch.pinchStartValue;
+        // Keep that canvas point under the current midpoint + allow pan
+        const newBaseCX = (areaW - state.canvasWidth * newZoom) / 2;
+        const newBaseCY = (areaH - state.canvasHeight * newZoom) / 2;
+        state.panX = pinch.midX - areaRect.left - newBaseCX - canvasX * newZoom;
+        state.panY = pinch.midY - areaRect.top  - newBaseCY - canvasY * newZoom;
+        state.zoom = newZoom;
         applyZoom();
       }
       return;
@@ -1462,7 +1493,23 @@
         else state.stickerMode.size = Math.max(16, Math.min(600, state.stickerMode.size + (e.deltaY > 0 ? -8 : 8)));
         drawStickerPreview();
       } else {
-        state.zoom = Math.max(0.05, Math.min(8, state.zoom * (e.deltaY > 0 ? 0.92 : 1.08)));
+        const oldZoom = state.zoom;
+        const newZoom = Math.max(0.05, Math.min(8, oldZoom * (e.deltaY > 0 ? 0.92 : 1.08)));
+        const area = $('#canvas-area');
+        const areaRect = area.getBoundingClientRect();
+        const areaW = area.clientWidth;
+        const areaH = area.clientHeight;
+        // Canvas point under cursor
+        const oldCX = (areaW - state.canvasWidth * oldZoom) / 2 + state.panX;
+        const oldCY = (areaH - state.canvasHeight * oldZoom) / 2 + state.panY;
+        const canvasX = (e.clientX - areaRect.left - oldCX) / oldZoom;
+        const canvasY = (e.clientY - areaRect.top  - oldCY) / oldZoom;
+        // Keep that canvas point under cursor
+        const newBaseCX = (areaW - state.canvasWidth * newZoom) / 2;
+        const newBaseCY = (areaH - state.canvasHeight * newZoom) / 2;
+        state.panX = e.clientX - areaRect.left - newBaseCX - canvasX * newZoom;
+        state.panY = e.clientY - areaRect.top  - newBaseCY - canvasY * newZoom;
+        state.zoom = newZoom;
         applyZoom();
       }
     }, { passive: false });
