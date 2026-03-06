@@ -1,9 +1,9 @@
 (function () {
   'use strict';
 
-  // ── Daily Prompts ──
+  // ── Daily Prompts ─────────────────────────────────────
   const PROMPTS = [
-    "Draw your favorite animal wearing a hat",
+    "Draw your favourite animal wearing a hat",
     "A cozy treehouse with fairy lights",
     "An underwater tea party",
     "A cat riding a skateboard",
@@ -98,139 +98,203 @@
     "Tide pools full of tiny worlds",
     "A squirrel's acorn collection",
     "A snowglobe with your town inside",
-    "A crow wearing jewelry",
+    "A crow wearing jewellery",
     "A platypus detective",
     "An otter floating with a book",
     "A sandcastle kingdom",
-    "A moose in a canoe"
+    "A moose in a canoe",
   ];
 
-  // ── Sticker definitions (inline SVG) ──
+  // ── Inline SVG Stickers ───────────────────────────────
   const STICKERS = [
-    { name: 'star', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><polygon points="32,4 40,24 62,26 46,40 50,62 32,50 14,62 18,40 2,26 24,24" fill="#f7c948" stroke="#e6b422" stroke-width="1.5"/></svg>' },
-    { name: 'heart', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path d="M32 56 C16 42 4 30 4 18 A14 14 0 0 1 32 14 A14 14 0 0 1 60 18 C60 30 48 42 32 56Z" fill="#e87461" stroke="#c9533f" stroke-width="1.5"/></svg>' },
-    { name: 'flower', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="20" r="10" fill="#f0a0c0"/><circle cx="20" cy="32" r="10" fill="#f0a0c0"/><circle cx="44" cy="32" r="10" fill="#f0a0c0"/><circle cx="26" cy="44" r="10" fill="#f0a0c0"/><circle cx="38" cy="44" r="10" fill="#f0a0c0"/><circle cx="32" cy="32" r="7" fill="#f7c948"/></svg>' },
-    { name: 'cloud', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 40"><ellipse cx="24" cy="26" rx="16" ry="12" fill="white" stroke="#ccc" stroke-width="1"/><ellipse cx="40" cy="24" rx="14" ry="14" fill="white" stroke="#ccc" stroke-width="1"/><ellipse cx="32" cy="14" rx="12" ry="10" fill="white" stroke="#ccc" stroke-width="1"/></svg>' },
-    { name: 'moon', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path d="M40 8 A24 24 0 1 0 40 56 A18 18 0 1 1 40 8Z" fill="#f7e78a" stroke="#d4c35a" stroke-width="1.5"/></svg>' },
-    { name: 'rainbow', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 44"><path d="M8 40 A32 32 0 0 1 72 40" fill="none" stroke="#e54" stroke-width="4"/><path d="M12 40 A28 28 0 0 1 68 40" fill="none" stroke="#f90" stroke-width="4"/><path d="M16 40 A24 24 0 0 1 64 40" fill="none" stroke="#fd0" stroke-width="4"/><path d="M20 40 A20 20 0 0 1 60 40" fill="none" stroke="#4b4" stroke-width="4"/><path d="M24 40 A16 16 0 0 1 56 40" fill="none" stroke="#48f" stroke-width="4"/><path d="M28 40 A12 12 0 0 1 52 40" fill="none" stroke="#a4e" stroke-width="4"/></svg>' },
-    { name: 'sparkle', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path d="M32 2 L36 26 L60 32 L36 38 L32 62 L28 38 L4 32 L28 26 Z" fill="#f7c948" stroke="#d4a820" stroke-width="1"/></svg>' },
-    { name: 'butterfly', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><ellipse cx="20" cy="22" rx="14" ry="16" fill="#c490e0" stroke="#9060b0" stroke-width="1" transform="rotate(-15 20 22)"/><ellipse cx="44" cy="22" rx="14" ry="16" fill="#c490e0" stroke="#9060b0" stroke-width="1" transform="rotate(15 44 22)"/><ellipse cx="22" cy="42" rx="10" ry="14" fill="#e0a0d0" stroke="#9060b0" stroke-width="1" transform="rotate(-10 22 42)"/><ellipse cx="42" cy="42" rx="10" ry="14" fill="#e0a0d0" stroke="#9060b0" stroke-width="1" transform="rotate(10 42 42)"/><line x1="32" y1="12" x2="32" y2="58" stroke="#555" stroke-width="2"/></svg>' },
-    { name: 'leaf', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path d="M10 54 Q10 20 32 8 Q54 20 54 54 Z" fill="#6ab04c" stroke="#3a7a2c" stroke-width="1.5"/><line x1="32" y1="12" x2="32" y2="54" stroke="#3a7a2c" stroke-width="1.5"/></svg>' },
-    { name: 'music', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><ellipse cx="18" cy="50" rx="10" ry="7" fill="#555"/><ellipse cx="50" cy="44" rx="10" ry="7" fill="#555"/><line x1="28" y1="50" x2="28" y2="10" stroke="#555" stroke-width="3"/><line x1="60" y1="44" x2="60" y2="8" stroke="#555" stroke-width="3"/><path d="M28 10 Q44 4 60 8" fill="none" stroke="#555" stroke-width="3"/></svg>' },
+    { name: 'star',        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><polygon points="32,4 40,24 62,26 46,40 50,62 32,50 14,62 18,40 2,26 24,24" fill="#f7c948" stroke="#e6b422" stroke-width="1.5"/></svg>' },
+    { name: 'heart',       svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path d="M32 56 C16 42 4 30 4 18 A14 14 0 0 1 32 14 A14 14 0 0 1 60 18 C60 30 48 42 32 56Z" fill="#e87461" stroke="#c9533f" stroke-width="1.5"/></svg>' },
+    { name: 'flower',      svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="20" r="10" fill="#f0a0c0"/><circle cx="20" cy="32" r="10" fill="#f0a0c0"/><circle cx="44" cy="32" r="10" fill="#f0a0c0"/><circle cx="26" cy="44" r="10" fill="#f0a0c0"/><circle cx="38" cy="44" r="10" fill="#f0a0c0"/><circle cx="32" cy="32" r="7" fill="#f7c948"/></svg>' },
+    { name: 'cloud',       svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 40"><ellipse cx="24" cy="26" rx="16" ry="12" fill="white" stroke="#ccc" stroke-width="1"/><ellipse cx="40" cy="24" rx="14" ry="14" fill="white" stroke="#ccc" stroke-width="1"/><ellipse cx="32" cy="14" rx="12" ry="10" fill="white" stroke="#ccc" stroke-width="1"/></svg>' },
+    { name: 'moon',        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path d="M40 8 A24 24 0 1 0 40 56 A18 18 0 1 1 40 8Z" fill="#f7e78a" stroke="#d4c35a" stroke-width="1.5"/></svg>' },
+    { name: 'rainbow',     svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 44"><path d="M8 40 A32 32 0 0 1 72 40" fill="none" stroke="#e54" stroke-width="4"/><path d="M12 40 A28 28 0 0 1 68 40" fill="none" stroke="#f90" stroke-width="4"/><path d="M16 40 A24 24 0 0 1 64 40" fill="none" stroke="#fd0" stroke-width="4"/><path d="M20 40 A20 20 0 0 1 60 40" fill="none" stroke="#4b4" stroke-width="4"/><path d="M24 40 A16 16 0 0 1 56 40" fill="none" stroke="#48f" stroke-width="4"/><path d="M28 40 A12 12 0 0 1 52 40" fill="none" stroke="#a4e" stroke-width="4"/></svg>' },
+    { name: 'sparkle',     svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path d="M32 2 L36 26 L60 32 L36 38 L32 62 L28 38 L4 32 L28 26 Z" fill="#f7c948" stroke="#d4a820" stroke-width="1"/></svg>' },
+    { name: 'butterfly',   svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><ellipse cx="20" cy="22" rx="14" ry="16" fill="#c490e0" stroke="#9060b0" stroke-width="1" transform="rotate(-15 20 22)"/><ellipse cx="44" cy="22" rx="14" ry="16" fill="#c490e0" stroke="#9060b0" stroke-width="1" transform="rotate(15 44 22)"/><ellipse cx="22" cy="42" rx="10" ry="14" fill="#e0a0d0" stroke="#9060b0" stroke-width="1" transform="rotate(-10 22 42)"/><ellipse cx="42" cy="42" rx="10" ry="14" fill="#e0a0d0" stroke="#9060b0" stroke-width="1" transform="rotate(10 42 42)"/><line x1="32" y1="12" x2="32" y2="58" stroke="#555" stroke-width="2"/></svg>' },
+    { name: 'leaf',        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path d="M10 54 Q10 20 32 8 Q54 20 54 54 Z" fill="#6ab04c" stroke="#3a7a2c" stroke-width="1.5"/><line x1="32" y1="12" x2="32" y2="54" stroke="#3a7a2c" stroke-width="1.5"/></svg>' },
+    { name: 'music',       svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><ellipse cx="18" cy="50" rx="10" ry="7" fill="#555"/><ellipse cx="50" cy="44" rx="10" ry="7" fill="#555"/><line x1="28" y1="50" x2="28" y2="10" stroke="#555" stroke-width="3"/><line x1="60" y1="44" x2="60" y2="8" stroke="#555" stroke-width="3"/><path d="M28 10 Q44 4 60 8" fill="none" stroke="#555" stroke-width="3"/></svg>' },
   ];
 
-  // ── File-based stickers (PNG assets) ──
+  // ── File-based stickers (PNG assets) ─────────────────
   const FILE_STICKERS = [
-    { name: 'Dino', src: 'assets/stickers/sticker_02.png' },
-    { name: 'Cupcake', src: 'assets/stickers/sticker_04.png' },
-    { name: 'Caticorn', src: 'assets/stickers/sticker_06.png' },
-    { name: 'Cloud', src: 'assets/stickers/sticker_08.png' },
-    { name: 'Palette', src: 'assets/stickers/sticker_10.png' },
-    { name: 'Sloth', src: 'assets/stickers/sticker_12.png' },
-    { name: 'Ice Cream', src: 'assets/stickers/sticker_14.png' },
-    { name: 'Jelly', src: 'assets/stickers/sticker_16.png' },
-    { name: 'Glue', src: 'assets/stickers/sticker_18.png' },
-    { name: 'Strawberry', src: 'assets/stickers/sticker_20.png' },
-    { name: 'Narwhal', src: 'assets/stickers/sticker_22.png' },
-    { name: 'Yarn', src: 'assets/stickers/sticker_24.png' },
-    { name: 'Eggplant', src: 'assets/stickers/sticker_26.png' },
-    { name: 'Octopus', src: 'assets/stickers/sticker_28.png' },
-    { name: 'Flying Pig', src: 'assets/stickers/sticker_30.png' },
-    { name: 'Paint', src: 'assets/stickers/sticker_32.png' },
+    { name: 'Dino',        src: 'assets/stickers/sticker_02.png' },
+    { name: 'Cupcake',     src: 'assets/stickers/sticker_04.png' },
+    { name: 'Caticorn',    src: 'assets/stickers/sticker_06.png' },
+    { name: 'Cloud',       src: 'assets/stickers/sticker_08.png' },
+    { name: 'Palette',     src: 'assets/stickers/sticker_10.png' },
+    { name: 'Sloth',       src: 'assets/stickers/sticker_12.png' },
+    { name: 'Ice Cream',   src: 'assets/stickers/sticker_14.png' },
+    { name: 'Jelly',       src: 'assets/stickers/sticker_16.png' },
+    { name: 'Glue',        src: 'assets/stickers/sticker_18.png' },
+    { name: 'Strawberry',  src: 'assets/stickers/sticker_20.png' },
+    { name: 'Narwhal',     src: 'assets/stickers/sticker_22.png' },
+    { name: 'Yarn',        src: 'assets/stickers/sticker_24.png' },
+    { name: 'Eggplant',    src: 'assets/stickers/sticker_26.png' },
+    { name: 'Octopus',     src: 'assets/stickers/sticker_28.png' },
+    { name: 'Flying Pig',  src: 'assets/stickers/sticker_30.png' },
+    { name: 'Paint',       src: 'assets/stickers/sticker_32.png' },
   ];
 
-  const DEFAULT_SWATCHES = [
-    '#222222', '#ffffff', '#e87461', '#f7c948', '#6ab04c',
-    '#4a90d9', '#9b59b6', '#e0a080', '#f0a0c0', '#7ec8e3',
-    '#c0c0c0', '#8b5e3c'
+  // ── Backgrounds ───────────────────────────────────────
+  const BACKGROUNDS = [
+    { id: 'white',   label: 'White',    style: '#ffffff' },
+    { id: 'cream',   label: 'Cream',    style: '#fdf6e3' },
+    { id: 'grid',    label: 'Grid',     style: null,    pattern: 'grid' },
+    { id: 'dots',    label: 'Dots',     style: null,    pattern: 'dots' },
+    { id: 'lined',   label: 'Lined',    style: null,    pattern: 'lined' },
+    { id: 'sunset',  label: 'Sunset',   style: 'linear-gradient(160deg, #fce4ec 0%, #f8bbd0 50%, #f48fb1 100%)' },
+    { id: 'ocean',   label: 'Ocean',    style: 'linear-gradient(160deg, #e0f7fa 0%, #80deea 50%, #00bcd4 100%)' },
+    { id: 'forest',  label: 'Forest',   style: 'linear-gradient(160deg, #f1f8e9 0%, #c5e1a5 50%, #8bc34a 100%)' },
+    { id: 'dusk',    label: 'Dusk',     style: 'linear-gradient(160deg, #311b92 0%, #7b1fa2 50%, #e91e63 100%)' },
+    { id: 'candy',   label: 'Candy',    style: 'linear-gradient(160deg, #fff9c4 0%, #f8bbd0 50%, #e1bee7 100%)' },
+    { id: 'sky',     label: 'Sky',      style: 'linear-gradient(180deg, #bbdefb 0%, #e3f2fd 60%, #fff9c4 100%)' },
+    { id: 'dark',    label: 'Night',    style: '#1a1a2e' },
   ];
 
-  // ── State ──
+  // ── State ─────────────────────────────────────────────
   const state = {
-    canvasWidth: 1200,
-    canvasHeight: 800,
+    // Views
+    currentView: 'room',
+    openSheet: null,
+    // Canvas
+    canvasWidth: 1080,
+    canvasHeight: 1080,
     zoom: 1,
+    fitZoomLevel: 1,
+    // Tools
     activeBrush: 'pen',
     brushSize: 4,
     brushOpacity: 1,
     color: '#222222',
-    layers: [],       // { id, name, canvas, ctx, visible }
+    // Layers
+    layers: [],
     activeLayerId: null,
+    // Undo
     undoStack: [],
     redoStack: [],
     maxUndoSteps: 30,
+    // Drawing
     isDrawing: false,
     lastX: 0,
     lastY: 0,
     traceImage: null,
-    swatches: [...DEFAULT_SWATCHES],
     strokePoints: [],
-    // Sticker placement state
-    stickerMode: null,    // { svg, img, size } when placing a sticker
-    stickerPos: null,     // { x, y } current position during placement
+    // Stickers
+    stickerMode: null,
+    stickerPos: null,
     stickerDragging: false,
     stickerRotation: 0,
+    // Color picker
+    spectrumHue: 0,
+    spectrumS: 0,
+    spectrumL: 13,
+    savedSwatches: [],
+    // Background
+    selectedBackground: 'white',
   };
 
-  // ── DOM references ──
+  // ── DOM helpers ───────────────────────────────────────
   const $ = (sel) => document.querySelector(sel);
-  const container = $('#canvas-container');
-  const traceCanvas = $('#trace-canvas');
-  const traceCtx = traceCanvas.getContext('2d');
-  const previewCanvas = $('#preview-canvas');
-  const previewCtx = previewCanvas.getContext('2d');
+  const $$ = (sel) => document.querySelectorAll(sel);
 
-  // ── Initialization ──
+  // Canvas elements (resolved after DOM ready)
+  let container, traceCanvas, traceCtx, previewCanvas, previewCtx;
+
+  // ── Layer counter ─────────────────────────────────────
+  let layerIdCounter = 0;
+
+  // ═══════════════════════════════════════════════════════
+  // INIT
+  // ═══════════════════════════════════════════════════════
   function init() {
-    setCanvasSize(state.canvasWidth, state.canvasHeight);
-    addLayer('Layer 1');
-    renderLayerList();
-    renderSwatches();
+    container     = $('#canvas-container');
+    traceCanvas   = $('#trace-canvas');
+    traceCtx      = traceCanvas.getContext('2d');
+    previewCanvas = $('#preview-canvas');
+    previewCtx    = previewCanvas.getContext('2d');
+
+    loadSavedSwatches();
+    renderSavedSwatches();
+    buildColorGrid();
+    buildBackgroundGrid();
     renderStickers();
-    showDailyPrompt();
     bindEvents();
-    updateUndoRedoButtons();
-    tryLoadProject();
+    showView('room');
   }
 
-  // ── Canvas sizing ──
-  function setCanvasSize(w, h) {
-    state.canvasWidth = w;
-    state.canvasHeight = h;
-    container.style.width = w + 'px';
+  // ═══════════════════════════════════════════════════════
+  // VIEW ROUTER
+  // ═══════════════════════════════════════════════════════
+  function showView(id) {
+    $$('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + id).classList.add('active');
+    state.currentView = id;
+    if (id === 'draw')    onEnterDraw();
+    if (id === 'gallery') onEnterGallery();
+  }
+
+  function onEnterDraw() {
+    // First entry: set up canvas
+    if (state.layers.length === 0) {
+      setupCanvas();
+      addLayer('Layer 1');
+    }
+    showDailyPrompt();
+    fitZoom();
+    updateUndoRedoButtons();
+    updateColorSwatch();
+  }
+
+  function onEnterGallery() {
+    renderGallery();
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // CANVAS SETUP & ZOOM
+  // ═══════════════════════════════════════════════════════
+  function setupCanvas() {
+    const w = state.canvasWidth;
+    const h = state.canvasHeight;
+    container.style.width  = w + 'px';
     container.style.height = h + 'px';
-    traceCanvas.width = w;
-    traceCanvas.height = h;
+    traceCanvas.width   = w;
+    traceCanvas.height  = h;
     previewCanvas.width = w;
     previewCanvas.height = h;
-    state.layers.forEach(l => {
-      l.canvas.width = w;
-      l.canvas.height = h;
-    });
-    fitZoom();
+    applyBackground(state.selectedBackground);
   }
 
   function fitZoom() {
     const area = $('#canvas-area');
-    const padded = 40;
-    const scaleX = (area.clientWidth - padded) / state.canvasWidth;
-    const scaleY = (area.clientHeight - padded) / state.canvasHeight;
-    state.zoom = Math.min(1, scaleX, scaleY);
+    if (!area) return;
+    const pad = 24;
+    const scaleX = (area.clientWidth  - pad) / state.canvasWidth;
+    const scaleY = (area.clientHeight - pad) / state.canvasHeight;
+    state.zoom = Math.min(scaleX, scaleY);
+    state.fitZoomLevel = state.zoom;
     applyZoom();
   }
 
   function applyZoom() {
-    container.style.transform = `scale(${state.zoom})`;
-    $('#zoom-label').textContent = Math.round(state.zoom * 100) + '%';
+    if (container) container.style.transform = `scale(${state.zoom})`;
+    const resetBtn = $('#btn-zoom-reset');
+    if (resetBtn) {
+      const atFit = Math.abs(state.zoom - (state.fitZoomLevel || state.zoom)) < 0.005;
+      resetBtn.classList.toggle('hidden', atFit);
+    }
   }
 
-  // ── Layer management ──
-  let layerIdCounter = 0;
-
+  // ═══════════════════════════════════════════════════════
+  // LAYER SYSTEM
+  // ═══════════════════════════════════════════════════════
   function addLayer(name) {
     const id = ++layerIdCounter;
     const canvas = document.createElement('canvas');
-    canvas.width = state.canvasWidth;
+    canvas.width  = state.canvasWidth;
     canvas.height = state.canvasHeight;
     canvas.className = 'drawing-canvas';
     canvas.style.zIndex = id;
@@ -247,8 +311,7 @@
     if (state.layers.length <= 1) return;
     const idx = state.layers.findIndex(l => l.id === id);
     if (idx === -1) return;
-    const layer = state.layers[idx];
-    layer.canvas.remove();
+    state.layers[idx].canvas.remove();
     state.layers.splice(idx, 1);
     if (state.activeLayerId === id) {
       state.activeLayerId = state.layers[Math.min(idx, state.layers.length - 1)].id;
@@ -263,21 +326,22 @@
 
   function renderLayerList() {
     const list = $('#layer-list');
+    if (!list) return;
     list.innerHTML = '';
     for (let i = state.layers.length - 1; i >= 0; i--) {
       const l = state.layers[i];
       const li = document.createElement('li');
       li.className = 'layer-item' + (l.id === state.activeLayerId ? ' active' : '');
       li.innerHTML = `
-        <input type="checkbox" class="layer-visibility" ${l.visible ? 'checked' : ''} title="Toggle visibility">
+        <input type="checkbox" class="layer-visibility" ${l.visible ? 'checked' : ''}>
         <span class="layer-name">${l.name}</span>
-        <button class="layer-delete" title="Delete layer">&times;</button>
+        <button class="layer-delete">&times;</button>
       `;
       li.querySelector('.layer-name').addEventListener('click', () => {
         state.activeLayerId = l.id;
         renderLayerList();
       });
-      li.querySelector('.layer-visibility').addEventListener('change', (e) => {
+      li.querySelector('.layer-visibility').addEventListener('change', e => {
         l.visible = e.target.checked;
         l.canvas.style.display = l.visible ? '' : 'none';
       });
@@ -286,12 +350,12 @@
     }
   }
 
-  // ── Undo / Redo ──
+  // ═══════════════════════════════════════════════════════
+  // UNDO / REDO
+  // ═══════════════════════════════════════════════════════
   function captureState() {
     return state.layers.map(l => ({
-      id: l.id,
-      name: l.name,
-      visible: l.visible,
+      id: l.id, name: l.name, visible: l.visible,
       data: l.canvas.toDataURL(),
     }));
   }
@@ -304,14 +368,14 @@
   }
 
   function undo() {
-    if (state.undoStack.length === 0) return;
+    if (!state.undoStack.length) return;
     state.redoStack.push(captureState());
     restoreState(state.undoStack.pop());
     updateUndoRedoButtons();
   }
 
   function redo() {
-    if (state.redoStack.length === 0) return;
+    if (!state.redoStack.length) return;
     state.undoStack.push(captureState());
     restoreState(state.redoStack.pop());
     updateUndoRedoButtons();
@@ -334,24 +398,24 @@
   }
 
   function updateUndoRedoButtons() {
-    $('#btn-undo').disabled = state.undoStack.length === 0;
-    $('#btn-redo').disabled = state.redoStack.length === 0;
+    const u = $('#btn-undo'), r = $('#btn-redo');
+    if (u) u.style.opacity = state.undoStack.length ? '1' : '0.35';
+    if (r) r.style.opacity = state.redoStack.length ? '1' : '0.35';
   }
 
-  // ── Multi-touch / gesture tracking ──
+  // ═══════════════════════════════════════════════════════
+  // MULTI-TOUCH TRACKING
+  // ═══════════════════════════════════════════════════════
   const touch = {
-    pointers: new Map(),   // pointerId -> { x, y }
+    pointers: new Map(),
     pinchStartDist: 0,
-    pinchStartValue: 0,    // zoom level or sticker size at pinch start
+    pinchStartValue: 0,
     pinchStartAngle: 0,
     rotateStartValue: 0,
-    isGesture: false,       // true when 2+ fingers are down
+    isGesture: false,
   };
 
-  function trackPointer(e) {
-    touch.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  }
-
+  function trackPointer(e)   { touch.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); }
   function untrackPointer(e) {
     touch.pointers.delete(e.pointerId);
     if (touch.pointers.size < 2) touch.isGesture = false;
@@ -360,8 +424,7 @@
   function getPinchData() {
     const pts = [...touch.pointers.values()];
     if (pts.length < 2) return null;
-    const dx = pts[1].x - pts[0].x;
-    const dy = pts[1].y - pts[0].y;
+    const dx = pts[1].x - pts[0].x, dy = pts[1].y - pts[0].y;
     return {
       dist: Math.hypot(dx, dy),
       angle: Math.atan2(dy, dx) * 180 / Math.PI,
@@ -370,14 +433,14 @@
     };
   }
 
-  // ── Drawing ──
+  // ═══════════════════════════════════════════════════════
+  // DRAWING ENGINE
+  // ═══════════════════════════════════════════════════════
   function getCanvasPos(e) {
     const rect = previewCanvas.getBoundingClientRect();
-    const scaleX = state.canvasWidth / rect.width;
-    const scaleY = state.canvasHeight / rect.height;
     return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
+      x: (e.clientX - rect.left) * (state.canvasWidth  / rect.width),
+      y: (e.clientY - rect.top)  * (state.canvasHeight / rect.height),
     };
   }
 
@@ -385,27 +448,23 @@
     e.preventDefault();
     trackPointer(e);
 
-    // Two-finger gesture start
     if (touch.pointers.size === 2) {
       touch.isGesture = true;
-      state.isDrawing = false; // cancel any single-finger stroke in progress
+      state.isDrawing = false;
       state.strokePoints = [];
       const pinch = getPinchData();
-      touch.pinchStartDist = pinch.dist;
+      touch.pinchStartDist  = pinch.dist;
       touch.pinchStartAngle = pinch.angle;
       if (state.stickerMode) {
-        touch.pinchStartValue = state.stickerMode.size;
-        touch.rotateStartValue = state.stickerRotation;
+        touch.pinchStartValue   = state.stickerMode.size;
+        touch.rotateStartValue  = state.stickerRotation;
       } else {
         touch.pinchStartValue = state.zoom;
       }
       return;
     }
-
-    // Ignore if already in a gesture
     if (touch.isGesture || touch.pointers.size > 1) return;
 
-    // Sticker placement mode
     if (state.stickerMode) {
       const pos = getCanvasPos(e);
       state.stickerPos = pos;
@@ -421,51 +480,36 @@
     state.lastX = pos.x;
     state.lastY = pos.y;
     state.strokePoints = [pos];
-
-    if (state.activeBrush === 'sprinkles') {
-      drawSprinkle(layer.ctx, pos.x, pos.y);
-    } else if (state.activeBrush === 'fairylights') {
-      drawFairyLight(layer.ctx, pos.x, pos.y);
-    }
+    if (state.activeBrush === 'sprinkles')   drawSprinkle(layer.ctx, pos.x, pos.y);
+    else if (state.activeBrush === 'fairylights') drawFairyLight(layer.ctx, pos.x, pos.y);
   }
 
   function moveStroke(e) {
     e.preventDefault();
     trackPointer(e);
 
-    // Handle two-finger pinch/rotate gesture
     if (touch.isGesture && touch.pointers.size >= 2) {
       const pinch = getPinchData();
       if (!pinch) return;
       const scale = pinch.dist / touch.pinchStartDist;
       if (state.stickerMode) {
-        // Pinch to resize sticker
-        state.stickerMode.size = Math.max(16, Math.min(600,
-          touch.pinchStartValue * scale));
-        // Two-finger rotate sticker
-        const angleDelta = pinch.angle - touch.pinchStartAngle;
-        state.stickerRotation = touch.rotateStartValue + angleDelta;
-        // Move sticker to midpoint of gesture
+        state.stickerMode.size = Math.max(16, Math.min(600, touch.pinchStartValue * scale));
+        state.stickerRotation  = touch.rotateStartValue + (pinch.angle - touch.pinchStartAngle);
         const rect = previewCanvas.getBoundingClientRect();
-        const sx = state.canvasWidth / rect.width;
-        const sy = state.canvasHeight / rect.height;
         state.stickerPos = {
-          x: (pinch.midX - rect.left) * sx,
-          y: (pinch.midY - rect.top) * sy,
+          x: (pinch.midX - rect.left) * (state.canvasWidth  / rect.width),
+          y: (pinch.midY - rect.top)  * (state.canvasHeight / rect.height),
         };
         drawStickerPreview();
       } else {
-        // Pinch to zoom canvas
         state.zoom = Math.max(0.1, Math.min(4, touch.pinchStartValue * scale));
         applyZoom();
       }
       return;
     }
 
-    // Single finger: sticker preview follows pointer
     if (state.stickerMode) {
-      const pos = getCanvasPos(e);
-      state.stickerPos = pos;
+      state.stickerPos = getCanvasPos(e);
       drawStickerPreview();
       return;
     }
@@ -474,20 +518,17 @@
     if (!layer) return;
     const pos = getCanvasPos(e);
     state.strokePoints.push(pos);
-
-    const ctx = layer.ctx;
+    const ctx   = layer.ctx;
     const brush = state.activeBrush;
 
     if (brush === 'pen' || brush === 'marker') {
       ctx.save();
-      ctx.lineCap = 'round';
+      ctx.lineCap  = 'round';
       ctx.lineJoin = 'round';
-      ctx.lineWidth = state.brushSize;
+      ctx.lineWidth   = state.brushSize;
       ctx.strokeStyle = state.color;
       ctx.globalAlpha = brush === 'marker' ? state.brushOpacity * 0.5 : state.brushOpacity;
-      if (brush === 'marker') {
-        ctx.globalCompositeOperation = 'multiply';
-      }
+      if (brush === 'marker') ctx.globalCompositeOperation = 'multiply';
       ctx.beginPath();
       ctx.moveTo(state.lastX, state.lastY);
       ctx.lineTo(pos.x, pos.y);
@@ -496,9 +537,9 @@
     } else if (brush === 'eraser') {
       ctx.save();
       ctx.globalCompositeOperation = 'destination-out';
-      ctx.lineCap = 'round';
+      ctx.lineCap  = 'round';
       ctx.lineJoin = 'round';
-      ctx.lineWidth = state.brushSize;
+      ctx.lineWidth   = state.brushSize;
       ctx.globalAlpha = state.brushOpacity;
       ctx.beginPath();
       ctx.moveTo(state.lastX, state.lastY);
@@ -513,27 +554,22 @@
       drawFairyLightSegment(ctx, state.lastX, state.lastY, pos.x, pos.y);
       drawFairyLight(ctx, pos.x, pos.y);
     }
-
     state.lastX = pos.x;
     state.lastY = pos.y;
   }
 
   function endStroke(e) {
     untrackPointer(e);
-    // Commit sticker on pointer up if we were dragging it (single finger)
     if (state.stickerMode && state.stickerDragging && !touch.isGesture) {
       commitSticker();
       return;
     }
-    // If all fingers are up after a gesture, reset
-    if (touch.pointers.size === 0) {
-      touch.isGesture = false;
-    }
+    if (touch.pointers.size === 0) touch.isGesture = false;
     state.isDrawing = false;
     state.strokePoints = [];
   }
 
-  // ── Procedural Brushes ──
+  // ── Procedural Brushes ────────────────────────────────
   function drawSprinkle(ctx, x, y) {
     const count = Math.floor(Math.random() * 3) + 1;
     for (let i = 0; i < count; i++) {
@@ -542,14 +578,13 @@
       const spread = state.brushSize * 3;
       const sx = x + (Math.random() - 0.5) * spread;
       const sy = y + (Math.random() - 0.5) * spread;
-      const r = Math.random() * state.brushSize * 0.5 + 1;
+      const r  = Math.random() * state.brushSize * 0.5 + 1;
       const shapes = ['circle', 'rect', 'line'];
-      const shape = shapes[Math.floor(Math.random() * shapes.length)];
-      const hueShift = Math.floor(Math.random() * 60) - 30;
-      ctx.fillStyle = shiftHue(state.color, hueShift);
-      ctx.strokeStyle = shiftHue(state.color, hueShift);
-      ctx.lineWidth = Math.max(1, r * 0.5);
-
+      const shape  = shapes[Math.floor(Math.random() * shapes.length)];
+      const hShift = Math.floor(Math.random() * 60) - 30;
+      ctx.fillStyle   = shiftHue(state.color, hShift);
+      ctx.strokeStyle = shiftHue(state.color, hShift);
+      ctx.lineWidth   = Math.max(1, r * 0.5);
       if (shape === 'circle') {
         ctx.beginPath();
         ctx.arc(sx, sy, r, 0, Math.PI * 2);
@@ -576,33 +611,26 @@
     ctx.save();
     ctx.globalAlpha = state.brushOpacity;
     ctx.strokeStyle = shiftHue(state.color, -10);
-    ctx.lineWidth = Math.max(1, state.brushSize * 0.4);
-    ctx.lineCap = 'round';
-
+    ctx.lineWidth   = Math.max(1, state.brushSize * 0.4);
+    ctx.lineCap     = 'round';
     const dist = Math.hypot(x2 - x1, y2 - y1);
-    const amplitude = state.brushSize * 1.5;
-    const freq = 0.08;
+    const amp  = state.brushSize * 1.5;
     const steps = Math.max(2, Math.floor(dist));
-
     ctx.beginPath();
     for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      const bx = x1 + (x2 - x1) * t;
-      const by = y1 + (y2 - y1) * t;
-      const perpX = -(y2 - y1) / (dist || 1);
-      const perpY = (x2 - x1) / (dist || 1);
-      const wave = Math.sin((state.strokePoints.length + i) * freq) * amplitude;
-      const px = bx + perpX * wave;
-      const py = by + perpY * wave;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
+      const t   = i / steps;
+      const bx  = x1 + (x2 - x1) * t;
+      const by  = y1 + (y2 - y1) * t;
+      const px  = -(y2 - y1) / (dist || 1);
+      const py  =  (x2 - x1) / (dist || 1);
+      const w   = Math.sin((state.strokePoints.length + i) * 0.08) * amp;
+      if (i === 0) ctx.moveTo(bx + px * w, by + py * w);
+      else         ctx.lineTo(bx + px * w, by + py * w);
     }
     ctx.stroke();
-
-    // Occasional leaves
     if (Math.random() < 0.15) {
-      const mx = (x1 + x2) / 2 + (Math.random() - 0.5) * amplitude * 2;
-      const my = (y1 + y2) / 2 + (Math.random() - 0.5) * amplitude * 2;
+      const mx = (x1 + x2) / 2 + (Math.random() - 0.5) * amp * 2;
+      const my = (y1 + y2) / 2 + (Math.random() - 0.5) * amp * 2;
       ctx.fillStyle = shiftHue(state.color, 20);
       ctx.beginPath();
       ctx.ellipse(mx, my, state.brushSize * 0.8, state.brushSize * 0.3, Math.random() * Math.PI, 0, Math.PI * 2);
@@ -613,18 +641,16 @@
 
   function drawFairyLightSegment(ctx, x1, y1, x2, y2) {
     ctx.save();
-    ctx.globalAlpha = state.brushOpacity * 0.6;
-    ctx.strokeStyle = state.color;
-    ctx.lineWidth = Math.max(1, state.brushSize * 0.2);
+    ctx.globalAlpha  = state.brushOpacity * 0.6;
+    ctx.strokeStyle  = state.color;
+    ctx.lineWidth    = Math.max(1, state.brushSize * 0.2);
     ctx.setLineDash([4, 4]);
-
     const dist = Math.hypot(x2 - x1, y2 - y1);
-    const sag = state.brushSize * 0.8;
-    const perpX = -(y2 - y1) / (dist || 1);
-    const perpY = (x2 - x1) / (dist || 1);
-    const cx = (x1 + x2) / 2 + perpX * sag * Math.sin(state.strokePoints.length * 0.1);
-    const cy = (y1 + y2) / 2 + perpY * sag * Math.sin(state.strokePoints.length * 0.1);
-
+    const sag  = state.brushSize * 0.8;
+    const px   = -(y2 - y1) / (dist || 1);
+    const py   =  (x2 - x1) / (dist || 1);
+    const cx   = (x1 + x2) / 2 + px * sag * Math.sin(state.strokePoints.length * 0.1);
+    const cy   = (y1 + y2) / 2 + py * sag * Math.sin(state.strokePoints.length * 0.1);
     ctx.beginPath();
     ctx.moveTo(x1, y1);
     ctx.quadraticCurveTo(cx, cy, x2, y2);
@@ -635,21 +661,21 @@
 
   function drawFairyLight(ctx, x, y) {
     if (Math.random() > 0.3) return;
-    ctx.save();
-    const radius = state.brushSize * 0.6 + Math.random() * state.brushSize * 0.4;
-    const colors = ['#f7c948', '#e87461', '#7ec8e3', '#f0a0c0', '#6ab04c', '#ffffff'];
+    const r = state.brushSize * 0.6 + Math.random() * state.brushSize * 0.4;
+    const colors = ['#f7c948','#e87461','#7ec8e3','#f0a0c0','#6ab04c','#ffffff'];
     const c = colors[Math.floor(Math.random() * colors.length)];
-    ctx.globalAlpha = state.brushOpacity * 0.8;
-    ctx.fillStyle = c;
-    ctx.shadowColor = c;
-    ctx.shadowBlur = radius * 2;
+    ctx.save();
+    ctx.globalAlpha  = state.brushOpacity * 0.8;
+    ctx.fillStyle    = c;
+    ctx.shadowColor  = c;
+    ctx.shadowBlur   = r * 2;
     ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
 
-  // ── Color helpers ──
+  // ── Color helpers ─────────────────────────────────────
   function shiftHue(hex, amount) {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
@@ -668,9 +694,9 @@
     else {
       const d = max - min;
       s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-      if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+      if      (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
       else if (max === g) h = ((b - r) / d + 2) / 6;
-      else h = ((r - g) / d + 4) / 6;
+      else                h = ((r - g) / d + 4) / 6;
     }
     return [h, s, l];
   }
@@ -679,16 +705,15 @@
     let r, g, b;
     if (s === 0) { r = g = b = l; }
     else {
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
       const hue2rgb = (p, q, t) => {
-        if (t < 0) t += 1;
-        if (t > 1) t -= 1;
+        if (t < 0) t += 1; if (t > 1) t -= 1;
         if (t < 1/6) return p + (q - p) * 6 * t;
         if (t < 1/2) return q;
         if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
         return p;
       };
-      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-      const p = 2 * l - q;
       r = hue2rgb(p, q, h + 1/3);
       g = hue2rgb(p, q, h);
       b = hue2rgb(p, q, h - 1/3);
@@ -696,152 +721,328 @@
     return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
   }
 
-  // ── Swatches ──
-  function renderSwatches() {
-    const container = $('#color-swatches');
-    container.innerHTML = '';
-    state.swatches.forEach(c => {
-      const el = document.createElement('div');
-      el.className = 'swatch' + (c === state.color ? ' active' : '');
-      el.style.background = c;
-      if (c === '#ffffff') el.style.border = '2px solid #ddd';
-      el.addEventListener('click', () => {
-        state.color = c;
-        $('#color-picker').value = c;
-        renderSwatches();
+  function hslToHex(h, s, l) {
+    const rgb = hslToRgb(h / 360, s / 100, l / 100);
+    return '#' + rgb.map(v => v.toString(16).padStart(2, '0')).join('');
+  }
+
+  function hexToHsl(hex) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    const [h, s, l] = rgbToHsl(r, g, b);
+    return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+  }
+
+  // ── Set color globally ────────────────────────────────
+  function setColor(hex) {
+    state.color = hex;
+    updateColorSwatch();
+    syncSlidersTabs(hex);
+    updateColorGridSelection();
+  }
+
+  function updateColorSwatch() {
+    const sw = $('#tb-color-swatch');
+    if (sw) sw.style.background = state.color;
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // COLOR PICKER
+  // ═══════════════════════════════════════════════════════
+
+  // ── Grid tab ─────────────────────────────────────────
+  function buildColorGrid() {
+    const grid = $('#color-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    // Grayscale column
+    const grays = [100, 90, 75, 62, 50, 38, 25, 12, 5, 0];
+    grays.forEach(l => {
+      const c = hslToHex(0, 0, l);
+      grid.appendChild(makeColorCell(c));
+    });
+    // Hue columns (12 hues × 10 lightnesses)
+    const hues = [0, 20, 40, 60, 90, 140, 180, 210, 240, 270, 300, 330, 355];
+    const lights = [95, 85, 75, 65, 55, 45, 35, 25, 15, 6];
+    hues.forEach(h => {
+      lights.forEach(l => {
+        const c = hslToHex(h, 75, l);
+        grid.appendChild(makeColorCell(c));
       });
-      container.appendChild(el);
     });
   }
 
-  // ── Stickers ──
+  function makeColorCell(hex) {
+    const el = document.createElement('div');
+    el.className = 'color-cell';
+    el.style.background = hex;
+    if (hex === state.color) el.classList.add('selected');
+    el.addEventListener('click', () => { setColor(hex); closeSheet(); });
+    el.dataset.color = hex;
+    return el;
+  }
+
+  function updateColorGridSelection() {
+    $$('.color-cell').forEach(el => {
+      el.classList.toggle('selected', el.dataset.color === state.color);
+    });
+  }
+
+  // ── Spectrum tab ──────────────────────────────────────
+  let spectrumDragging = false;
+  let hueDragging = false;
+
+  function drawSpectrum() {
+    const canvas = $('#spectrum-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width = canvas.offsetWidth * window.devicePixelRatio || 300;
+    const h = canvas.height = canvas.offsetHeight * window.devicePixelRatio || 180;
+    canvas.style.width  = (canvas.width  / window.devicePixelRatio) + 'px';
+    canvas.style.height = (canvas.height / window.devicePixelRatio) + 'px';
+
+    // White → current hue (left-right), then black overlay (top-bottom)
+    const hue = state.spectrumHue;
+    const gradH = ctx.createLinearGradient(0, 0, w, 0);
+    gradH.addColorStop(0, `hsl(${hue},0%,100%)`);
+    gradH.addColorStop(1, `hsl(${hue},100%,50%)`);
+    ctx.fillStyle = gradH;
+    ctx.fillRect(0, 0, w, h);
+    const gradV = ctx.createLinearGradient(0, 0, 0, h);
+    gradV.addColorStop(0, 'rgba(0,0,0,0)');
+    gradV.addColorStop(1, 'rgba(0,0,0,1)');
+    ctx.fillStyle = gradV;
+    ctx.fillRect(0, 0, w, h);
+    updateSpectrumCursor();
+  }
+
+  function drawHueBar() {
+    const canvas = $('#hue-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width  = canvas.offsetWidth  * window.devicePixelRatio || 300;
+    canvas.height = canvas.offsetHeight * window.devicePixelRatio || 22;
+    canvas.style.width  = (canvas.width  / window.devicePixelRatio) + 'px';
+    canvas.style.height = (canvas.height / window.devicePixelRatio) + 'px';
+    const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
+    for (let i = 0; i <= 360; i += 30) {
+      grad.addColorStop(i / 360, `hsl(${i},100%,50%)`);
+    }
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    updateHueCursor();
+  }
+
+  function updateSpectrumCursor() {
+    const cursor  = $('#spectrum-cursor');
+    const wrapper = $('#spectrum-wrapper');
+    if (!cursor || !wrapper) return;
+    const w = wrapper.clientWidth, h = wrapper.querySelector('canvas').offsetHeight;
+    // S goes 0-100 (left=0, right=100), L goes 0-100 (bottom=100, top=0) but in HSV terms:
+    // We use S and a brightness value
+    const x = (state.spectrumS / 100) * w;
+    const y = (1 - (state.spectrumL / 100)) * h;
+    cursor.style.left = x + 'px';
+    cursor.style.top  = y + 'px';
+    cursor.style.background = state.color;
+  }
+
+  function updateHueCursor() {
+    const cursor  = $('#hue-cursor');
+    const wrapper = $('#hue-wrapper');
+    if (!cursor || !wrapper) return;
+    cursor.style.left = (state.spectrumHue / 360) * wrapper.clientWidth + 'px';
+  }
+
+  function pickFromSpectrum(e) {
+    const canvas = $('#spectrum-canvas');
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const y = Math.max(0, Math.min(e.clientY - rect.top,  rect.height));
+    state.spectrumS = Math.round((x / rect.width)  * 100);
+    const brightness = Math.round((1 - y / rect.height) * 100);
+    // Convert HSV-like (hue, S, brightness) to HSL
+    const hue  = state.spectrumHue;
+    const s    = state.spectrumS;
+    const v    = brightness;
+    const lRaw = v * (2 - s / 100) / 2;
+    const sHSL = lRaw === 0 || lRaw === 100 ? 0 : (v - lRaw) / Math.min(lRaw, 100 - lRaw) * 100;
+    state.spectrumL = Math.round(lRaw);
+    const hex = hslToHex(hue, Math.round(sHSL), Math.round(lRaw));
+    state.color = hex;
+    updateColorSwatch();
+    updateSpectrumCursor();
+    updateSlidersFromColor();
+  }
+
+  function pickFromHueBar(e) {
+    const canvas = $('#hue-canvas');
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    state.spectrumHue = Math.round((x / rect.width) * 360);
+    updateHueCursor();
+    drawSpectrum();
+    // Re-pick from the same relative position in spectrum
+    const hex = hslToHex(state.spectrumHue, state.spectrumS, state.spectrumL || 50);
+    state.color = hex;
+    updateColorSwatch();
+    updateSlidersFromColor();
+  }
+
+  // ── Sliders tab ───────────────────────────────────────
+  function updateSlidersFromColor() {
+    const [h, s, l] = hexToHsl(state.color);
+    const sh = $('#slider-h'), ss = $('#slider-s'), sl = $('#slider-l');
+    if (sh) { sh.value = h; $('#val-h').textContent = h; }
+    if (ss) { ss.value = s; $('#val-s').textContent = s + '%'; }
+    if (sl) { sl.value = l; $('#val-l').textContent = l + '%'; }
+    const preview = $('#slider-preview');
+    if (preview) preview.style.background = state.color;
+  }
+
+  function updateSlidersDisplay() {
+    const h = parseInt($('#slider-h').value);
+    const s = parseInt($('#slider-s').value);
+    const l = parseInt($('#slider-l').value);
+    $('#val-h').textContent = h;
+    $('#val-s').textContent = s + '%';
+    $('#val-l').textContent = l + '%';
+    const hex = hslToHex(h, s, l);
+    state.color = hex;
+    updateColorSwatch();
+    const preview = $('#slider-preview');
+    if (preview) preview.style.background = hex;
+  }
+
+  function syncSlidersTabs(hex) {
+    const [h, s, l] = hexToHsl(hex);
+    state.spectrumHue = h;
+    state.spectrumS   = s;
+    state.spectrumL   = l;
+    updateSlidersFromColor();
+    if ($('#tab-spectrum').classList.contains('active')) {
+      drawSpectrum();
+      drawHueBar();
+    }
+  }
+
+  // ── Saved swatches ────────────────────────────────────
+  function loadSavedSwatches() {
+    try {
+      const raw = localStorage.getItem('elsiespark-swatches');
+      state.savedSwatches = raw ? JSON.parse(raw) : ['#e87461','#f7c948','#6ab04c','#4a90d9','#9b59b6'];
+    } catch (_) {
+      state.savedSwatches = ['#e87461','#f7c948','#6ab04c','#4a90d9','#9b59b6'];
+    }
+  }
+
+  function saveSwatch() {
+    if (state.savedSwatches.includes(state.color)) return;
+    state.savedSwatches.unshift(state.color);
+    if (state.savedSwatches.length > 8) state.savedSwatches.pop();
+    localStorage.setItem('elsiespark-swatches', JSON.stringify(state.savedSwatches));
+    renderSavedSwatches();
+    showToast('Colour saved!');
+  }
+
+  function renderSavedSwatches() {
+    const row = $('#saved-swatches');
+    if (!row) return;
+    row.innerHTML = '';
+    state.savedSwatches.forEach(c => {
+      const el = document.createElement('div');
+      el.className = 'saved-swatch' + (c === state.color ? ' active' : '');
+      el.style.background = c;
+      el.addEventListener('click', () => { setColor(c); });
+      row.appendChild(el);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // STICKER SYSTEM
+  // ═══════════════════════════════════════════════════════
   function renderStickers() {
     const list = $('#sticker-list');
+    if (!list) return;
     list.innerHTML = '';
-
-    // Inline SVG stickers
     STICKERS.forEach(st => {
       const btn = document.createElement('button');
       btn.className = 'sticker-btn';
       btn.title = st.name;
       btn.innerHTML = st.svg;
-      btn.querySelector('svg').style.width = '28px';
-      btn.querySelector('svg').style.height = '28px';
-      btn.addEventListener('click', () => { enterStickerMode(st); closeToolbarIfMobile(); });
+      btn.querySelector('svg').style.cssText = 'width:36px;height:36px';
+      btn.addEventListener('click', () => { enterStickerMode(st); closeSheet(); });
       list.appendChild(btn);
     });
-
-    // File-based PNG stickers
     FILE_STICKERS.forEach(st => {
       const btn = document.createElement('button');
       btn.className = 'sticker-btn sticker-btn-img';
       btn.title = st.name;
       const img = document.createElement('img');
-      img.src = st.src;
-      img.alt = st.name;
-      img.draggable = false;
+      img.src = st.src; img.alt = st.name; img.draggable = false;
       btn.appendChild(img);
-      btn.addEventListener('click', () => { enterStickerModeFromFile(st); closeToolbarIfMobile(); });
+      btn.addEventListener('click', () => { enterStickerModeFromFile(st); closeSheet(); });
       list.appendChild(btn);
     });
   }
 
   function parseSvgAspect(svgStr) {
-    const match = svgStr.match(/viewBox="[\s]*([^\s"]+)[\s]+([^\s"]+)[\s]+([^\s"]+)[\s]+([^\s"]+)"/);
-    if (match) {
-      const vw = parseFloat(match[3]);
-      const vh = parseFloat(match[4]);
-      if (vw > 0 && vh > 0) return vw / vh;
-    }
+    const m = svgStr.match(/viewBox="[\s]*([^\s"]+)[\s]+([^\s"]+)[\s]+([^\s"]+)[\s]+([^\s"]+)"/);
+    if (m) { const vw = parseFloat(m[3]), vh = parseFloat(m[4]); if (vw > 0 && vh > 0) return vw / vh; }
     return 1;
   }
 
-  function enterStickerMode(sticker) {
-    // Exit any previous sticker mode
+  function _startStickerMode(name, img, aspect) {
     exitStickerMode();
-
     const size = state.brushSize * 6 + 40;
+    state.stickerMode     = { img, size, name, aspect };
+    state.stickerPos      = { x: state.canvasWidth / 2, y: state.canvasHeight / 2 };
+    state.stickerRotation = 0;
+    state.stickerDragging = false;
+    previewCanvas.style.cursor = 'none';
+    container.classList.add('sticker-mode');
+    $$('.sticker-btn').forEach(b => b.classList.toggle('placing', b.title === name));
+    $('#sticker-touch-controls').classList.remove('hidden');
+    drawStickerPreview();
+    const touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    showToast(touch ? 'Tap to place. Pinch to resize & rotate.' : 'Click to place. Scroll to resize. Shift+scroll to rotate. Esc to cancel.');
+  }
+
+  function enterStickerMode(sticker) {
     const aspect = parseSvgAspect(sticker.svg);
-    const blob = new Blob([sticker.svg], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      state.stickerMode = { svg: sticker.svg, img, size, name: sticker.name, aspect };
-      state.stickerPos = { x: state.canvasWidth / 2, y: state.canvasHeight / 2 };
-      state.stickerRotation = 0;
-      state.stickerDragging = false;
-      previewCanvas.style.cursor = 'none';
-      container.classList.add('sticker-mode');
-      document.querySelectorAll('.sticker-btn').forEach(b => b.classList.remove('placing'));
-      document.querySelectorAll('.sticker-btn').forEach(b => {
-        if (b.title === sticker.name) b.classList.add('placing');
-      });
-      $('#sticker-touch-controls').classList.remove('hidden');
-      drawStickerPreview();
-      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-      if (isTouchDevice) {
-        showToast('Tap to place. Pinch to resize & rotate.');
-      } else {
-        showToast('Click to place. Scroll to resize. Shift+scroll to rotate. Esc to cancel.');
-      }
-    };
-    img.src = url;
+    const blob   = new Blob([sticker.svg], { type: 'image/svg+xml' });
+    const url    = URL.createObjectURL(blob);
+    const img    = new Image();
+    img.onload   = () => { URL.revokeObjectURL(url); _startStickerMode(sticker.name, img, aspect); };
+    img.src      = url;
   }
 
   function enterStickerModeFromFile(sticker) {
-    exitStickerMode();
-
-    const size = state.brushSize * 6 + 40;
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const aspect = img.naturalWidth / img.naturalHeight || 1;
-      state.stickerMode = { img, size, name: sticker.name, aspect };
-      state.stickerPos = { x: state.canvasWidth / 2, y: state.canvasHeight / 2 };
-      state.stickerRotation = 0;
-      state.stickerDragging = false;
-      previewCanvas.style.cursor = 'none';
-      container.classList.add('sticker-mode');
-      document.querySelectorAll('.sticker-btn').forEach(b => b.classList.remove('placing'));
-      document.querySelectorAll('.sticker-btn').forEach(b => {
-        if (b.title === sticker.name) b.classList.add('placing');
-      });
-      $('#sticker-touch-controls').classList.remove('hidden');
-      drawStickerPreview();
-      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-      if (isTouchDevice) {
-        showToast('Tap to place. Pinch to resize & rotate.');
-      } else {
-        showToast('Click to place. Scroll to resize. Shift+scroll to rotate. Esc to cancel.');
-      }
-    };
-    img.src = sticker.src;
+    img.onload = () => _startStickerMode(sticker.name, img, img.naturalWidth / img.naturalHeight || 1);
+    img.src    = sticker.src;
   }
 
   function exitStickerMode() {
+    if (!state.stickerMode) return;
     state.stickerMode = null;
-    state.stickerPos = null;
+    state.stickerPos  = null;
     state.stickerDragging = false;
     previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
     previewCanvas.style.cursor = 'crosshair';
     container.classList.remove('sticker-mode');
-    document.querySelectorAll('.sticker-btn').forEach(b => b.classList.remove('placing'));
+    $$('.sticker-btn').forEach(b => b.classList.remove('placing'));
     $('#sticker-touch-controls').classList.add('hidden');
   }
 
   function stickerDims() {
     const { size, aspect } = state.stickerMode;
-    // size controls the larger dimension; the other scales by aspect ratio
-    let w, h;
-    if (aspect >= 1) {
-      w = size;
-      h = size / aspect;
-    } else {
-      w = size * aspect;
-      h = size;
-    }
-    return { w, h };
+    if (aspect >= 1) return { w: size, h: size / aspect };
+    return { w: size * aspect, h: size };
   }
 
   function drawStickerPreview() {
@@ -856,8 +1057,6 @@
     previewCtx.rotate(state.stickerRotation * Math.PI / 180);
     previewCtx.drawImage(img, -w / 2, -h / 2, w, h);
     previewCtx.restore();
-
-    // Draw size/rotation hint ring
     const radius = Math.max(w, h) / 2 + 4;
     previewCtx.save();
     previewCtx.strokeStyle = 'rgba(232,114,92,0.5)';
@@ -886,34 +1085,153 @@
     exitStickerMode();
   }
 
-  // ── Daily Prompt ──
+  // ═══════════════════════════════════════════════════════
+  // BACKGROUNDS
+  // ═══════════════════════════════════════════════════════
+  function buildBackgroundGrid() {
+    const grid = $('#background-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    BACKGROUNDS.forEach(bg => {
+      const el = document.createElement('div');
+      el.className = 'bg-thumb' + (bg.id === state.selectedBackground ? ' selected' : '');
+      el.title = bg.label;
+      el.style.background = bg.style || '#fff';
+      if (bg.pattern === 'grid') {
+        el.style.backgroundImage = 'linear-gradient(#e0e0e0 1px,transparent 1px),linear-gradient(90deg,#e0e0e0 1px,transparent 1px)';
+        el.style.backgroundSize = '12px 12px';
+        el.style.backgroundColor = '#fff';
+      } else if (bg.pattern === 'dots') {
+        el.style.backgroundImage = 'radial-gradient(circle, #ccc 1px, transparent 1px)';
+        el.style.backgroundSize = '10px 10px';
+        el.style.backgroundColor = '#fff';
+      } else if (bg.pattern === 'lined') {
+        el.style.backgroundImage = 'linear-gradient(transparent 87%, #a8c0e0 87%)';
+        el.style.backgroundSize = '100% 18px';
+        el.style.backgroundColor = '#fafcff';
+      }
+      el.textContent = bg.label;
+      el.addEventListener('click', () => {
+        state.selectedBackground = bg.id;
+        $$('.bg-thumb').forEach(t => t.classList.remove('selected'));
+        el.classList.add('selected');
+        applyBackground(bg.id);
+      });
+      grid.appendChild(el);
+    });
+  }
+
+  function applyBackground(bgId) {
+    if (!container) return;
+    const bg = BACKGROUNDS.find(b => b.id === bgId);
+    if (!bg) return;
+    if (bg.pattern === 'grid') {
+      container.style.backgroundImage = 'linear-gradient(#e0e0e0 1px,transparent 1px),linear-gradient(90deg,#e0e0e0 1px,transparent 1px)';
+      container.style.backgroundSize = '40px 40px';
+      container.style.backgroundColor = '#ffffff';
+    } else if (bg.pattern === 'dots') {
+      container.style.backgroundImage = 'radial-gradient(circle, #ccc 1.5px, transparent 1.5px)';
+      container.style.backgroundSize = '28px 28px';
+      container.style.backgroundColor = '#ffffff';
+    } else if (bg.pattern === 'lined') {
+      container.style.backgroundImage = 'linear-gradient(transparent 94%, #b0c8e8 94%)';
+      container.style.backgroundSize = '100% 36px';
+      container.style.backgroundColor = '#fafcff';
+    } else {
+      container.style.backgroundImage = 'none';
+      container.style.backgroundColor = '';
+      container.style.background = bg.style || '#ffffff';
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // SHEET SYSTEM
+  // ═══════════════════════════════════════════════════════
+  function openSheet(id) {
+    if (state.openSheet === id) { closeSheet(); return; }
+    if (state.openSheet) {
+      const prev = $('#sheet-' + state.openSheet);
+      if (prev) { prev.classList.remove('open'); prev.classList.add('hidden'); }
+    }
+    const sheet = $('#sheet-' + id);
+    const overlay = $('#sheet-overlay');
+    if (!sheet) return;
+    state.openSheet = id;
+    sheet.classList.remove('hidden');
+    // Trigger layout before adding open class for transition
+    sheet.getBoundingClientRect();
+    sheet.classList.add('open');
+    overlay.classList.remove('hidden');
+
+    // Lazy-init spectrum/hue canvases
+    if (id === 'color') {
+      setTimeout(() => {
+        if ($('#tab-spectrum').classList.contains('active')) {
+          drawSpectrum();
+          drawHueBar();
+        }
+      }, 50);
+    }
+  }
+
+  function closeSheet() {
+    if (!state.openSheet) return;
+    const sheet = $('#sheet-' + state.openSheet);
+    if (sheet) {
+      sheet.classList.remove('open');
+      // Hide after transition
+      setTimeout(() => { sheet.classList.add('hidden'); }, 340);
+    }
+    $('#sheet-overlay').classList.add('hidden');
+    state.openSheet = null;
+  }
+
+  // ── Swipe-down to dismiss ─────────────────────────────
+  function addSwipeDismiss(sheetEl) {
+    let startY = 0, isDragging = false;
+    sheetEl.querySelector('.sheet-handle').addEventListener('pointerdown', e => {
+      startY = e.clientY; isDragging = true;
+      sheetEl.style.transition = 'none';
+    }, { passive: true });
+    document.addEventListener('pointermove', e => {
+      if (!isDragging) return;
+      const dy = Math.max(0, e.clientY - startY);
+      sheetEl.style.transform = `translateY(${dy}px)`;
+    }, { passive: true });
+    document.addEventListener('pointerup', e => {
+      if (!isDragging) return;
+      isDragging = false;
+      sheetEl.style.transition = '';
+      sheetEl.style.transform = '';
+      if (e.clientY - startY > 80) closeSheet();
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // DAILY PROMPT
+  // ═══════════════════════════════════════════════════════
   function showDailyPrompt() {
     const today = new Date().toDateString();
     let seed = 0;
     for (let i = 0; i < today.length; i++) seed += today.charCodeAt(i);
-    const idx = seed % PROMPTS.length;
-    $('#prompt-text').textContent = PROMPTS[idx];
+    const text = PROMPTS[seed % PROMPTS.length];
+    const el = $('#draw-prompt-text');
+    if (el) el.textContent = text;
   }
 
-  function randomPrompt() {
-    const idx = Math.floor(Math.random() * PROMPTS.length);
-    $('#prompt-text').textContent = PROMPTS[idx];
-  }
-
-  // ── Image Import (Tracing) ──
+  // ═══════════════════════════════════════════════════════
+  // IMAGE IMPORT (TRACING)
+  // ═══════════════════════════════════════════════════════
   function importTraceImage(file) {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = e => {
       const img = new Image();
       img.onload = () => {
         state.traceImage = img;
         traceCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
         const scale = Math.min(state.canvasWidth / img.width, state.canvasHeight / img.height);
-        const w = img.width * scale;
-        const h = img.height * scale;
-        const x = (state.canvasWidth - w) / 2;
-        const y = (state.canvasHeight - h) / 2;
-        traceCtx.drawImage(img, x, y, w, h);
+        const w = img.width * scale, h = img.height * scale;
+        traceCtx.drawImage(img, (state.canvasWidth - w) / 2, (state.canvasHeight - h) / 2, w, h);
         traceCanvas.style.display = '';
         $('#btn-clear-trace').hidden = false;
       };
@@ -929,87 +1247,97 @@
     $('#btn-clear-trace').hidden = true;
   }
 
-  // ── Export ──
+  // ═══════════════════════════════════════════════════════
+  // EXPORT
+  // ═══════════════════════════════════════════════════════
   function exportPNG() {
     const merged = document.createElement('canvas');
-    merged.width = state.canvasWidth;
+    merged.width  = state.canvasWidth;
     merged.height = state.canvasHeight;
     const mctx = merged.getContext('2d');
     mctx.fillStyle = '#ffffff';
     mctx.fillRect(0, 0, merged.width, merged.height);
-
-    state.layers.forEach(l => {
-      if (l.visible) mctx.drawImage(l.canvas, 0, 0);
-    });
-
+    state.layers.forEach(l => { if (l.visible) mctx.drawImage(l.canvas, 0, 0); });
     const link = document.createElement('a');
     link.download = 'elsies-spark-' + Date.now() + '.png';
     link.href = merged.toDataURL('image/png');
     link.click();
   }
 
-  // ── Save / Load (localStorage) ──
+  // ═══════════════════════════════════════════════════════
+  // SAVE / LOAD (multi-project)
+  // ═══════════════════════════════════════════════════════
   function saveProject() {
     try {
-      const data = {
+      const projectData = {
+        id: Date.now(),
+        date: new Date().toLocaleDateString(),
+        prompt: $('#draw-prompt-text')?.textContent || '',
         canvasWidth: state.canvasWidth,
         canvasHeight: state.canvasHeight,
-        swatches: state.swatches,
+        background: state.selectedBackground,
         layers: state.layers.map(l => ({
-          id: l.id,
-          name: l.name,
-          visible: l.visible,
+          id: l.id, name: l.name, visible: l.visible,
           data: l.canvas.toDataURL(),
         })),
         activeLayerId: state.activeLayerId,
       };
-      localStorage.setItem('elsiespark-project', JSON.stringify(data));
-      showToast('Project saved!');
+      // Thumbnail from first visible layer
+      projectData.thumbnail = state.layers.find(l => l.visible)?.canvas.toDataURL('image/jpeg', 0.5) || '';
+
+      let projects = loadAllProjects();
+      // Check if updating an existing project (same session) — use current ID if set
+      if (state.currentProjectId) {
+        const idx = projects.findIndex(p => p.id === state.currentProjectId);
+        if (idx >= 0) { projects[idx] = { ...projectData, id: state.currentProjectId }; }
+        else { projects.unshift(projectData); state.currentProjectId = projectData.id; }
+      } else {
+        state.currentProjectId = projectData.id;
+        projects.unshift(projectData);
+      }
+      // Keep max 20 projects
+      projects = projects.slice(0, 20);
+      localStorage.setItem('elsiespark-projects', JSON.stringify(projects));
+      showToast('Saved!');
     } catch (e) {
-      showToast('Save failed: storage may be full.');
+      showToast('Save failed — storage may be full.');
     }
   }
 
-  function loadProject() {
-    showGallery();
-  }
-
-  function tryLoadProject() {
-    const raw = localStorage.getItem('elsiespark-project');
-    if (!raw) return;
+  function loadAllProjects() {
     try {
-      const data = JSON.parse(raw);
-      restoreProject(data);
-    } catch (e) {
-      // Ignore corrupt data
-    }
+      const raw = localStorage.getItem('elsiespark-projects');
+      if (raw) return JSON.parse(raw);
+      // Migrate legacy single-project save
+      const legacy = localStorage.getItem('elsiespark-project');
+      if (legacy) { const p = JSON.parse(legacy); p.id = Date.now(); return [p]; }
+    } catch (_) {}
+    return [];
   }
 
-  function restoreProject(data) {
-    // Remove existing layers
+  function loadProject(projectData) {
+    // Clear existing layers
     state.layers.forEach(l => l.canvas.remove());
     state.layers = [];
+    layerIdCounter = 0;
+    state.undoStack = [];
+    state.redoStack = [];
+    state.currentProjectId = projectData.id;
 
-    state.canvasWidth = data.canvasWidth || 1200;
-    state.canvasHeight = data.canvasHeight || 800;
-    $('#canvas-width').value = state.canvasWidth;
-    $('#canvas-height').value = state.canvasHeight;
+    // Setup canvas
+    state.canvasWidth  = projectData.canvasWidth  || 1080;
+    state.canvasHeight = projectData.canvasHeight || 1080;
+    setupCanvas();
 
-    container.style.width = state.canvasWidth + 'px';
-    container.style.height = state.canvasHeight + 'px';
-    traceCanvas.width = state.canvasWidth;
-    traceCanvas.height = state.canvasHeight;
-    previewCanvas.width = state.canvasWidth;
-    previewCanvas.height = state.canvasHeight;
-
-    if (data.swatches) {
-      state.swatches = data.swatches;
-      renderSwatches();
+    // Restore background
+    if (projectData.background) {
+      state.selectedBackground = projectData.background;
+      applyBackground(projectData.background);
     }
 
-    data.layers.forEach(ld => {
+    // Restore layers
+    (projectData.layers || []).forEach(ld => {
       const layer = addLayer(ld.name);
-      layer.id = ld.id;
       layer.visible = ld.visible;
       layer.canvas.style.display = ld.visible ? '' : 'none';
       const img = new Image();
@@ -1017,297 +1345,299 @@
       img.src = ld.data;
     });
 
-    layerIdCounter = Math.max(...data.layers.map(l => l.id), 0);
-    state.activeLayerId = data.activeLayerId || state.layers[0]?.id;
+    layerIdCounter = Math.max(...(projectData.layers || []).map(l => l.id || 0), 0);
+    state.activeLayerId = projectData.activeLayerId || state.layers[0]?.id;
     renderLayerList();
-    fitZoom();
-  }
-
-  function showGallery() {
-    const raw = localStorage.getItem('elsiespark-project');
-    const body = $('#modal-body');
-    if (!raw) {
-      body.innerHTML = '<p>No saved projects found.</p>';
-    } else {
-      try {
-        const data = JSON.parse(raw);
-        body.innerHTML = '<div class="gallery-grid"></div>';
-        const grid = body.querySelector('.gallery-grid');
-        const item = document.createElement('div');
-        item.className = 'gallery-item';
-
-        // Generate thumbnail from first visible layer
-        const thumbLayer = data.layers.find(l => l.visible) || data.layers[0];
-        item.innerHTML = `
-          <img src="${thumbLayer ? thumbLayer.data : ''}" alt="Saved project">
-          <div class="gallery-label">Saved Project</div>
-          <div class="gallery-actions">
-            <button class="btn-gallery-load">Load</button>
-            <button class="btn-gallery-delete">Delete</button>
-          </div>
-        `;
-        item.querySelector('.btn-gallery-load').addEventListener('click', () => {
-          restoreProject(data);
-          closeModal();
-          showToast('Project loaded!');
-        });
-        item.querySelector('.btn-gallery-delete').addEventListener('click', () => {
-          localStorage.removeItem('elsiespark-project');
-          closeModal();
-          showToast('Project deleted.');
-        });
-        grid.appendChild(item);
-      } catch (e) {
-        body.innerHTML = '<p>Error reading saved data.</p>';
-      }
+    updateUndoRedoButtons();
+    if (projectData.prompt) {
+      const el = $('#draw-prompt-text');
+      if (el) el.textContent = projectData.prompt;
     }
-    showModal('Load Project');
   }
 
-  // ── Modal ──
-  function showModal(title) {
-    $('#modal-title').textContent = title;
-    $('#modal-overlay').classList.remove('hidden');
+  // ═══════════════════════════════════════════════════════
+  // GALLERY VIEW
+  // ═══════════════════════════════════════════════════════
+  function renderGallery() {
+    const grid  = $('#gallery-grid');
+    const empty = $('#gallery-empty');
+    if (!grid) return;
+    grid.innerHTML = '';
+    const projects = loadAllProjects();
+    const count = $('#gallery-count');
+    if (count) count.textContent = projects.length + (projects.length === 1 ? ' drawing' : ' drawings');
+
+    if (projects.length === 0) {
+      if (empty) empty.classList.remove('hidden');
+      return;
+    }
+    if (empty) empty.classList.add('hidden');
+
+    projects.forEach(p => {
+      const el = document.createElement('div');
+      el.className = 'gallery-thumb';
+      const img = document.createElement('img');
+      img.src = p.thumbnail || '';
+      img.alt = p.prompt || 'Drawing';
+      el.appendChild(img);
+      const label = document.createElement('div');
+      label.className = 'gallery-thumb-label';
+      label.textContent = p.date || '';
+      el.appendChild(label);
+      el.addEventListener('click', () => {
+        loadProject(p);
+        showView('draw');
+        fitZoom();
+      });
+      grid.appendChild(el);
+    });
   }
 
-  function closeModal() {
-    $('#modal-overlay').classList.add('hidden');
-  }
-
-  // ── Toast ──
+  // ═══════════════════════════════════════════════════════
+  // TOAST
+  // ═══════════════════════════════════════════════════════
   function showToast(msg) {
     let toast = document.getElementById('toast');
     if (!toast) {
       toast = document.createElement('div');
       toast.id = 'toast';
-      toast.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;z-index:10000;opacity:0;transition:opacity 0.3s;pointer-events:none;';
+      toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#3d3429;color:#fff;padding:10px 22px;border-radius:22px;font-size:13px;font-weight:700;z-index:10000;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap;';
       document.body.appendChild(toast);
     }
     toast.textContent = msg;
     toast.style.opacity = '1';
-    setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => { toast.style.opacity = '0'; }, 2200);
   }
 
-  // ── New Canvas ──
-  function newCanvas() {
-    if (!confirm('Start a new canvas? Unsaved work will be lost.')) return;
-    state.layers.forEach(l => l.canvas.remove());
-    state.layers = [];
-    state.undoStack = [];
-    state.redoStack = [];
-    layerIdCounter = 0;
-    clearTrace();
-    addLayer('Layer 1');
-    renderLayerList();
-    updateUndoRedoButtons();
-  }
-
-  // ── Resize ──
-  function resizeCanvas() {
-    const w = parseInt($('#canvas-width').value) || 1200;
-    const h = parseInt($('#canvas-height').value) || 800;
-    if (w === state.canvasWidth && h === state.canvasHeight) return;
-
-    pushUndo();
-    // Save current content
-    const layerData = state.layers.map(l => ({
-      id: l.id,
-      data: l.ctx.getImageData(0, 0, state.canvasWidth, state.canvasHeight),
-    }));
-
-    setCanvasSize(w, h);
-
-    // Restore content
-    layerData.forEach(ld => {
-      const layer = state.layers.find(l => l.id === ld.id);
-      if (layer) layer.ctx.putImageData(ld.data, 0, 0);
-    });
-  }
-
-  // ── Toolbar toggle (mobile) ──
-  function closeToolbarIfMobile() {
-    const toolbar = $('#toolbar');
-    if (toolbar.classList.contains('open')) {
-      toggleToolbar();
-    }
-  }
-
-  function toggleToolbar() {
-    const toolbar = $('#toolbar');
-    const open = toolbar.classList.toggle('open');
-    let backdrop = document.getElementById('toolbar-backdrop');
-    if (open) {
-      if (!backdrop) {
-        backdrop = document.createElement('div');
-        backdrop.id = 'toolbar-backdrop';
-        document.getElementById('app').appendChild(backdrop);
-        backdrop.addEventListener('click', toggleToolbar);
-      }
-      backdrop.classList.add('visible');
-    } else if (backdrop) {
-      backdrop.classList.remove('visible');
-    }
-  }
-
-  // ── Event Binding ──
+  // ═══════════════════════════════════════════════════════
+  // BIND EVENTS
+  // ═══════════════════════════════════════════════════════
   function bindEvents() {
-    // Drawing events on preview canvas
+
+    // ── Drawing canvas ──
     previewCanvas.addEventListener('pointerdown', startStroke);
     previewCanvas.addEventListener('pointermove', moveStroke);
-    previewCanvas.addEventListener('pointerup', endStroke);
-    previewCanvas.addEventListener('pointerleave', endStroke);
-    previewCanvas.addEventListener('pointercancel', endStroke);
+    previewCanvas.addEventListener('pointerup',   endStroke);
+    previewCanvas.addEventListener('pointerleave',endStroke);
+    previewCanvas.addEventListener('pointercancel',endStroke);
     previewCanvas.style.touchAction = 'none';
 
-    // Scroll to resize sticker / pinch-to-zoom canvas on desktop
-    previewCanvas.addEventListener('wheel', (e) => {
+    previewCanvas.addEventListener('wheel', e => {
+      e.preventDefault();
       if (state.stickerMode) {
-        e.preventDefault();
-        if (e.shiftKey) {
-          state.stickerRotation += e.deltaY > 0 ? 15 : -15;
-        } else {
-          const delta = e.deltaY > 0 ? -8 : 8;
-          state.stickerMode.size = Math.max(16, Math.min(600, state.stickerMode.size + delta));
-        }
+        if (e.shiftKey) state.stickerRotation += e.deltaY > 0 ? 15 : -15;
+        else state.stickerMode.size = Math.max(16, Math.min(600, state.stickerMode.size + (e.deltaY > 0 ? -8 : 8)));
         drawStickerPreview();
-      } else if (e.ctrlKey || e.metaKey) {
-        // Ctrl+scroll to zoom canvas (desktop trackpad pinch fires this)
-        e.preventDefault();
-        const factor = e.deltaY > 0 ? 0.95 : 1.05;
-        state.zoom = Math.max(0.1, Math.min(4, state.zoom * factor));
+      } else {
+        state.zoom = Math.max(0.05, Math.min(8, state.zoom * (e.deltaY > 0 ? 0.92 : 1.08)));
         applyZoom();
       }
     }, { passive: false });
 
-    // Hamburger menu toggle
-    $('#btn-menu').addEventListener('click', toggleToolbar);
+    // ── Room hotspots ──
+    $('#hotspot-easel').addEventListener('click', () => showView('draw'));
+    $('#hotspot-gallery').addEventListener('click', () => showView('gallery'));
+    $('#hotspot-bell').addEventListener('click', () => showView('news'));
+    $('#hotspot-lightbulb').addEventListener('click', () => {
+      const prompts = PROMPTS;
+      const idx = Math.floor(Math.random() * prompts.length);
+      showToast(prompts[idx]);
+    });
+    $('#hotspot-cat').addEventListener('click', () => {
+      const overlay = $('#tutorial-overlay');
+      overlay.classList.toggle('hidden');
+    });
+    $('#tutorial-overlay').addEventListener('click', () => {
+      $('#tutorial-overlay').classList.add('hidden');
+    });
 
-    // Sticker touch control buttons
-    $('#sticker-shrink').addEventListener('click', () => {
-      if (!state.stickerMode) return;
-      state.stickerMode.size = Math.max(16, state.stickerMode.size - 12);
-      drawStickerPreview();
-    });
-    $('#sticker-grow').addEventListener('click', () => {
-      if (!state.stickerMode) return;
-      state.stickerMode.size = Math.min(600, state.stickerMode.size + 12);
-      drawStickerPreview();
-    });
-    $('#sticker-rotate-left').addEventListener('click', () => {
-      if (!state.stickerMode) return;
-      state.stickerRotation -= 15;
-      drawStickerPreview();
-    });
-    $('#sticker-rotate-right').addEventListener('click', () => {
-      if (!state.stickerMode) return;
-      state.stickerRotation += 15;
-      drawStickerPreview();
-    });
-    $('#sticker-cancel').addEventListener('click', () => {
+    // ── Draw view navigation ──
+    $('#btn-back-room').addEventListener('click', () => {
+      closeSheet();
       exitStickerMode();
+      showView('room');
+    });
+    $('#btn-done').addEventListener('click', () => {
+      saveProject();
+      closeSheet();
+      exitStickerMode();
+      showView('room');
     });
 
-    // Brush selection
-    document.querySelectorAll('.brush-btn').forEach(btn => {
+    // ── Gallery navigation ──
+    $('#btn-back-gallery').addEventListener('click', () => showView('room'));
+    $('#btn-gallery-draw').addEventListener('click', () => showView('draw'));
+
+    // ── News navigation ──
+    $('#btn-back-news').addEventListener('click', () => showView('room'));
+
+    // ── Bottom toolbar buttons ──
+    $$('.tb-btn[data-tool]').forEach(btn => {
       btn.addEventListener('click', () => {
-        if (state.stickerMode) exitStickerMode();
-        document.querySelectorAll('.brush-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        state.activeBrush = btn.dataset.brush;
-        closeToolbarIfMobile();
+        const tool = btn.dataset.tool;
+        if (tool === 'eraser') {
+          // Toggle eraser directly, no sheet
+          exitStickerMode();
+          $$('.brush-btn').forEach(b => b.classList.remove('active'));
+          state.activeBrush = 'eraser';
+          // Visual active on toolbar
+          $$('.tb-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        } else if (tool === 'undo') {
+          undo();
+        } else if (tool === 'redo') {
+          redo();
+        } else {
+          openSheet(tool);
+          // Brush tool activates brush sheet but also marks btn
+          $$('.tb-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        }
       });
     });
 
-    // Brush size
-    $('#brush-size').addEventListener('input', (e) => {
-      state.brushSize = parseInt(e.target.value);
-      $('#brush-size-label').textContent = state.brushSize + 'px';
+    // Mark brushes button as default active
+    $$('.tb-btn[data-tool="brushes"]').forEach(b => b.classList.add('active'));
+
+    // ── Sheet overlay dismiss ──
+    $('#sheet-overlay').addEventListener('click', closeSheet);
+
+    // ── Sheet close buttons ──
+    $$('.sheet-close-btn').forEach(btn => {
+      btn.addEventListener('click', () => closeSheet());
     });
 
-    // Brush opacity
-    $('#brush-opacity').addEventListener('input', (e) => {
-      state.brushOpacity = parseInt(e.target.value) / 100;
-      $('#brush-opacity-label').textContent = e.target.value + '%';
+    // ── Add swipe-dismiss to all sheets ──
+    $$('.bottom-sheet').forEach(sheet => addSwipeDismiss(sheet));
+
+    // ── Color sheet tabs ──
+    $$('.sheet-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        $$('.sheet-tab').forEach(t => t.classList.remove('active'));
+        $$('.tab-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        const panelId = 'tab-' + tab.dataset.tab;
+        document.getElementById(panelId).classList.add('active');
+        if (tab.dataset.tab === 'spectrum') {
+          setTimeout(() => { drawSpectrum(); drawHueBar(); }, 30);
+        }
+      });
     });
 
-    // Color
-    $('#color-picker').addEventListener('input', (e) => {
-      state.color = e.target.value;
-      renderSwatches();
+    // Spectrum canvas interactions
+    const specCanvas = $('#spectrum-canvas');
+    if (specCanvas) {
+      specCanvas.addEventListener('pointerdown', e => { spectrumDragging = true; pickFromSpectrum(e); });
+      specCanvas.addEventListener('pointermove', e => { if (spectrumDragging) pickFromSpectrum(e); });
+      specCanvas.addEventListener('pointerup',   () => spectrumDragging = false);
+      specCanvas.style.touchAction = 'none';
+    }
+
+    const hueCanvas = $('#hue-canvas');
+    if (hueCanvas) {
+      hueCanvas.addEventListener('pointerdown', e => { hueDragging = true; pickFromHueBar(e); });
+      hueCanvas.addEventListener('pointermove', e => { if (hueDragging) pickFromHueBar(e); });
+      hueCanvas.addEventListener('pointerup',   () => hueDragging = false);
+      hueCanvas.style.touchAction = 'none';
+    }
+
+    // Sliders tab
+    ['h', 's', 'l'].forEach(id => {
+      const el = $('#slider-' + id);
+      if (el) el.addEventListener('input', updateSlidersDisplay);
     });
 
-    // Layer add
-    $('#btn-add-layer').addEventListener('click', () => {
+    // Opacity slider
+    const opacitySlider = $('#brush-opacity');
+    if (opacitySlider) {
+      opacitySlider.addEventListener('input', e => {
+        state.brushOpacity = parseInt(e.target.value) / 100;
+        $('#opacity-label').textContent = e.target.value + '%';
+      });
+    }
+
+    // Save swatch
+    $('#btn-save-swatch')?.addEventListener('click', saveSwatch);
+
+    // ── Brush sheet ──
+    $$('.brush-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('.brush-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.activeBrush = btn.dataset.brush;
+        exitStickerMode();
+        // Set brushes tool as active in toolbar
+        $$('.tb-btn').forEach(b => b.classList.remove('active'));
+        $$('.tb-btn[data-tool="brushes"]').forEach(b => b.classList.add('active'));
+        closeSheet();
+      });
+    });
+
+    const sizeSlider = $('#brush-size');
+    if (sizeSlider) {
+      sizeSlider.addEventListener('input', e => {
+        state.brushSize = parseInt(e.target.value);
+        $('#brush-size-label').textContent = state.brushSize;
+      });
+    }
+
+    // ── Layers sheet ──
+    $('#btn-add-layer')?.addEventListener('click', () => {
       addLayer();
       pushUndo();
     });
 
-    // Undo/Redo
-    $('#btn-undo').addEventListener('click', undo);
-    $('#btn-redo').addEventListener('click', redo);
-
-    // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && state.stickerMode) {
-        exitStickerMode();
-        return;
-      }
-      if (e.target.tagName === 'INPUT') return;
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) redo(); else undo();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
-        e.preventDefault();
-        redo();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        saveProject();
-      }
+    // ── Sticker touch controls ──
+    $('#sticker-shrink')?.addEventListener('click', () => {
+      if (!state.stickerMode) return;
+      state.stickerMode.size = Math.max(16, state.stickerMode.size - 12);
+      drawStickerPreview();
     });
-
-    // Zoom
-    $('#btn-zoom-in').addEventListener('click', () => {
-      state.zoom = Math.min(4, state.zoom * 1.2);
-      applyZoom();
+    $('#sticker-grow')?.addEventListener('click', () => {
+      if (!state.stickerMode) return;
+      state.stickerMode.size = Math.min(600, state.stickerMode.size + 12);
+      drawStickerPreview();
     });
-    $('#btn-zoom-out').addEventListener('click', () => {
-      state.zoom = Math.max(0.1, state.zoom / 1.2);
-      applyZoom();
+    $('#sticker-rotate-left')?.addEventListener('click', () => {
+      if (!state.stickerMode) return;
+      state.stickerRotation -= 15; drawStickerPreview();
     });
-    $('#btn-zoom-fit').addEventListener('click', fitZoom);
+    $('#sticker-rotate-right')?.addEventListener('click', () => {
+      if (!state.stickerMode) return;
+      state.stickerRotation += 15; drawStickerPreview();
+    });
+    $('#sticker-cancel')?.addEventListener('click', () => exitStickerMode());
 
-    // Top actions
-    $('#btn-new').addEventListener('click', newCanvas);
-    $('#btn-save').addEventListener('click', saveProject);
-    $('#btn-load').addEventListener('click', loadProject);
-    $('#btn-export').addEventListener('click', exportPNG);
-
-    // Resize
-    $('#btn-resize').addEventListener('click', resizeCanvas);
-
-    // Import
-    $('#btn-import-image').addEventListener('click', () => $('#file-import').click());
-    $('#file-import').addEventListener('change', (e) => {
+    // ── Background sheet ──
+    $('#btn-import-image')?.addEventListener('click', () => $('#file-import').click());
+    $('#file-import')?.addEventListener('change', e => {
       if (e.target.files[0]) importTraceImage(e.target.files[0]);
       e.target.value = '';
     });
-    $('#btn-clear-trace').addEventListener('click', clearTrace);
+    $('#btn-clear-trace')?.addEventListener('click', clearTrace);
+    $('#btn-export')?.addEventListener('click', exportPNG);
 
-    // Prompt
-    $('#prompt-refresh').addEventListener('click', randomPrompt);
-
-    // Modal
-    $('#modal-close').addEventListener('click', closeModal);
-    $('#modal-overlay').addEventListener('click', (e) => {
-      if (e.target === e.currentTarget) closeModal();
+    // ── Keyboard shortcuts ──
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        if (state.stickerMode) { exitStickerMode(); return; }
+        closeSheet();
+      }
+      if (e.target.tagName === 'INPUT') return;
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveProject(); }
     });
 
-    // Window resize
-    window.addEventListener('resize', fitZoom);
+    // ── Zoom reset button ──
+    $('#btn-zoom-reset')?.addEventListener('click', () => fitZoom());
+
+    // ── Window resize ──
+    window.addEventListener('resize', () => { if (state.currentView === 'draw') fitZoom(); });
   }
 
-  // ── Start ──
+  // ── Boot ─────────────────────────────────────────────
   init();
+
 })();

@@ -2,175 +2,515 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Elsie's Spark - Creative Drawing App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Elsie's Spark</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div id="app">
-    <header id="top-bar">
-      <button id="btn-menu" title="Toggle toolbar" aria-label="Menu">
-        <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="5" x2="17" y2="5"/><line x1="3" y1="10" x2="17" y2="10"/><line x1="3" y1="15" x2="17" y2="15"/></svg>
+<div id="app">
+
+  <!-- ═══════════════════════════════════════════
+       VIEW: ROOM (Home / Hub)
+  ═══════════════════════════════════════════ -->
+  <div id="view-room" class="view active">
+    <div id="room-scene">
+
+      <!-- Background art — user will provide image later, placeholder gradient for now -->
+      <div id="room-bg"></div>
+
+      <!-- Room furniture (placeholder SVG illustrations) -->
+      <div id="room-decor">
+
+        <!-- Back wall -->
+        <div class="room-wall"></div>
+
+        <!-- Disco ball -->
+        <div class="room-item" id="decor-discoball">
+          <svg viewBox="0 0 60 80" width="60" height="80">
+            <line x1="30" y1="0" x2="30" y2="16" stroke="#bbb" stroke-width="2"/>
+            <circle cx="30" cy="40" r="22" fill="#d0d0d0"/>
+            <g opacity="0.7">
+              <rect x="14" y="24" width="8" height="6" rx="1" fill="#a8d8ea" opacity="0.8"/>
+              <rect x="24" y="20" width="8" height="6" rx="1" fill="#ffd6e0" opacity="0.8"/>
+              <rect x="36" y="24" width="8" height="6" rx="1" fill="#b5ead7" opacity="0.8"/>
+              <rect x="11" y="32" width="8" height="6" rx="1" fill="#fff" opacity="0.6"/>
+              <rect x="22" y="30" width="8" height="6" rx="1" fill="#c7ceea" opacity="0.8"/>
+              <rect x="34" y="30" width="8" height="6" rx="1" fill="#ffdac1" opacity="0.8"/>
+              <rect x="43" y="33" width="8" height="6" rx="1" fill="#a8d8ea" opacity="0.8"/>
+              <rect x="14" y="40" width="8" height="6" rx="1" fill="#ffd6e0" opacity="0.8"/>
+              <rect x="24" y="38" width="8" height="6" rx="1" fill="#fff" opacity="0.6"/>
+              <rect x="36" y="40" width="8" height="6" rx="1" fill="#b5ead7" opacity="0.8"/>
+              <rect x="20" y="48" width="8" height="6" rx="1" fill="#c7ceea" opacity="0.8"/>
+              <rect x="32" y="48" width="8" height="6" rx="1" fill="#ffdac1" opacity="0.8"/>
+            </g>
+          </svg>
+        </div>
+
+        <!-- Sofa -->
+        <div class="room-item" id="decor-sofa">
+          <svg viewBox="0 0 140 80" width="140" height="80">
+            <rect x="0" y="30" width="140" height="50" rx="10" fill="#f2c4ce"/>
+            <rect x="8" y="22" width="124" height="35" rx="8" fill="#f9d7df"/>
+            <rect x="0" y="30" width="20" height="50" rx="6" fill="#e8a8b8"/>
+            <rect x="120" y="30" width="20" height="50" rx="6" fill="#e8a8b8"/>
+            <rect x="30" y="36" width="36" height="28" rx="6" fill="#fce4ec"/>
+            <rect x="74" y="36" width="36" height="28" rx="6" fill="#fce4ec"/>
+          </svg>
+        </div>
+
+        <!-- Plant -->
+        <div class="room-item" id="decor-plant">
+          <svg viewBox="0 0 50 100" width="50" height="100">
+            <rect x="16" y="70" width="18" height="22" rx="3" fill="#e8a87c"/>
+            <ellipse cx="25" cy="66" rx="14" ry="8" fill="#8bc34a"/>
+            <path d="M25 65 Q18 50 20 35 Q25 20 25 10" fill="none" stroke="#558b2f" stroke-width="3" stroke-linecap="round"/>
+            <path d="M25 55 Q15 48 10 40" fill="none" stroke="#7cb342" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M25 45 Q35 38 38 30" fill="none" stroke="#7cb342" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M25 35 Q18 28 16 20" fill="none" stroke="#7cb342" stroke-width="2" stroke-linecap="round"/>
+            <ellipse cx="10" cy="40" rx="8" ry="5" fill="#8bc34a" transform="rotate(-20 10 40)"/>
+            <ellipse cx="38" cy="30" rx="8" ry="5" fill="#8bc34a" transform="rotate(15 38 30)"/>
+            <ellipse cx="16" cy="20" rx="7" ry="4" fill="#8bc34a" transform="rotate(-10 16 20)"/>
+          </svg>
+        </div>
+
+        <!-- Blue stool -->
+        <div class="room-item" id="decor-stool">
+          <svg viewBox="0 0 50 50" width="50" height="50">
+            <rect x="5" y="5" width="40" height="22" rx="8" fill="#80deea"/>
+            <rect x="10" y="27" width="5" height="20" rx="2" fill="#4dd0e1"/>
+            <rect x="35" y="27" width="5" height="20" rx="2" fill="#4dd0e1"/>
+          </svg>
+        </div>
+
+      </div>
+
+      <!-- ── Interactive hotspots ── -->
+
+      <!-- Gallery frames on wall -->
+      <button class="room-hotspot" id="hotspot-gallery" aria-label="My Gallery">
+        <svg viewBox="0 0 80 60" width="80" height="60">
+          <rect x="0" y="0" width="36" height="28" rx="3" fill="#f8bbd0" stroke="#e57373" stroke-width="2"/>
+          <rect x="4" y="4" width="28" height="20" rx="2" fill="#fce4ec"/>
+          <rect x="42" y="0" width="38" height="28" rx="3" fill="#c8e6c9" stroke="#81c784" stroke-width="2"/>
+          <rect x="46" y="4" width="30" height="20" rx="2" fill="#e8f5e9"/>
+          <rect x="10" y="34" width="60" height="26" rx="3" fill="#fff9c4" stroke="#f9a825" stroke-width="2"/>
+          <rect x="14" y="38" width="52" height="18" rx="2" fill="#fffde7"/>
+          <!-- picture icon -->
+          <circle cx="18" cy="44" r="4" fill="#f9a825" opacity="0.5"/>
+          <path d="M14 52 l8-8 6 6 5-4 10 6" fill="none" stroke="#f9a825" stroke-width="1.5" opacity="0.7"/>
+        </svg>
+        <span class="hotspot-label">Gallery</span>
       </button>
-      <h1 id="app-title">Elsie's Spark</h1>
-      <div id="daily-prompt">
-        <span id="prompt-label">Prompt</span>
-        <span id="prompt-text"></span>
-        <button id="prompt-refresh" title="New prompt">
-          <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 3v5h-5"/><path d="M3 10a7 7 0 0 1 12.3-4.5L17 8"/><path d="M3 17v-5h5"/><path d="M17 10a7 7 0 0 1-12.3 4.5L3 12"/></svg>
-        </button>
+
+      <!-- Easel / Canvas (go to draw) -->
+      <button class="room-hotspot" id="hotspot-easel" aria-label="Start Drawing">
+        <svg viewBox="0 0 80 100" width="80" height="100">
+          <!-- legs -->
+          <line x1="40" y1="75" x2="14" y2="100" stroke="#a1887f" stroke-width="4" stroke-linecap="round"/>
+          <line x1="40" y1="75" x2="66" y2="100" stroke="#a1887f" stroke-width="4" stroke-linecap="round"/>
+          <line x1="40" y1="75" x2="40" y2="100" stroke="#a1887f" stroke-width="3" stroke-linecap="round"/>
+          <!-- frame -->
+          <rect x="6" y="4" width="68" height="72" rx="4" fill="white" stroke="#bcaaa4" stroke-width="3"/>
+          <rect x="10" y="8" width="60" height="60" rx="2" fill="#fff8f0"/>
+          <!-- canvas artwork placeholder — pink circle -->
+          <circle cx="40" cy="38" r="18" fill="none" stroke="#f48fb1" stroke-width="4"/>
+          <rect x="32" y="20" width="6" height="6" rx="1" fill="#80cbc4" opacity="0.7"/>
+        </svg>
+        <span class="hotspot-label">Draw!</span>
+      </button>
+
+      <!-- Lightbulb frame (inspiration / prompts) -->
+      <button class="room-hotspot" id="hotspot-lightbulb" aria-label="Get Inspired">
+        <svg viewBox="0 0 60 60" width="60" height="60">
+          <rect x="0" y="0" width="60" height="60" rx="6" fill="#fff9c4" stroke="#f9a825" stroke-width="2"/>
+          <circle cx="30" cy="26" r="13" fill="#fff59d"/>
+          <path d="M24 36 Q24 42 30 42 Q36 42 36 36" fill="#ffe082" stroke="#f9a825" stroke-width="1.5"/>
+          <rect x="24" y="42" width="12" height="3" rx="1.5" fill="#f9a825"/>
+          <rect x="26" y="46" width="8" height="3" rx="1.5" fill="#f9a825"/>
+          <line x1="30" y1="10" x2="30" y2="7" stroke="#f9a825" stroke-width="2" stroke-linecap="round"/>
+          <line x1="42" y1="14" x2="44" y2="12" stroke="#f9a825" stroke-width="2" stroke-linecap="round"/>
+          <line x1="18" y1="14" x2="16" y2="12" stroke="#f9a825" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span class="hotspot-label">Inspire</span>
+      </button>
+
+      <!-- Bell (what's new) -->
+      <button class="room-hotspot" id="hotspot-bell" aria-label="What's New">
+        <svg viewBox="0 0 44 50" width="44" height="50">
+          <path d="M22 4 C14 4 10 12 10 20 L8 36 L36 36 L34 20 C34 12 30 4 22 4Z" fill="#f9a825" stroke="#e65100" stroke-width="1.5"/>
+          <rect x="8" y="34" width="28" height="6" rx="3" fill="#e65100"/>
+          <circle cx="22" cy="44" r="4" fill="#e65100"/>
+          <circle cx="29" cy="6" r="5" fill="#e57373"/>
+        </svg>
+        <span class="hotspot-label">New</span>
+      </button>
+
+      <!-- Cat character (tutorial guide) -->
+      <button class="room-hotspot" id="hotspot-cat" aria-label="Guide">
+        <svg viewBox="0 0 70 80" width="70" height="80">
+          <!-- body -->
+          <ellipse cx="35" cy="55" rx="22" ry="20" fill="#c7a882"/>
+          <!-- head -->
+          <circle cx="35" cy="30" r="20" fill="#d4b896"/>
+          <!-- ears -->
+          <polygon points="16,16 10,2 26,12" fill="#c7a882"/>
+          <polygon points="54,16 60,2 44,12" fill="#c7a882"/>
+          <polygon points="18,15 13,5 25,13" fill="#f8bbd0"/>
+          <polygon points="52,15 57,5 45,13" fill="#f8bbd0"/>
+          <!-- face -->
+          <circle cx="27" cy="27" r="5" fill="white"/>
+          <circle cx="43" cy="27" r="5" fill="white"/>
+          <circle cx="28" cy="28" r="3" fill="#333"/>
+          <circle cx="44" cy="28" r="3" fill="#333"/>
+          <circle cx="29" cy="27" r="1" fill="white"/>
+          <circle cx="45" cy="27" r="1" fill="white"/>
+          <!-- nose -->
+          <ellipse cx="35" cy="33" rx="3" ry="2" fill="#f48fb1"/>
+          <!-- mouth -->
+          <path d="M31 36 Q35 40 39 36" fill="none" stroke="#a1887f" stroke-width="1.5" stroke-linecap="round"/>
+          <!-- blush -->
+          <ellipse cx="22" cy="34" rx="5" ry="3" fill="#f48fb1" opacity="0.4"/>
+          <ellipse cx="48" cy="34" rx="5" ry="3" fill="#f48fb1" opacity="0.4"/>
+          <!-- tail -->
+          <path d="M57 60 Q72 50 68 40 Q64 32 70 28" fill="none" stroke="#c7a882" stroke-width="6" stroke-linecap="round"/>
+          <!-- paws -->
+          <ellipse cx="22" cy="72" rx="9" ry="6" fill="#d4b896"/>
+          <ellipse cx="48" cy="72" rx="9" ry="6" fill="#d4b896"/>
+        </svg>
+        <span class="hotspot-label">Help</span>
+      </button>
+
+    </div>
+
+    <!-- Tutorial tooltip overlay -->
+    <div id="tutorial-overlay" class="hidden">
+      <div class="tutorial-tip" id="tip-gallery">
+        <span>See your saved art here!</span>
       </div>
-      <div id="top-actions">
-        <button id="btn-new" title="New canvas">
-          <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="14" height="14" rx="2"/><line x1="10" y1="7" x2="10" y2="13"/><line x1="7" y1="10" x2="13" y2="10"/></svg>
-          <span class="btn-label-mobile-hide">New</span>
-        </button>
-        <button id="btn-save" title="Save project (Ctrl+S)">
-          <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 17H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v7a2 2 0 0 1-2 2Z"/><path d="M13 17v-5H7v5"/><path d="M7 3v3h5"/></svg>
-          <span class="btn-label-mobile-hide">Save</span>
-        </button>
-        <button id="btn-load" title="Load project">
-          <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 15v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/><path d="M7 10l3 3 3-3"/><line x1="10" y1="3" x2="10" y2="13"/></svg>
-          <span class="btn-label-mobile-hide">Load</span>
-        </button>
-        <button id="btn-export" title="Export as PNG">
-          <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 14l4 4 4-4"/><line x1="10" y1="2" x2="10" y2="18"/></svg>
-          <span class="btn-label-mobile-hide">Export</span>
-        </button>
+      <div class="tutorial-tip" id="tip-easel">
+        <span>Tap to start drawing your daily spark!</span>
       </div>
+      <div class="tutorial-tip" id="tip-lightbulb">
+        <span>Get inspired with a new idea!</span>
+      </div>
+      <div class="tutorial-tip" id="tip-bell">
+        <span>Check out what's new!</span>
+      </div>
+      <div class="tutorial-tip" id="tip-cat">
+        <span>Tap me to hide this guide</span>
+      </div>
+      <div id="tutorial-dismiss">Tap anywhere to close</div>
+    </div>
+
+  </div><!-- #view-room -->
+
+
+  <!-- ═══════════════════════════════════════════
+       VIEW: DRAWING CANVAS
+  ═══════════════════════════════════════════ -->
+  <div id="view-draw" class="view">
+
+    <!-- Minimal top bar -->
+    <header id="draw-topbar">
+      <button id="btn-back-room" aria-label="Back to room">
+        <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
+      </button>
+      <span id="draw-prompt-text"></span>
+      <button id="btn-done" aria-label="Done">
+        <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4,10 8,14 16,6"/></svg>
+      </button>
     </header>
 
-    <div id="main-area">
-      <aside id="toolbar">
-        <section class="tool-section">
-          <h3>Brushes</h3>
-          <div id="brush-list">
-            <button class="brush-btn active" data-brush="pen" title="Pen">
-              <svg viewBox="0 0 24 24"><path d="M4 20 L17 7 L20 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="4" cy="20" r="1.2" fill="currentColor"/></svg>
-            </button>
-            <button class="brush-btn" data-brush="marker" title="Marker">
-              <svg viewBox="0 0 24 24"><rect x="7" y="3" width="6" height="15" rx="3" fill="currentColor" opacity="0.35" transform="rotate(-30 10 12)"/><line x1="6" y1="19" x2="16" y2="5" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" opacity="0.6"/></svg>
-            </button>
-            <button class="brush-btn" data-brush="eraser" title="Eraser">
-              <svg viewBox="0 0 24 24"><path d="M18 6 L8 16 L4 20 L10 20 L20 10 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><line x1="4" y1="20" x2="12" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            </button>
-            <button class="brush-btn" data-brush="sprinkles" title="Sprinkles">
-              <svg viewBox="0 0 24 24"><circle cx="7" cy="7" r="2" fill="currentColor" opacity="0.9"/><circle cx="17" cy="5" r="1.5" fill="currentColor" opacity="0.7"/><circle cx="12" cy="13" r="2.5" fill="currentColor" opacity="0.8"/><circle cx="19" cy="16" r="1.2" fill="currentColor" opacity="0.6"/><circle cx="6" cy="18" r="1.8" fill="currentColor" opacity="0.75"/><rect x="14" y="10" width="4" height="1.5" rx="0.75" fill="currentColor" transform="rotate(30 16 11)" opacity="0.5"/></svg>
-            </button>
-            <button class="brush-btn" data-brush="vine" title="Vine">
-              <svg viewBox="0 0 24 24"><path d="M4 20 Q8 10 12 14 Q16 18 20 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><ellipse cx="8" cy="10" rx="2" ry="1.2" fill="currentColor" opacity="0.5" transform="rotate(-30 8 10)"/><ellipse cx="16" cy="8" rx="2" ry="1.2" fill="currentColor" opacity="0.5" transform="rotate(20 16 8)"/></svg>
-            </button>
-            <button class="brush-btn" data-brush="fairylights" title="Fairy Lights">
-              <svg viewBox="0 0 24 24"><path d="M2 10 Q7 14 12 10 Q17 6 22 10" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2 2"/><circle cx="5" cy="12" r="2.5" fill="currentColor" opacity="0.6"/><circle cx="12" cy="8" r="2.5" fill="currentColor" opacity="0.5"/><circle cx="19" cy="11" r="2.5" fill="currentColor" opacity="0.7"/></svg>
-            </button>
-          </div>
-        </section>
+    <!-- Canvas -->
+    <div id="canvas-area">
+      <div id="canvas-container">
+        <canvas id="trace-canvas"></canvas>
+        <!-- drawing layer canvases inserted here by JS -->
+        <canvas id="preview-canvas"></canvas>
+      </div>
 
-        <section class="tool-section">
-          <h3>Size</h3>
+      <!-- Zoom reset button -->
+      <button id="btn-zoom-reset" class="hidden" aria-label="Fit to screen">
+        <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4"/>
+        </svg>
+      </button>
+
+      <!-- Sticker floating controls -->
+      <div id="sticker-touch-controls" class="hidden">
+        <button id="sticker-shrink" aria-label="Smaller">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="10" x2="15" y2="10"/></svg>
+        </button>
+        <button id="sticker-grow" aria-label="Bigger">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="10" y1="5" x2="10" y2="15"/><line x1="5" y1="10" x2="15" y2="10"/></svg>
+        </button>
+        <button id="sticker-rotate-left" aria-label="Rotate left">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v5h5"/><path d="M3 8a7 7 0 1 1 1.5 4.5"/></svg>
+        </button>
+        <button id="sticker-rotate-right" aria-label="Rotate right">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 3v5h-5"/><path d="M17 8a7 7 0 1 0-1.5 4.5"/></svg>
+        </button>
+        <button id="sticker-cancel" aria-label="Cancel">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Bottom toolbar -->
+    <div id="draw-toolbar">
+      <button class="tb-btn active" data-tool="brushes" aria-label="Brushes">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21 L12 12"/><path d="M12 3 L21 3 L21 12 Q16 12 12 12 Q12 8 12 3"/></svg>
+      </button>
+      <button class="tb-btn" data-tool="eraser" aria-label="Eraser">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 8 L10 18 L5 22 L8 22 L18 12 Z" stroke-linejoin="round"/><line x1="4" y1="22" x2="12" y2="22"/></svg>
+      </button>
+      <button class="tb-btn" data-tool="color" aria-label="Color" id="tb-color-btn">
+        <span id="tb-color-swatch"></span>
+      </button>
+      <button class="tb-btn" data-tool="stickers" aria-label="Stickers">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2 L15 9 L22 9 L16 14 L18 21 L12 17 L6 21 L8 14 L2 9 L9 9 Z"/></svg>
+      </button>
+      <button class="tb-btn" data-tool="layers" aria-label="Layers">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,2 22,8.5 12,15 2,8.5"/><polyline points="2,15 12,21 22,15"/><polyline points="2,11 12,17 22,11"/></svg>
+      </button>
+      <button class="tb-btn" data-tool="backgrounds" aria-label="Background">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="2" width="20" height="20" rx="3"/><circle cx="8" cy="9" r="2"/><path d="M2 18 L8 12 L13 17 L17 13 L22 18"/></svg>
+      </button>
+      <button class="tb-btn" id="btn-undo" aria-label="Undo">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h10a6 6 0 0 1 0 12H9"/><path d="M7 5L4 8l3 3"/></svg>
+      </button>
+      <button class="tb-btn" id="btn-redo" aria-label="Redo">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8H10a6 6 0 0 0 0 12h5"/><path d="M17 5l3 3-3 3"/></svg>
+      </button>
+    </div>
+
+    <!-- Sheet overlay (backdrop) -->
+    <div id="sheet-overlay" class="hidden"></div>
+
+    <!-- ── Bottom Sheet: Color ── -->
+    <div id="sheet-color" class="bottom-sheet hidden">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title">Color</span>
+        <button class="sheet-close-btn" data-sheet="color">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
+        </button>
+      </div>
+      <div class="sheet-tabs">
+        <button class="sheet-tab active" data-tab="grid">Grid</button>
+        <button class="sheet-tab" data-tab="spectrum">Spectrum</button>
+        <button class="sheet-tab" data-tab="sliders">Sliders</button>
+      </div>
+      <div class="sheet-body">
+        <div id="tab-grid" class="tab-panel active">
+          <div id="color-grid"></div>
+        </div>
+        <div id="tab-spectrum" class="tab-panel">
+          <div id="spectrum-wrapper">
+            <canvas id="spectrum-canvas"></canvas>
+            <div id="spectrum-cursor"></div>
+          </div>
+          <div id="hue-wrapper">
+            <canvas id="hue-canvas"></canvas>
+            <div id="hue-cursor"></div>
+          </div>
+        </div>
+        <div id="tab-sliders" class="tab-panel">
+          <div class="slider-row">
+            <label>H</label>
+            <input type="range" id="slider-h" min="0" max="360" value="0" class="hue-slider">
+            <span class="slider-val" id="val-h">0</span>
+          </div>
+          <div class="slider-row">
+            <label>S</label>
+            <input type="range" id="slider-s" min="0" max="100" value="0">
+            <span class="slider-val" id="val-s">0%</span>
+          </div>
+          <div class="slider-row">
+            <label>L</label>
+            <input type="range" id="slider-l" min="0" max="100" value="13">
+            <span class="slider-val" id="val-l">13%</span>
+          </div>
+          <div id="slider-preview"></div>
+        </div>
+      </div>
+      <div id="opacity-row">
+        <label>Opacity</label>
+        <input type="range" id="brush-opacity" min="5" max="100" value="100">
+        <span id="opacity-label">100%</span>
+      </div>
+      <div id="swatches-row">
+        <div id="saved-swatches"></div>
+        <button id="btn-save-swatch" aria-label="Save color">+</button>
+      </div>
+    </div>
+
+    <!-- ── Bottom Sheet: Brushes ── -->
+    <div id="sheet-brushes" class="bottom-sheet hidden">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title">Brushes</span>
+        <button class="sheet-close-btn" data-sheet="brushes">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
+        </button>
+      </div>
+      <div class="sheet-body">
+        <div id="brush-grid">
+          <button class="brush-btn active" data-brush="pen">
+            <svg viewBox="0 0 24 24" width="24" height="24"><path d="M4 20 L17 7 L20 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="4" cy="20" r="1.2" fill="currentColor"/></svg>
+            <span>Pen</span>
+          </button>
+          <button class="brush-btn" data-brush="marker">
+            <svg viewBox="0 0 24 24" width="24" height="24"><line x1="6" y1="19" x2="16" y2="5" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.6"/></svg>
+            <span>Marker</span>
+          </button>
+          <button class="brush-btn" data-brush="sprinkles">
+            <svg viewBox="0 0 24 24" width="24" height="24"><circle cx="7" cy="7" r="2" fill="currentColor" opacity="0.9"/><circle cx="17" cy="5" r="1.5" fill="currentColor" opacity="0.7"/><circle cx="12" cy="13" r="2.5" fill="currentColor" opacity="0.8"/><circle cx="19" cy="16" r="1.2" fill="currentColor" opacity="0.6"/><circle cx="6" cy="18" r="1.8" fill="currentColor" opacity="0.75"/></svg>
+            <span>Sprinkles</span>
+          </button>
+          <button class="brush-btn" data-brush="vine">
+            <svg viewBox="0 0 24 24" width="24" height="24"><path d="M4 20 Q8 10 12 14 Q16 18 20 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><ellipse cx="8" cy="10" rx="2" ry="1.2" fill="currentColor" opacity="0.5" transform="rotate(-30 8 10)"/><ellipse cx="16" cy="8" rx="2" ry="1.2" fill="currentColor" opacity="0.5" transform="rotate(20 16 8)"/></svg>
+            <span>Vine</span>
+          </button>
+          <button class="brush-btn" data-brush="fairylights">
+            <svg viewBox="0 0 24 24" width="24" height="24"><path d="M2 10 Q7 14 12 10 Q17 6 22 10" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2 2"/><circle cx="5" cy="12" r="2.5" fill="currentColor" opacity="0.6"/><circle cx="12" cy="8" r="2.5" fill="currentColor" opacity="0.5"/><circle cx="19" cy="11" r="2.5" fill="currentColor" opacity="0.7"/></svg>
+            <span>Fairy Lights</span>
+          </button>
+        </div>
+        <div class="slider-row size-row">
+          <label>Size</label>
           <input type="range" id="brush-size" min="1" max="80" value="4">
-          <span id="brush-size-label">4 px</span>
-        </section>
-
-        <section class="tool-section">
-          <h3>Opacity</h3>
-          <input type="range" id="brush-opacity" min="5" max="100" value="100">
-          <span id="brush-opacity-label">100%</span>
-        </section>
-
-        <section class="tool-section">
-          <h3>Color</h3>
-          <input type="color" id="color-picker" value="#222222">
-          <div id="color-swatches"></div>
-        </section>
-
-        <section class="tool-section">
-          <h3>Layers</h3>
-          <div id="layer-controls">
-            <button id="btn-add-layer" title="Add layer">+ Add Layer</button>
-          </div>
-          <ul id="layer-list"></ul>
-        </section>
-
-        <section class="tool-section">
-          <h3>Import</h3>
-          <button id="btn-import-image" title="Import tracing image">
-            <svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="16" height="16" rx="2"/><circle cx="7" cy="7" r="2"/><path d="M18 14l-4-4-8 8"/></svg>
-            Trace Image
-          </button>
-          <input type="file" id="file-import" accept="image/*" hidden>
-          <button id="btn-clear-trace" title="Remove tracing image" hidden>Clear Trace</button>
-        </section>
-
-        <section class="tool-section">
-          <h3>Stickers</h3>
-          <div id="sticker-list"></div>
-        </section>
-      </aside>
-
-      <div id="canvas-area">
-        <div id="canvas-container">
-          <canvas id="trace-canvas"></canvas>
-          <canvas id="preview-canvas"></canvas>
-        </div>
-        <!-- Floating controls for sticker mode (touch devices) -->
-        <div id="sticker-touch-controls" class="hidden">
-          <button id="sticker-shrink" title="Smaller" aria-label="Smaller">
-            <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="10" x2="15" y2="10"/></svg>
-          </button>
-          <button id="sticker-grow" title="Bigger" aria-label="Bigger">
-            <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="10" y1="5" x2="10" y2="15"/><line x1="5" y1="10" x2="15" y2="10"/></svg>
-          </button>
-          <button id="sticker-rotate-left" title="Rotate left" aria-label="Rotate left">
-            <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v5h5"/><path d="M3 8a7 7 0 1 1 1.5 4.5"/></svg>
-          </button>
-          <button id="sticker-rotate-right" title="Rotate right" aria-label="Rotate right">
-            <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 3v5h-5"/><path d="M17 8a7 7 0 1 0-1.5 4.5"/></svg>
-          </button>
-          <button id="sticker-cancel" title="Cancel" aria-label="Cancel sticker">
-            <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
-          </button>
+          <span class="slider-val" id="brush-size-label">4</span>
         </div>
       </div>
     </div>
 
-    <footer id="bottom-bar">
-      <div id="undo-redo">
-        <button id="btn-undo" title="Undo (Ctrl+Z)">
-          <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h10a4 4 0 0 1 0 8H9"/><path d="M6 4L3 7l3 3"/></svg>
-        </button>
-        <button id="btn-redo" title="Redo (Ctrl+Y)">
-          <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 7H7a4 4 0 0 0 0 8h4"/><path d="M14 4l3 3-3 3"/></svg>
+    <!-- ── Bottom Sheet: Layers ── -->
+    <div id="sheet-layers" class="bottom-sheet hidden">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title">Layers</span>
+        <button class="sheet-close-btn" data-sheet="layers">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
         </button>
       </div>
-      <div id="zoom-controls">
-        <button id="btn-zoom-out" title="Zoom out">
-          <svg viewBox="0 0 20 20" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="10" x2="15" y2="10"/></svg>
-        </button>
-        <span id="zoom-label">100%</span>
-        <button id="btn-zoom-in" title="Zoom in">
-          <svg viewBox="0 0 20 20" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="10" y1="5" x2="10" y2="15"/><line x1="5" y1="10" x2="15" y2="10"/></svg>
-        </button>
-        <button id="btn-zoom-fit" title="Fit to screen">Fit</button>
+      <div class="sheet-body">
+        <button id="btn-add-layer">+ Add Layer</button>
+        <ul id="layer-list"></ul>
       </div>
-      <div id="canvas-dims">
-        <label>W <input type="number" id="canvas-width" value="1200" min="100" max="4000"></label>
-        <label>H <input type="number" id="canvas-height" value="800" min="100" max="4000"></label>
-        <button id="btn-resize">Apply</button>
-      </div>
-    </footer>
-  </div>
-
-  <div id="modal-overlay" class="hidden">
-    <div id="modal">
-      <div id="modal-header">
-        <h2 id="modal-title"></h2>
-        <button id="modal-close">&times;</button>
-      </div>
-      <div id="modal-body"></div>
     </div>
-  </div>
 
-  <script src="app.js"></script>
+    <!-- ── Bottom Sheet: Stickers ── -->
+    <div id="sheet-stickers" class="bottom-sheet hidden">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title">Stickers</span>
+        <button class="sheet-close-btn" data-sheet="stickers">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
+        </button>
+      </div>
+      <div class="sheet-body">
+        <div id="sticker-list"></div>
+      </div>
+    </div>
+
+    <!-- ── Bottom Sheet: Backgrounds ── -->
+    <div id="sheet-backgrounds" class="bottom-sheet hidden">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title">Background</span>
+        <button class="sheet-close-btn" data-sheet="backgrounds">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
+        </button>
+      </div>
+      <div class="sheet-body">
+        <div id="background-grid"></div>
+        <div class="sheet-section-label">Import tracing image</div>
+        <button id="btn-import-image">
+          <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="16" height="16" rx="2"/><circle cx="7" cy="7" r="2"/><path d="M18 14l-4-4-8 8"/></svg>
+          Trace Image
+        </button>
+        <input type="file" id="file-import" accept="image/*" hidden>
+        <button id="btn-clear-trace" hidden>Clear Trace</button>
+        <div class="sheet-section-label">Save &amp; Export</div>
+        <button id="btn-export">Export as PNG</button>
+      </div>
+    </div>
+
+  </div><!-- #view-draw -->
+
+
+  <!-- ═══════════════════════════════════════════
+       VIEW: GALLERY
+  ═══════════════════════════════════════════ -->
+  <div id="view-gallery" class="view">
+    <header id="gallery-topbar">
+      <button id="btn-back-gallery" aria-label="Back">
+        <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="13,4 6,10 13,16"/></svg>
+      </button>
+      <div id="gallery-profile">
+        <div id="gallery-avatar">
+          <svg viewBox="0 0 40 40" width="40" height="40"><circle cx="20" cy="20" r="20" fill="#f8bbd0"/><circle cx="20" cy="16" r="8" fill="#f48fb1"/><ellipse cx="20" cy="34" rx="12" ry="10" fill="#f48fb1"/></svg>
+        </div>
+        <span id="gallery-name">My Artwork</span>
+      </div>
+      <div id="gallery-stats">
+        <span id="gallery-count">0 drawings</span>
+      </div>
+    </header>
+    <div id="gallery-grid"></div>
+    <div id="gallery-empty" class="hidden">
+      <svg viewBox="0 0 80 80" width="80" height="80"><rect x="10" y="10" width="60" height="60" rx="8" fill="none" stroke="#e0d8ce" stroke-width="3" stroke-dasharray="8 4"/><circle cx="32" cy="34" r="6" fill="#e0d8ce"/><path d="M14 56 L30 40 L40 50 L54 36 L66 52" fill="none" stroke="#e0d8ce" stroke-width="3" stroke-linecap="round"/></svg>
+      <p>No drawings yet.<br>Go create something!</p>
+      <button id="btn-gallery-draw">Start Drawing</button>
+    </div>
+  </div><!-- #view-gallery -->
+
+
+  <!-- ═══════════════════════════════════════════
+       VIEW: WHAT'S NEW
+  ═══════════════════════════════════════════ -->
+  <div id="view-news" class="view">
+    <header id="news-topbar">
+      <button id="btn-back-news" aria-label="Back">
+        <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="13,4 6,10 13,16"/></svg>
+      </button>
+      <span>What's New</span>
+      <div style="width:40px"></div>
+    </header>
+    <div id="news-content">
+      <div class="news-item">
+        <div class="news-icon">🎨</div>
+        <div class="news-text">
+          <h3>Fairy Lights brush</h3>
+          <p>Draw magical glowing light strings across your canvas!</p>
+        </div>
+      </div>
+      <div class="news-item">
+        <div class="news-icon">✨</div>
+        <div class="news-text">
+          <h3>Sticker library</h3>
+          <p>26 adorable stickers to stamp, resize, and rotate onto your art.</p>
+        </div>
+      </div>
+      <div class="news-item">
+        <div class="news-icon">🌈</div>
+        <div class="news-text">
+          <h3>Color picker upgrade</h3>
+          <p>Pick from a grid, spectrum, or use HSL sliders — save your favourite colours!</p>
+        </div>
+      </div>
+      <div class="news-item">
+        <div class="news-icon">💡</div>
+        <div class="news-text">
+          <h3>Daily prompts</h3>
+          <p>A new drawing idea every day to spark your creativity.</p>
+        </div>
+      </div>
+    </div>
+  </div><!-- #view-news -->
+
+</div><!-- #app -->
+<script src="app.js"></script>
 </body>
 </html>
