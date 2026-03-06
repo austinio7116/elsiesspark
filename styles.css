@@ -325,8 +325,9 @@ button:active { transform: scale(0.95); }
   position: relative;
   box-shadow: 0 4px 24px rgba(60,40,20,0.18), 0 0 0 1px rgba(60,40,20,0.06);
   border-radius: 3px;
-  transform-origin: center center;
+  overflow: hidden;
   background: #ffffff;
+  flex-shrink: 0;
 }
 
 #canvas-container canvas {
@@ -867,9 +868,9 @@ button:active { transform: scale(0.95); }
 
 .layer-item {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 10px;
+  flex-direction: column;
+  gap: 0;
+  padding: 8px 10px;
   border-radius: var(--radius-sm);
   margin-bottom: 4px;
   font-size: 13px;
@@ -903,6 +904,18 @@ button:active { transform: scale(0.95); }
 }
 
 .layer-item .layer-delete:active { color: var(--accent); opacity: 1; }
+
+.layer-row { display: flex; align-items: center; gap: 8px; width: 100%; }
+
+.layer-opacity-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0 0 24px;
+}
+.layer-opacity-label { font-size: 11px; color: var(--text-soft); white-space: nowrap; }
+.layer-opacity-slider { flex: 1; accent-color: var(--accent); }
+.layer-opacity-val { font-size: 11px; color: var(--text-soft); min-width: 30px; text-align: right; }
 
 /* ── Sticker Sheet ── */
 #sticker-list {

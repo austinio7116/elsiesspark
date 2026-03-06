@@ -257,10 +257,12 @@
   // CANVAS SETUP & ZOOM
   // ═══════════════════════════════════════════════════════
   function setupCanvas() {
-    const w = state.canvasWidth;
-    const h = state.canvasHeight;
-    container.style.width  = w + 'px';
-    container.style.height = h + 'px';
+    const area = $('#canvas-area');
+    const pad = 10;
+    const w = Math.floor((area ? area.clientWidth  : 390) - pad);
+    const h = Math.floor((area ? area.clientHeight : 600) - pad);
+    state.canvasWidth  = w;
+    state.canvasHeight = h;
     traceCanvas.width   = w;
     traceCanvas.height  = h;
     previewCanvas.width = w;
@@ -269,18 +271,20 @@
   }
 
   function fitZoom() {
-    const area = $('#canvas-area');
-    if (!area) return;
-    const pad = 24;
-    const scaleX = (area.clientWidth  - pad) / state.canvasWidth;
-    const scaleY = (area.clientHeight - pad) / state.canvasHeight;
-    state.zoom = Math.min(scaleX, scaleY);
-    state.fitZoomLevel = state.zoom;
+    state.zoom = 1;
+    state.fitZoomLevel = 1;
     applyZoom();
   }
 
   function applyZoom() {
-    if (container) container.style.transform = `scale(${state.zoom})`;
+    if (!container) return;
+    const dispW = Math.round(state.canvasWidth  * state.zoom);
+    const dispH = Math.round(state.canvasHeight * state.zoom);
+    container.style.width  = dispW + 'px';
+    container.style.height = dispH + 'px';
+    [traceCanvas, previewCanvas, ...state.layers.map(l => l.canvas)]
+      .filter(Boolean)
+      .forEach(c => { c.style.width = dispW + 'px'; c.style.height = dispH + 'px'; });
     const resetBtn = $('#btn-zoom-reset');
     if (resetBtn) {
       const atFit = Math.abs(state.zoom - (state.fitZoomLevel || state.zoom)) < 0.005;
@@ -298,9 +302,13 @@
     canvas.height = state.canvasHeight;
     canvas.className = 'drawing-canvas';
     canvas.style.zIndex = id;
+    const dispW = Math.round(state.canvasWidth * state.zoom);
+    const dispH = Math.round(state.canvasHeight * state.zoom);
+    canvas.style.width  = dispW + 'px';
+    canvas.style.height = dispH + 'px';
     container.insertBefore(canvas, previewCanvas);
     const ctx = canvas.getContext('2d');
-    const layer = { id, name: name || `Layer ${id}`, canvas, ctx, visible: true };
+    const layer = { id, name: name || `Layer ${id}`, canvas, ctx, visible: true, opacity: 1 };
     state.layers.push(layer);
     state.activeLayerId = id;
     renderLayerList();
@@ -330,12 +338,20 @@
     list.innerHTML = '';
     for (let i = state.layers.length - 1; i >= 0; i--) {
       const l = state.layers[i];
+      const pct = Math.round((l.opacity ?? 1) * 100);
       const li = document.createElement('li');
       li.className = 'layer-item' + (l.id === state.activeLayerId ? ' active' : '');
       li.innerHTML = `
-        <input type="checkbox" class="layer-visibility" ${l.visible ? 'checked' : ''}>
-        <span class="layer-name">${l.name}</span>
-        <button class="layer-delete">&times;</button>
+        <div class="layer-row">
+          <input type="checkbox" class="layer-visibility" ${l.visible ? 'checked' : ''}>
+          <span class="layer-name">${l.name}</span>
+          <button class="layer-delete">&times;</button>
+        </div>
+        <div class="layer-opacity-row">
+          <label class="layer-opacity-label">Opacity</label>
+          <input type="range" class="layer-opacity-slider" min="0" max="100" value="${pct}">
+          <span class="layer-opacity-val">${pct}%</span>
+        </div>
       `;
       li.querySelector('.layer-name').addEventListener('click', () => {
         state.activeLayerId = l.id;
@@ -346,6 +362,11 @@
         l.canvas.style.display = l.visible ? '' : 'none';
       });
       li.querySelector('.layer-delete').addEventListener('click', () => removeLayer(l.id));
+      li.querySelector('.layer-opacity-slider').addEventListener('input', e => {
+        l.opacity = parseInt(e.target.value) / 100;
+        l.canvas.style.opacity = l.opacity;
+        li.querySelector('.layer-opacity-val').textContent = e.target.value + '%';
+      });
       list.appendChild(li);
     }
   }
@@ -355,7 +376,7 @@
   // ═══════════════════════════════════════════════════════
   function captureState() {
     return state.layers.map(l => ({
-      id: l.id, name: l.name, visible: l.visible,
+      id: l.id, name: l.name, visible: l.visible, opacity: l.opacity ?? 1,
       data: l.canvas.toDataURL(),
     }));
   }
@@ -392,7 +413,9 @@
       };
       img.src = sd.data;
       layer.visible = sd.visible;
+      layer.opacity = sd.opacity ?? 1;
       layer.canvas.style.display = sd.visible ? '' : 'none';
+      layer.canvas.style.opacity = layer.opacity;
     });
     renderLayerList();
   }
@@ -1162,6 +1185,7 @@
     sheet.getBoundingClientRect();
     sheet.classList.add('open');
     overlay.classList.remove('hidden');
+    if (previewCanvas) previewCanvas.style.pointerEvents = 'none';
 
     // Lazy-init spectrum/hue canvases
     if (id === 'color') {
@@ -1184,6 +1208,7 @@
     }
     $('#sheet-overlay').classList.add('hidden');
     state.openSheet = null;
+    if (previewCanvas) previewCanvas.style.pointerEvents = '';
   }
 
   // ── Swipe-down to dismiss ─────────────────────────────
@@ -1257,7 +1282,12 @@
     const mctx = merged.getContext('2d');
     mctx.fillStyle = '#ffffff';
     mctx.fillRect(0, 0, merged.width, merged.height);
-    state.layers.forEach(l => { if (l.visible) mctx.drawImage(l.canvas, 0, 0); });
+    state.layers.forEach(l => {
+      if (!l.visible) return;
+      mctx.globalAlpha = l.opacity ?? 1;
+      mctx.drawImage(l.canvas, 0, 0);
+    });
+    mctx.globalAlpha = 1;
     const link = document.createElement('a');
     link.download = 'elsies-spark-' + Date.now() + '.png';
     link.href = merged.toDataURL('image/png');
@@ -1277,7 +1307,7 @@
         canvasHeight: state.canvasHeight,
         background: state.selectedBackground,
         layers: state.layers.map(l => ({
-          id: l.id, name: l.name, visible: l.visible,
+          id: l.id, name: l.name, visible: l.visible, opacity: l.opacity ?? 1,
           data: l.canvas.toDataURL(),
         })),
         activeLayerId: state.activeLayerId,
@@ -1339,7 +1369,9 @@
     (projectData.layers || []).forEach(ld => {
       const layer = addLayer(ld.name);
       layer.visible = ld.visible;
+      layer.opacity = ld.opacity ?? 1;
       layer.canvas.style.display = ld.visible ? '' : 'none';
+      layer.canvas.style.opacity = layer.opacity;
       const img = new Image();
       img.onload = () => layer.ctx.drawImage(img, 0, 0);
       img.src = ld.data;
