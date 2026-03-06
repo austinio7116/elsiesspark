@@ -242,6 +242,73 @@
     state.currentView = id;
     if (id === 'draw')    onEnterDraw();
     if (id === 'gallery') onEnterGallery();
+    if (id === 'profile') onEnterProfile();
+    if (id === 'room')    centerRoomPan();
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // ROOM HORIZONTAL PAN
+  // ═══════════════════════════════════════════════════════
+  let roomPanX = 0, roomPanMin = 0, roomPanReady = false;
+
+  function centerRoomPan() {
+    if (!roomPanReady) return;
+    const scene = $('#room-scene');
+    const pan = $('#room-pan');
+    roomPanMin = scene.clientWidth - pan.scrollWidth;
+    roomPanX = roomPanMin / 2; // center
+    pan.style.transform = 'translateX(' + roomPanX + 'px)';
+  }
+
+  function initRoomPan() {
+    const scene = $('#room-scene');
+    const pan = $('#room-pan');
+    const img = $('#room-bg');
+    let dragging = false, startX = 0, startPanX = 0, movedDistance = 0;
+
+    // Once image loads, size the pan container and center it
+    function onReady() {
+      const ratio = img.naturalWidth / img.naturalHeight;
+      const panW = scene.clientHeight * ratio;
+      pan.style.width = panW + 'px';
+      roomPanMin = scene.clientWidth - panW;
+      roomPanX = roomPanMin / 2; // center
+      pan.style.transform = 'translateX(' + roomPanX + 'px)';
+      roomPanReady = true;
+    }
+
+    if (img.complete && img.naturalWidth) onReady();
+    else img.addEventListener('load', onReady);
+    window.addEventListener('resize', () => { if (roomPanReady) onReady(); });
+
+    // Suppress clicks on hotspots if we were dragging
+    scene.addEventListener('click', e => {
+      if (movedDistance > 8) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    }, true);
+
+    scene.addEventListener('pointerdown', e => {
+      if (roomPanMin >= 0) return; // image fits, no pan needed
+      dragging = true;
+      startX = e.clientX;
+      startPanX = roomPanX;
+      movedDistance = 0;
+      pan.style.transition = 'none';
+      scene.setPointerCapture(e.pointerId);
+    });
+
+    scene.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      movedDistance = Math.abs(dx);
+      roomPanX = Math.max(roomPanMin, Math.min(0, startPanX + dx));
+      pan.style.transform = 'translateX(' + roomPanX + 'px)';
+    });
+
+    scene.addEventListener('pointerup', () => { dragging = false; });
+    scene.addEventListener('pointercancel', () => { dragging = false; });
   }
 
   function onEnterDraw() {
@@ -256,7 +323,20 @@
     updateColorSwatch();
   }
 
+  function onEnterProfile() {
+    const canvas = $('#profile-canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const saved = localStorage.getItem('elsie-profile-pic');
+    if (saved) {
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0);
+      img.src = saved;
+    }
+  }
+
   function onEnterGallery() {
+    loadProfileAvatar();
     renderGallery();
   }
 
@@ -1404,8 +1484,20 @@
         })),
         activeLayerId: state.activeLayerId,
       };
-      // Thumbnail from first visible layer
-      projectData.thumbnail = state.layers.find(l => l.visible)?.canvas.toDataURL('image/jpeg', 0.5) || '';
+      // Thumbnail: merge all visible layers onto white background
+      const thumbCanvas = document.createElement('canvas');
+      thumbCanvas.width  = state.canvasWidth;
+      thumbCanvas.height = state.canvasHeight;
+      const tctx = thumbCanvas.getContext('2d');
+      tctx.fillStyle = '#ffffff';
+      tctx.fillRect(0, 0, thumbCanvas.width, thumbCanvas.height);
+      state.layers.forEach(l => {
+        if (!l.visible) return;
+        tctx.globalAlpha = l.opacity ?? 1;
+        tctx.drawImage(l.canvas, 0, 0);
+      });
+      tctx.globalAlpha = 1;
+      projectData.thumbnail = thumbCanvas.toDataURL('image/png');
 
       let projects = loadAllProjects();
       // Check if updating an existing project (same session) — use current ID if set
@@ -1518,6 +1610,162 @@
   }
 
   // ═══════════════════════════════════════════════════════
+  // PROFILE PICTURE EDITOR
+  // ═══════════════════════════════════════════════════════
+  function initProfileEditor() {
+    const canvas = $('#profile-canvas');
+    const ctx = canvas.getContext('2d');
+    let drawing = false;
+    let lastX = 0, lastY = 0;
+    let lastMidX = 0, lastMidY = 0;
+    let color = '#333333';
+    let size = 4;
+    let erasing = false;
+
+    // Load existing profile pic onto canvas
+    const saved = localStorage.getItem('elsie-profile-pic');
+    if (saved) {
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0);
+      img.src = saved;
+    }
+
+    // Update gallery avatar on load
+    loadProfileAvatar();
+
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches ? e.touches[0] : e;
+      return {
+        x: (touch.clientX - rect.left) * (canvas.width / rect.width),
+        y: (touch.clientY - rect.top) * (canvas.height / rect.height),
+      };
+    }
+
+    canvas.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      canvas.setPointerCapture(e.pointerId);
+      drawing = true;
+      const pos = getPos(e);
+      lastX = pos.x;
+      lastY = pos.y;
+      lastMidX = pos.x;
+      lastMidY = pos.y;
+      // Draw dot
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.lineWidth = size;
+      if (erasing) {
+        ctx.globalCompositeOperation = 'destination-out';
+      } else {
+        ctx.strokeStyle = color;
+      }
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    canvas.addEventListener('pointermove', e => {
+      if (!drawing) return;
+      e.preventDefault();
+      const pos = getPos(e);
+      const midX = (lastX + pos.x) / 2;
+      const midY = (lastY + pos.y) / 2;
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = size;
+      if (erasing) {
+        ctx.globalCompositeOperation = 'destination-out';
+      } else {
+        ctx.strokeStyle = color;
+      }
+      ctx.beginPath();
+      ctx.moveTo(lastMidX, lastMidY);
+      ctx.quadraticCurveTo(lastX, lastY, midX, midY);
+      ctx.stroke();
+      ctx.restore();
+      lastMidX = midX;
+      lastMidY = midY;
+      lastX = pos.x;
+      lastY = pos.y;
+    });
+
+    canvas.addEventListener('pointerup', () => { drawing = false; });
+    canvas.addEventListener('pointercancel', () => { drawing = false; });
+
+    // Color buttons
+    $$('.profile-color').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('.profile-color').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        color = btn.dataset.color;
+        erasing = false;
+        $('#btn-profile-eraser').classList.remove('active');
+      });
+    });
+
+    // Size buttons
+    $$('.profile-size').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('.profile-size').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        size = parseInt(btn.dataset.size, 10);
+      });
+    });
+
+    // Clear
+    $('#btn-profile-clear').addEventListener('click', () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    });
+
+    // Eraser toggle
+    $('#btn-profile-eraser').addEventListener('click', () => {
+      erasing = !erasing;
+      $('#btn-profile-eraser').classList.toggle('active', erasing);
+    });
+
+    // Save
+    $('#btn-save-profile').addEventListener('click', () => {
+      // Save circular crop as profile picture
+      const out = document.createElement('canvas');
+      out.width = 200;
+      out.height = 200;
+      const octx = out.getContext('2d');
+      octx.beginPath();
+      octx.arc(100, 100, 100, 0, Math.PI * 2);
+      octx.closePath();
+      octx.clip();
+      octx.fillStyle = '#ffffff';
+      octx.fillRect(0, 0, 200, 200);
+      octx.drawImage(canvas, 0, 0);
+      const dataURL = out.toDataURL('image/png');
+      localStorage.setItem('elsie-profile-pic', dataURL);
+      loadProfileAvatar();
+      showToast('Profile picture saved!');
+      showView('room');
+    });
+  }
+
+  function loadProfileAvatar() {
+    const saved = localStorage.getItem('elsie-profile-pic');
+    const avatarEl = $('#gallery-avatar');
+    if (saved && avatarEl) {
+      avatarEl.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = saved;
+      img.alt = 'Profile';
+      img.width = 40;
+      img.height = 40;
+      img.style.borderRadius = '50%';
+      img.style.display = 'block';
+      avatarEl.appendChild(img);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════
   // TOAST
   // ═══════════════════════════════════════════════════════
   function showToast(msg) {
@@ -1575,6 +1823,9 @@
       }
     }, { passive: false });
 
+    // ── Room pan (horizontal drag/swipe) ──
+    initRoomPan();
+
     // ── Room hotspots ──
     $('#hotspot-easel').addEventListener('click', () => showView('draw'));
     $('#hotspot-gallery').addEventListener('click', () => showView('gallery'));
@@ -1608,6 +1859,11 @@
     // ── Gallery navigation ──
     $('#btn-back-gallery').addEventListener('click', () => showView('room'));
     $('#btn-gallery-draw').addEventListener('click', () => showView('draw'));
+
+    // ── Profile picture ──
+    $('#hotspot-profile').addEventListener('click', () => showView('profile'));
+    $('#btn-back-profile').addEventListener('click', () => showView('room'));
+    initProfileEditor();
 
     // ── News navigation ──
     $('#btn-back-news').addEventListener('click', () => showView('room'));
