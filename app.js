@@ -183,8 +183,13 @@
     isDrawing: false,
     lastX: 0,
     lastY: 0,
+    lastMidX: 0,
+    lastMidY: 0,
     traceImage: null,
     strokePoints: [],
+    scratchCanvas: null,
+    scratchCtx: null,
+    preStrokeData: null,
     // Stickers
     stickerMode: null,
     stickerPos: null,
@@ -479,6 +484,22 @@
     };
   }
 
+  function compositeScratchToLayer(layer, brush) {
+    const ctx = layer.ctx;
+    // Restore pre-stroke state
+    ctx.putImageData(state.preStrokeData, 0, 0);
+    // Composite scratch canvas with desired opacity and blend mode
+    ctx.save();
+    ctx.globalAlpha = brush === 'marker' ? state.brushOpacity * 0.5 : state.brushOpacity;
+    if (brush === 'eraser') {
+      ctx.globalCompositeOperation = 'destination-out';
+    } else if (brush === 'marker') {
+      ctx.globalCompositeOperation = 'multiply';
+    }
+    ctx.drawImage(state.scratchCanvas, 0, 0);
+    ctx.restore();
+  }
+
   function startStroke(e) {
     e.preventDefault();
     trackPointer(e);
@@ -518,9 +539,37 @@
     const pos = getCanvasPos(e);
     state.lastX = pos.x;
     state.lastY = pos.y;
+    state.lastMidX = pos.x;
+    state.lastMidY = pos.y;
     state.strokePoints = [pos];
-    if (state.activeBrush === 'sprinkles')   drawSprinkle(layer.ctx, pos.x, pos.y);
-    else if (state.activeBrush === 'fairylights') drawFairyLight(layer.ctx, pos.x, pos.y);
+    const brush = state.activeBrush;
+    if (brush === 'pen' || brush === 'marker' || brush === 'eraser') {
+      // Set up scratch canvas for opacity-correct rendering
+      if (!state.scratchCanvas) {
+        state.scratchCanvas = document.createElement('canvas');
+        state.scratchCtx = state.scratchCanvas.getContext('2d');
+      }
+      state.scratchCanvas.width = state.canvasWidth;
+      state.scratchCanvas.height = state.canvasHeight;
+      // Save pre-stroke pixel data for compositing on each move
+      state.preStrokeData = layer.ctx.getImageData(0, 0, state.canvasWidth, state.canvasHeight);
+      // Draw initial dot on scratch canvas
+      const sctx = state.scratchCtx;
+      sctx.lineCap = 'round';
+      sctx.lineJoin = 'round';
+      sctx.lineWidth = state.brushSize;
+      sctx.strokeStyle = brush === 'eraser' ? '#fff' : state.color;
+      sctx.beginPath();
+      sctx.moveTo(pos.x, pos.y);
+      sctx.lineTo(pos.x, pos.y);
+      sctx.stroke();
+      // Composite scratch onto layer
+      compositeScratchToLayer(layer, brush);
+    } else if (brush === 'sprinkles') {
+      drawSprinkle(layer.ctx, pos.x, pos.y);
+    } else if (brush === 'fairylights') {
+      drawFairyLight(layer.ctx, pos.x, pos.y);
+    }
   }
 
   function moveStroke(e) {
@@ -575,31 +624,23 @@
     const ctx   = layer.ctx;
     const brush = state.activeBrush;
 
-    if (brush === 'pen' || brush === 'marker') {
-      ctx.save();
-      ctx.lineCap  = 'round';
-      ctx.lineJoin = 'round';
-      ctx.lineWidth   = state.brushSize;
-      ctx.strokeStyle = state.color;
-      ctx.globalAlpha = brush === 'marker' ? state.brushOpacity * 0.5 : state.brushOpacity;
-      if (brush === 'marker') ctx.globalCompositeOperation = 'multiply';
-      ctx.beginPath();
-      ctx.moveTo(state.lastX, state.lastY);
-      ctx.lineTo(pos.x, pos.y);
-      ctx.stroke();
-      ctx.restore();
-    } else if (brush === 'eraser') {
-      ctx.save();
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.lineCap  = 'round';
-      ctx.lineJoin = 'round';
-      ctx.lineWidth   = state.brushSize;
-      ctx.globalAlpha = state.brushOpacity;
-      ctx.beginPath();
-      ctx.moveTo(state.lastX, state.lastY);
-      ctx.lineTo(pos.x, pos.y);
-      ctx.stroke();
-      ctx.restore();
+    if (brush === 'pen' || brush === 'marker' || brush === 'eraser') {
+      const midX = (state.lastX + pos.x) / 2;
+      const midY = (state.lastY + pos.y) / 2;
+      // Draw on scratch canvas at full opacity
+      const sctx = state.scratchCtx;
+      sctx.lineCap  = 'round';
+      sctx.lineJoin = 'round';
+      sctx.lineWidth = state.brushSize;
+      sctx.strokeStyle = brush === 'eraser' ? '#fff' : state.color;
+      sctx.beginPath();
+      sctx.moveTo(state.lastMidX, state.lastMidY);
+      sctx.quadraticCurveTo(state.lastX, state.lastY, midX, midY);
+      sctx.stroke();
+      state.lastMidX = midX;
+      state.lastMidY = midY;
+      // Composite scratch onto layer
+      compositeScratchToLayer(layer, brush);
     } else if (brush === 'sprinkles') {
       drawSprinkle(ctx, pos.x, pos.y);
     } else if (brush === 'vine') {
@@ -619,8 +660,28 @@
       return;
     }
     if (touch.pointers.size === 0) touch.isGesture = false;
+    // Draw final segment and composite for clean stroke end
+    if (state.isDrawing && state.strokePoints.length > 1) {
+      const layer = getActiveLayer();
+      if (layer) {
+        const brush = state.activeBrush;
+        if (brush === 'pen' || brush === 'marker' || brush === 'eraser') {
+          const sctx = state.scratchCtx;
+          sctx.lineCap  = 'round';
+          sctx.lineJoin = 'round';
+          sctx.lineWidth = state.brushSize;
+          sctx.strokeStyle = brush === 'eraser' ? '#fff' : state.color;
+          sctx.beginPath();
+          sctx.moveTo(state.lastMidX, state.lastMidY);
+          sctx.lineTo(state.lastX, state.lastY);
+          sctx.stroke();
+          compositeScratchToLayer(layer, brush);
+        }
+      }
+    }
     state.isDrawing = false;
     state.strokePoints = [];
+    state.preStrokeData = null;
   }
 
   // ── Procedural Brushes ────────────────────────────────
