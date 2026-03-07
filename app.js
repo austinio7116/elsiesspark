@@ -173,7 +173,9 @@
     strokePoints: [],
     scratchCanvas: null,
     scratchCtx: null,
-    preStrokeData: null,
+    preStrokeCanvas: null,
+    preStrokeCtx: null,
+    directDraw: false,
     // Stickers
     stickerMode: null,
     stickerPos: null,
@@ -604,8 +606,9 @@
 
   function compositeScratchToLayer(layer, brush) {
     const ctx = layer.ctx;
-    // Restore pre-stroke state
-    ctx.putImageData(state.preStrokeData, 0, 0);
+    // Restore pre-stroke state using drawImage (GPU-batched, no render flush)
+    ctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+    ctx.drawImage(state.preStrokeCanvas, 0, 0);
     // Composite scratch canvas with desired opacity and blend mode
     ctx.save();
     ctx.globalAlpha = brush === 'marker' ? state.brushOpacity * 0.5 : state.brushOpacity;
@@ -706,28 +709,51 @@
     state.lastMidY = pos.y;
     state.strokePoints = [pos];
     const brush = state.activeBrush;
+    // Pen at full opacity: draw directly to layer (no scratch canvas needed)
+    state.directDraw = (brush === 'pen' && state.brushOpacity >= 1);
     if (brush === 'pen' || brush === 'marker' || brush === 'eraser') {
-      // Set up scratch canvas for opacity-correct rendering
-      if (!state.scratchCanvas) {
-        state.scratchCanvas = document.createElement('canvas');
-        state.scratchCtx = state.scratchCanvas.getContext('2d');
+      if (state.directDraw) {
+        // Direct draw: just draw the dot on the layer
+        const ctx = layer.ctx;
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = state.brushSize;
+        ctx.strokeStyle = state.color;
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        // Set up scratch canvas for opacity-correct rendering
+        if (!state.scratchCanvas) {
+          state.scratchCanvas = document.createElement('canvas');
+          state.scratchCtx = state.scratchCanvas.getContext('2d');
+        }
+        state.scratchCanvas.width = state.canvasWidth;
+        state.scratchCanvas.height = state.canvasHeight;
+        // Save pre-stroke state as a canvas (GPU-friendly, avoids putImageData flicker)
+        if (!state.preStrokeCanvas) {
+          state.preStrokeCanvas = document.createElement('canvas');
+          state.preStrokeCtx = state.preStrokeCanvas.getContext('2d');
+        }
+        state.preStrokeCanvas.width = state.canvasWidth;
+        state.preStrokeCanvas.height = state.canvasHeight;
+        state.preStrokeCtx.drawImage(layer.canvas, 0, 0);
+        // Draw initial dot on scratch canvas
+        const sctx = state.scratchCtx;
+        sctx.lineCap = 'round';
+        sctx.lineJoin = 'round';
+        sctx.lineWidth = state.brushSize;
+        sctx.strokeStyle = brush === 'eraser' ? '#fff' : state.color;
+        sctx.beginPath();
+        sctx.moveTo(pos.x, pos.y);
+        sctx.lineTo(pos.x, pos.y);
+        sctx.stroke();
+        // Composite scratch onto layer
+        compositeScratchToLayer(layer, brush);
       }
-      state.scratchCanvas.width = state.canvasWidth;
-      state.scratchCanvas.height = state.canvasHeight;
-      // Save pre-stroke pixel data for compositing on each move
-      state.preStrokeData = layer.ctx.getImageData(0, 0, state.canvasWidth, state.canvasHeight);
-      // Draw initial dot on scratch canvas
-      const sctx = state.scratchCtx;
-      sctx.lineCap = 'round';
-      sctx.lineJoin = 'round';
-      sctx.lineWidth = state.brushSize;
-      sctx.strokeStyle = brush === 'eraser' ? '#fff' : state.color;
-      sctx.beginPath();
-      sctx.moveTo(pos.x, pos.y);
-      sctx.lineTo(pos.x, pos.y);
-      sctx.stroke();
-      // Composite scratch onto layer
-      compositeScratchToLayer(layer, brush);
     } else if (brush === 'sprinkles') {
       drawSprinkle(layer.ctx, pos.x, pos.y);
     } else if (brush === 'fairylights') {
@@ -819,31 +845,47 @@
     const brush = state.activeBrush;
 
     if (brush === 'pen' || brush === 'marker' || brush === 'eraser') {
-      // Redraw entire stroke path on scratch canvas each frame
-      // This avoids segment-join artifacts on some mobile GPUs
-      const sctx = state.scratchCtx;
-      sctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
-      sctx.lineCap  = 'round';
-      sctx.lineJoin = 'round';
-      sctx.lineWidth = state.brushSize;
-      sctx.strokeStyle = brush === 'eraser' ? '#fff' : state.color;
-      const pts = state.strokePoints;
-      sctx.beginPath();
-      sctx.moveTo(pts[0].x, pts[0].y);
-      if (pts.length === 1) {
-        sctx.lineTo(pts[0].x, pts[0].y);
+      if (state.directDraw) {
+        // Direct draw: draw just this segment onto the layer
+        const ctx = layer.ctx;
+        const midX = (state.lastX + pos.x) / 2;
+        const midY = (state.lastY + pos.y) / 2;
+        ctx.save();
+        ctx.lineCap  = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = state.brushSize;
+        ctx.strokeStyle = state.color;
+        ctx.beginPath();
+        ctx.moveTo(state.lastMidX, state.lastMidY);
+        ctx.quadraticCurveTo(state.lastX, state.lastY, midX, midY);
+        ctx.stroke();
+        ctx.restore();
+        state.lastMidX = midX;
+        state.lastMidY = midY;
       } else {
-        for (let i = 1; i < pts.length - 1; i++) {
-          const mx = (pts[i].x + pts[i + 1].x) / 2;
-          const my = (pts[i].y + pts[i + 1].y) / 2;
-          sctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+        // Scratch canvas path: redraw entire stroke each frame
+        const sctx = state.scratchCtx;
+        sctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+        sctx.lineCap  = 'round';
+        sctx.lineJoin = 'round';
+        sctx.lineWidth = state.brushSize;
+        sctx.strokeStyle = brush === 'eraser' ? '#fff' : state.color;
+        const pts = state.strokePoints;
+        sctx.beginPath();
+        sctx.moveTo(pts[0].x, pts[0].y);
+        if (pts.length === 1) {
+          sctx.lineTo(pts[0].x, pts[0].y);
+        } else {
+          for (let i = 1; i < pts.length - 1; i++) {
+            const mx = (pts[i].x + pts[i + 1].x) / 2;
+            const my = (pts[i].y + pts[i + 1].y) / 2;
+            sctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+          }
+          sctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
         }
-        const last = pts[pts.length - 1];
-        sctx.lineTo(last.x, last.y);
+        sctx.stroke();
+        compositeScratchToLayer(layer, brush);
       }
-      sctx.stroke();
-      // Composite scratch onto layer
-      compositeScratchToLayer(layer, brush);
     } else if (brush === 'sprinkles') {
       drawSprinkle(ctx, pos.x, pos.y);
     } else if (brush === 'vine') {
@@ -881,34 +923,49 @@
       if (layer) {
         const brush = state.activeBrush;
         if (brush === 'pen' || brush === 'marker' || brush === 'eraser') {
-          // Redraw full path one last time for clean result
-          const sctx = state.scratchCtx;
-          sctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
-          sctx.lineCap  = 'round';
-          sctx.lineJoin = 'round';
-          sctx.lineWidth = state.brushSize;
-          sctx.strokeStyle = brush === 'eraser' ? '#fff' : state.color;
-          const pts = state.strokePoints;
-          sctx.beginPath();
-          sctx.moveTo(pts[0].x, pts[0].y);
-          if (pts.length === 1) {
-            sctx.lineTo(pts[0].x, pts[0].y);
+          if (state.directDraw) {
+            // Direct draw: draw final segment
+            const ctx = layer.ctx;
+            ctx.save();
+            ctx.lineCap  = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = state.brushSize;
+            ctx.strokeStyle = state.color;
+            ctx.beginPath();
+            ctx.moveTo(state.lastMidX, state.lastMidY);
+            ctx.lineTo(state.lastX, state.lastY);
+            ctx.stroke();
+            ctx.restore();
           } else {
-            for (let i = 1; i < pts.length - 1; i++) {
-              const mx = (pts[i].x + pts[i + 1].x) / 2;
-              const my = (pts[i].y + pts[i + 1].y) / 2;
-              sctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+            // Scratch canvas: final full-path composite
+            const sctx = state.scratchCtx;
+            sctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+            sctx.lineCap  = 'round';
+            sctx.lineJoin = 'round';
+            sctx.lineWidth = state.brushSize;
+            sctx.strokeStyle = brush === 'eraser' ? '#fff' : state.color;
+            const pts = state.strokePoints;
+            sctx.beginPath();
+            sctx.moveTo(pts[0].x, pts[0].y);
+            if (pts.length === 1) {
+              sctx.lineTo(pts[0].x, pts[0].y);
+            } else {
+              for (let i = 1; i < pts.length - 1; i++) {
+                const mx = (pts[i].x + pts[i + 1].x) / 2;
+                const my = (pts[i].y + pts[i + 1].y) / 2;
+                sctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+              }
+              sctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
             }
-            sctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+            sctx.stroke();
+            compositeScratchToLayer(layer, brush);
           }
-          sctx.stroke();
-          compositeScratchToLayer(layer, brush);
         }
       }
     }
     state.isDrawing = false;
     state.strokePoints = [];
-    state.preStrokeData = null;
+    state.directDraw = false;
   }
 
   // ── Procedural Brushes ────────────────────────────────
