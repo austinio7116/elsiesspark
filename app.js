@@ -120,24 +120,8 @@
   ];
 
   // ── File-based stickers (PNG assets) ─────────────────
-  const FILE_STICKERS = [
-    { name: 'Dino',        src: 'assets/stickers/sticker_02.png' },
-    { name: 'Cupcake',     src: 'assets/stickers/sticker_04.png' },
-    { name: 'Caticorn',    src: 'assets/stickers/sticker_06.png' },
-    { name: 'Cloud',       src: 'assets/stickers/sticker_08.png' },
-    { name: 'Palette',     src: 'assets/stickers/sticker_10.png' },
-    { name: 'Sloth',       src: 'assets/stickers/sticker_12.png' },
-    { name: 'Ice Cream',   src: 'assets/stickers/sticker_14.png' },
-    { name: 'Jelly',       src: 'assets/stickers/sticker_16.png' },
-    { name: 'Glue',        src: 'assets/stickers/sticker_18.png' },
-    { name: 'Strawberry',  src: 'assets/stickers/sticker_20.png' },
-    { name: 'Narwhal',     src: 'assets/stickers/sticker_22.png' },
-    { name: 'Yarn',        src: 'assets/stickers/sticker_24.png' },
-    { name: 'Eggplant',    src: 'assets/stickers/sticker_26.png' },
-    { name: 'Octopus',     src: 'assets/stickers/sticker_28.png' },
-    { name: 'Flying Pig',  src: 'assets/stickers/sticker_30.png' },
-    { name: 'Paint',       src: 'assets/stickers/sticker_32.png' },
-  ];
+  // Dynamically loaded from assets/stickers/manifest.json
+  let FILE_STICKERS = [];
 
   // ── Backgrounds ───────────────────────────────────────
   const BACKGROUNDS = [
@@ -241,8 +225,41 @@
     buildColorGrid();
     buildBackgroundGrid();
     renderStickers();
+    loadCustomGradients();
     bindEvents();
     showView('room');
+    // Load dynamic assets (stickers & background images from folders)
+    loadDynamicStickers();
+    loadDynamicBackgrounds();
+  }
+
+  function loadDynamicStickers() {
+    fetch('assets/stickers/manifest.json')
+      .then(r => r.ok ? r.json() : [])
+      .then(files => {
+        FILE_STICKERS = files.map(f => ({
+          name: f.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' '),
+          src: 'assets/stickers/' + f,
+        }));
+        renderStickers();
+      })
+      .catch(() => {});
+  }
+
+  function loadDynamicBackgrounds() {
+    fetch('assets/backgrounds/manifest.json')
+      .then(r => r.ok ? r.json() : [])
+      .then(files => {
+        files.forEach(f => {
+          const id = 'img-' + f.replace(/[^a-zA-Z0-9]/g, '_');
+          const label = f.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ').substring(0, 16);
+          if (!BACKGROUNDS.find(b => b.id === id)) {
+            BACKGROUNDS.push({ id, label, style: null, imageSrc: 'assets/backgrounds/' + f });
+          }
+        });
+        buildBackgroundGrid();
+      })
+      .catch(() => {});
   }
 
   // ═══════════════════════════════════════════════════════
@@ -1694,19 +1711,27 @@
       const el = document.createElement('div');
       el.className = 'bg-thumb' + (bg.id === state.selectedBackground ? ' selected' : '');
       el.title = bg.label;
-      el.style.background = bg.style || '#fff';
-      if (bg.pattern === 'grid') {
-        el.style.backgroundImage = 'linear-gradient(#e0e0e0 1px,transparent 1px),linear-gradient(90deg,#e0e0e0 1px,transparent 1px)';
-        el.style.backgroundSize = '12px 12px';
-        el.style.backgroundColor = '#fff';
-      } else if (bg.pattern === 'dots') {
-        el.style.backgroundImage = 'radial-gradient(circle, #ccc 1px, transparent 1px)';
-        el.style.backgroundSize = '10px 10px';
-        el.style.backgroundColor = '#fff';
-      } else if (bg.pattern === 'lined') {
-        el.style.backgroundImage = 'linear-gradient(transparent 87%, #a8c0e0 87%)';
-        el.style.backgroundSize = '100% 18px';
-        el.style.backgroundColor = '#fafcff';
+      if (bg.imageSrc) {
+        el.style.backgroundImage = 'url(' + bg.imageSrc + ')';
+        el.style.backgroundSize = 'cover';
+        el.style.backgroundPosition = 'center';
+      } else {
+        el.style.background = bg.style || '#fff';
+        if (bg.pattern === 'grid') {
+          el.style.backgroundImage = 'linear-gradient(#e0e0e0 1px,transparent 1px),linear-gradient(90deg,#e0e0e0 1px,transparent 1px)';
+          el.style.backgroundSize = '12px 12px';
+          el.style.backgroundColor = '#fff';
+        } else if (bg.pattern === 'dots') {
+          el.style.backgroundImage = 'radial-gradient(circle, #ccc 1px, transparent 1px)';
+          el.style.backgroundSize = '10px 10px';
+          el.style.backgroundColor = '#fff';
+        } else if (bg.pattern === 'lined') {
+          el.style.backgroundImage = 'linear-gradient(transparent 87%, #a8c0e0 87%)';
+          el.style.backgroundSize = '100% 18px';
+          el.style.backgroundColor = '#fafcff';
+        } else if (bg.customGradient) {
+          el.style.background = bg.style;
+        }
       }
       el.textContent = bg.label;
       el.addEventListener('click', () => {
@@ -1717,13 +1742,32 @@
       });
       grid.appendChild(el);
     });
+    // Render custom gradient creator button
+    const addBtn = document.createElement('div');
+    addBtn.className = 'bg-thumb bg-thumb-add';
+    addBtn.textContent = '+';
+    addBtn.title = 'Custom gradient';
+    addBtn.addEventListener('click', openGradientCreator);
+    grid.appendChild(addBtn);
   }
 
   function applyBackground(bgId) {
     if (!container) return;
     const bg = BACKGROUNDS.find(b => b.id === bgId);
     if (!bg) return;
-    if (bg.pattern === 'grid') {
+    if (bg.imageSrc) {
+      container.style.backgroundImage = 'url(' + bg.imageSrc + ')';
+      container.style.backgroundSize = 'cover';
+      container.style.backgroundPosition = 'center';
+      container.style.backgroundColor = '#ffffff';
+      // Cache loaded image for export
+      if (!bg._img) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => { bg._img = img; };
+        img.src = bg.imageSrc;
+      }
+    } else if (bg.pattern === 'grid') {
       container.style.backgroundImage = 'linear-gradient(#e0e0e0 1px,transparent 1px),linear-gradient(90deg,#e0e0e0 1px,transparent 1px)';
       container.style.backgroundSize = '40px 40px';
       container.style.backgroundColor = '#ffffff';
@@ -1740,6 +1784,118 @@
       container.style.backgroundColor = '';
       container.style.background = bg.style || '#ffffff';
     }
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // CUSTOM GRADIENT CREATOR
+  // ═══════════════════════════════════════════════════════
+  let customGradients = []; // { id, label, style, customGradient: true }
+
+  function loadCustomGradients() {
+    try {
+      const raw = localStorage.getItem('elsie-custom-gradients');
+      if (raw) {
+        customGradients = JSON.parse(raw);
+        customGradients.forEach(g => {
+          if (!BACKGROUNDS.find(b => b.id === g.id)) BACKGROUNDS.push(g);
+        });
+      }
+    } catch (_) {}
+  }
+
+  function saveCustomGradients() {
+    localStorage.setItem('elsie-custom-gradients', JSON.stringify(customGradients));
+  }
+
+  function openGradientCreator() {
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'gradient-creator-overlay';
+    const modal = document.createElement('div');
+    modal.id = 'gradient-creator';
+    modal.innerHTML = `
+      <div class="gc-header">
+        <span class="gc-title">Create Gradient</span>
+        <button class="gc-close">&times;</button>
+      </div>
+      <div class="gc-preview" id="gc-preview"></div>
+      <div class="gc-controls">
+        <label class="gc-label">Angle: <span id="gc-angle-val">160</span>&deg;</label>
+        <input type="range" id="gc-angle" min="0" max="360" value="160" class="gc-slider">
+        <div class="gc-stops" id="gc-stops"></div>
+        <button id="gc-add-stop" class="gc-btn-small">+ Add Color</button>
+      </div>
+      <div class="gc-actions">
+        <button id="gc-cancel" class="gc-btn">Cancel</button>
+        <button id="gc-save" class="gc-btn gc-btn-primary">Save</button>
+      </div>
+    `;
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    let stops = [
+      { color: '#ff9a9e', pos: 0 },
+      { color: '#fad0c4', pos: 50 },
+      { color: '#ffecd2', pos: 100 },
+    ];
+
+    function buildCSS() {
+      const sorted = [...stops].sort((a, b) => a.pos - b.pos);
+      const angle = document.getElementById('gc-angle').value;
+      return 'linear-gradient(' + angle + 'deg, ' +
+        sorted.map(s => s.color + ' ' + s.pos + '%').join(', ') + ')';
+    }
+
+    function updatePreview() {
+      document.getElementById('gc-preview').style.background = buildCSS();
+      document.getElementById('gc-angle-val').textContent = document.getElementById('gc-angle').value;
+    }
+
+    function renderStops() {
+      const container = document.getElementById('gc-stops');
+      container.innerHTML = '';
+      stops.forEach((s, i) => {
+        const row = document.createElement('div');
+        row.className = 'gc-stop-row';
+        row.innerHTML = '<input type="color" value="' + s.color + '" class="gc-color-input">' +
+          '<input type="range" min="0" max="100" value="' + s.pos + '" class="gc-slider gc-pos-slider">' +
+          (stops.length > 2 ? '<button class="gc-remove-stop">&times;</button>' : '');
+        row.querySelector('.gc-color-input').addEventListener('input', e => {
+          s.color = e.target.value; updatePreview();
+        });
+        row.querySelector('.gc-pos-slider').addEventListener('input', e => {
+          s.pos = parseInt(e.target.value); updatePreview();
+        });
+        const rm = row.querySelector('.gc-remove-stop');
+        if (rm) rm.addEventListener('click', () => { stops.splice(i, 1); renderStops(); updatePreview(); });
+        container.appendChild(row);
+      });
+    }
+
+    renderStops();
+    updatePreview();
+
+    document.getElementById('gc-angle').addEventListener('input', updatePreview);
+    document.getElementById('gc-add-stop').addEventListener('click', () => {
+      stops.push({ color: '#ffffff', pos: 50 });
+      renderStops();
+      updatePreview();
+    });
+    modal.querySelector('.gc-close').addEventListener('click', () => overlay.remove());
+    document.getElementById('gc-cancel').addEventListener('click', () => overlay.remove());
+    document.getElementById('gc-save').addEventListener('click', () => {
+      const css = buildCSS();
+      const id = 'custom-grad-' + Date.now();
+      const bg = { id, label: 'Custom', style: css, customGradient: true };
+      BACKGROUNDS.push(bg);
+      customGradients.push(bg);
+      saveCustomGradients();
+      state.selectedBackground = id;
+      applyBackground(id);
+      buildBackgroundGrid();
+      overlay.remove();
+    });
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
   }
 
   // ═══════════════════════════════════════════════════════
@@ -1856,7 +2012,16 @@
   function renderBackground(ctx, w, h) {
     const bg = BACKGROUNDS.find(b => b.id === state.selectedBackground);
     if (!bg) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); return; }
-    if (bg.pattern === 'grid') {
+    if (bg.imageSrc && bg._img) {
+      // Draw image background covering the canvas
+      const iw = bg._img.width, ih = bg._img.height;
+      const scale = Math.max(w / iw, h / ih);
+      const sw = iw * scale, sh = ih * scale;
+      ctx.drawImage(bg._img, (w - sw) / 2, (h - sh) / 2, sw, sh);
+    } else if (bg.imageSrc) {
+      // Image not loaded yet, fill white as fallback
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+    } else if (bg.pattern === 'grid') {
       ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
       ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 1;
       for (let x = 0; x <= w; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
@@ -1871,9 +2036,8 @@
       ctx.fillStyle = '#fafcff'; ctx.fillRect(0, 0, w, h);
       ctx.strokeStyle = '#b0c8e8'; ctx.lineWidth = 1;
       for (let y = 36; y <= h; y += 36) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
-    } else if (bg.style && bg.style.startsWith('linear-gradient')) {
-      // Parse CSS gradient into canvas gradient
-      const colors = bg.style.match(/#[0-9a-fA-F]{6}/g) || ['#ffffff'];
+    } else if (bg.style && bg.style.includes('linear-gradient')) {
+      const colors = bg.style.match(/#[0-9a-fA-F]{3,8}/g) || ['#ffffff'];
       const angle = parseFloat(bg.style.match(/(\d+)deg/) ? bg.style.match(/(\d+)deg/)[1] : '180');
       const rad = (angle - 90) * Math.PI / 180;
       const cx = w / 2, cy = h / 2, len = Math.max(w, h);
