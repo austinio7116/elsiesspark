@@ -319,13 +319,14 @@
     }, true);
 
     scene.addEventListener('pointerdown', e => {
+      movedDistance = 0;
+      // Don't start pan if clicking on a hotspot button
+      if (e.target.closest('.room-hotspot')) return;
       if (roomPanMin >= 0) return; // image fits, no pan needed
       dragging = true;
       startX = e.clientX;
       startPanX = roomPanX;
-      movedDistance = 0;
       pan.style.transition = 'none';
-      scene.setPointerCapture(e.pointerId);
     });
 
     scene.addEventListener('pointermove', e => {
@@ -1712,9 +1713,10 @@
       el.className = 'bg-thumb' + (bg.id === state.selectedBackground ? ' selected' : '');
       el.title = bg.label;
       if (bg.imageSrc) {
-        el.style.backgroundImage = 'url(' + bg.imageSrc + ')';
+        el.style.backgroundImage = 'url("' + encodeURI(bg.imageSrc) + '")';
         el.style.backgroundSize = 'cover';
         el.style.backgroundPosition = 'center';
+        el.style.color = 'transparent'; // hide label for image backgrounds
       } else {
         el.style.background = bg.style || '#fff';
         if (bg.pattern === 'grid') {
@@ -1732,8 +1734,8 @@
         } else if (bg.customGradient) {
           el.style.background = bg.style;
         }
+        el.textContent = bg.label;
       }
-      el.textContent = bg.label;
       el.addEventListener('click', () => {
         state.selectedBackground = bg.id;
         $$('.bg-thumb').forEach(t => t.classList.remove('selected'));
@@ -1756,7 +1758,7 @@
     const bg = BACKGROUNDS.find(b => b.id === bgId);
     if (!bg) return;
     if (bg.imageSrc) {
-      container.style.backgroundImage = 'url(' + bg.imageSrc + ')';
+      container.style.backgroundImage = 'url("' + encodeURI(bg.imageSrc) + '")';
       container.style.backgroundSize = 'cover';
       container.style.backgroundPosition = 'center';
       container.style.backgroundColor = '#ffffff';
@@ -1765,7 +1767,7 @@
         const img = new Image();
         img.crossOrigin = 'anonymous';
         img.onload = () => { bg._img = img; };
-        img.src = bg.imageSrc;
+        img.src = encodeURI(bg.imageSrc);
       }
     } else if (bg.pattern === 'grid') {
       container.style.backgroundImage = 'linear-gradient(#e0e0e0 1px,transparent 1px),linear-gradient(90deg,#e0e0e0 1px,transparent 1px)';
