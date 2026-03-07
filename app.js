@@ -507,7 +507,11 @@
     return state.layers.map(l => ({
       id: l.id, name: l.name, visible: l.visible, opacity: l.opacity ?? 1,
       data: l.canvas.toDataURL(),
-      objects: l.objects ? l.objects.map(o => ({ ...o })) : [],
+      objects: l.objects ? l.objects.map(o => {
+        const copy = { ...o };
+        if (copy.points) copy.points = copy.points.map(p => ({ ...p }));
+        return copy;
+      }) : [],
     }));
   }
 
@@ -544,7 +548,11 @@
       img.src = sd.data;
       layer.visible = sd.visible;
       layer.opacity = sd.opacity ?? 1;
-      layer.objects = sd.objects ? sd.objects.map(o => ({ ...o })) : [];
+      layer.objects = sd.objects ? sd.objects.map(o => {
+        const copy = { ...o };
+        if (copy.points) copy.points = copy.points.map(p => ({ ...p }));
+        return copy;
+      }) : [];
       layer.canvas.style.display = sd.visible ? '' : 'none';
       layer.canvas.style.opacity = layer.opacity;
     });
@@ -659,7 +667,7 @@
         state.selectDrag = {
           type: handle, startX: pos.x, startY: pos.y,
           origX: obj.x, origY: obj.y,
-          origSize: obj.size || obj.fontSize,
+          origSize: obj.size || obj.fontSize || obj.scale || 1,
           origRotation: obj.rotation,
         };
       } else {
@@ -670,7 +678,7 @@
           state.selectDrag = {
             type: 'move', startX: pos.x, startY: pos.y,
             origX: hit.x, origY: hit.y,
-            origSize: hit.size || hit.fontSize,
+            origSize: hit.size || hit.fontSize || hit.scale || 1,
             origRotation: hit.rotation,
           };
           previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
@@ -712,6 +720,16 @@
     // Pen at full opacity: draw directly to layer (no scratch canvas needed)
     state.directDraw = (brush === 'pen' && state.brushOpacity >= 1);
     if (brush === 'pen' || brush === 'marker' || brush === 'eraser') {
+      // Always save pre-stroke state for pen/marker so we can convert to object
+      if (brush === 'pen' || brush === 'marker') {
+        if (!state.preStrokeCanvas) {
+          state.preStrokeCanvas = document.createElement('canvas');
+          state.preStrokeCtx = state.preStrokeCanvas.getContext('2d');
+        }
+        state.preStrokeCanvas.width = state.canvasWidth;
+        state.preStrokeCanvas.height = state.canvasHeight;
+        state.preStrokeCtx.drawImage(layer.canvas, 0, 0);
+      }
       if (state.directDraw) {
         // Direct draw: just draw the dot on the layer
         const ctx = layer.ctx;
@@ -820,6 +838,8 @@
           obj.size = Math.max(16, Math.min(600, d.origSize * scale));
         } else if (obj.type === 'text') {
           obj.fontSize = Math.max(12, Math.min(300, Math.round(d.origSize * scale)));
+        } else if (obj.type === 'stroke') {
+          obj.scale = Math.max(0.1, Math.min(10, d.origSize * scale));
         }
       }
       previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
@@ -960,6 +980,38 @@
             sctx.stroke();
             compositeScratchToLayer(layer, brush);
           }
+        }
+        // Convert pen/marker strokes to selectable objects
+        if ((brush === 'pen' || brush === 'marker') && state.strokePoints.length > 0) {
+          // Restore the layer canvas to pre-stroke state
+          layer.ctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+          if (state.preStrokeCanvas) {
+            layer.ctx.drawImage(state.preStrokeCanvas, 0, 0);
+          }
+          // Compute bounding box and center
+          const pts = state.strokePoints;
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          pts.forEach(p => {
+            if (p.x < minX) minX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.x > maxX) maxX = p.x;
+            if (p.y > maxY) maxY = p.y;
+          });
+          const cx = (minX + maxX) / 2;
+          const cy = (minY + maxY) / 2;
+          const relPoints = pts.map(p => ({ x: p.x - cx, y: p.y - cy }));
+          layer.objects.push({
+            id: ++objectIdCounter, type: 'stroke',
+            x: cx, y: cy, rotation: 0, scale: 1,
+            points: relPoints,
+            color: state.color,
+            brushSize: state.brushSize,
+            opacity: state.brushOpacity,
+            brush: brush,
+            baseWidth: maxX - minX + state.brushSize * 2,
+            baseHeight: maxY - minY + state.brushSize * 2,
+          });
+          renderObjects();
         }
       }
     }
@@ -1581,6 +1633,10 @@
       if (obj.aspect >= 1) return { w: s, h: s / obj.aspect };
       return { w: s * obj.aspect, h: s };
     }
+    if (obj.type === 'stroke') {
+      const scale = obj.scale || 1;
+      return { w: (obj.baseWidth || 10) * scale, h: (obj.baseHeight || 10) * scale };
+    }
     // text — measure width
     objectsCtx.save();
     objectsCtx.font = textObjFontStr(obj);
@@ -1615,6 +1671,28 @@
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(obj.text, 0, 0);
+    } else if (obj.type === 'stroke') {
+      const scale = obj.scale || 1;
+      ctx.scale(scale, scale);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = obj.brushSize;
+      ctx.strokeStyle = obj.color;
+      ctx.globalAlpha = obj.brush === 'marker' ? (obj.opacity || 1) * 0.5 : (obj.opacity || 1);
+      const pts = obj.points;
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      if (pts.length === 1) {
+        ctx.lineTo(pts[0].x, pts[0].y);
+      } else {
+        for (let i = 1; i < pts.length - 1; i++) {
+          const mx = (pts[i].x + pts[i + 1].x) / 2;
+          const my = (pts[i].y + pts[i + 1].y) / 2;
+          ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+        }
+        ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+      }
+      ctx.stroke();
     }
     ctx.restore();
   }
