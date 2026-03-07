@@ -2178,8 +2178,8 @@
       const img = document.createElement('img');
       img.src = saved;
       img.alt = 'Profile';
-      img.width = 40;
-      img.height = 40;
+      img.width = 80;
+      img.height = 80;
       img.style.borderRadius = '50%';
       img.style.display = 'block';
       avatarEl.appendChild(img);
