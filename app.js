@@ -801,20 +801,29 @@
     const brush = state.activeBrush;
 
     if (brush === 'pen' || brush === 'marker' || brush === 'eraser') {
-      const midX = (state.lastX + pos.x) / 2;
-      const midY = (state.lastY + pos.y) / 2;
-      // Draw on scratch canvas at full opacity
+      // Redraw entire stroke path on scratch canvas each frame
+      // This avoids segment-join artifacts on some mobile GPUs
       const sctx = state.scratchCtx;
+      sctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
       sctx.lineCap  = 'round';
       sctx.lineJoin = 'round';
       sctx.lineWidth = state.brushSize;
       sctx.strokeStyle = brush === 'eraser' ? '#fff' : state.color;
+      const pts = state.strokePoints;
       sctx.beginPath();
-      sctx.moveTo(state.lastMidX, state.lastMidY);
-      sctx.quadraticCurveTo(state.lastX, state.lastY, midX, midY);
+      sctx.moveTo(pts[0].x, pts[0].y);
+      if (pts.length === 1) {
+        sctx.lineTo(pts[0].x, pts[0].y);
+      } else {
+        for (let i = 1; i < pts.length - 1; i++) {
+          const mx = (pts[i].x + pts[i + 1].x) / 2;
+          const my = (pts[i].y + pts[i + 1].y) / 2;
+          sctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+        }
+        const last = pts[pts.length - 1];
+        sctx.lineTo(last.x, last.y);
+      }
       sctx.stroke();
-      state.lastMidX = midX;
-      state.lastMidY = midY;
       // Composite scratch onto layer
       compositeScratchToLayer(layer, brush);
     } else if (brush === 'sprinkles') {
@@ -848,20 +857,32 @@
       return;
     }
     if (touch.pointers.size === 0) touch.isGesture = false;
-    // Draw final segment and composite for clean stroke end
-    if (state.isDrawing && state.strokePoints.length > 1) {
+    // Final composite for clean stroke end
+    if (state.isDrawing && state.strokePoints.length > 0) {
       const layer = getActiveLayer();
       if (layer) {
         const brush = state.activeBrush;
         if (brush === 'pen' || brush === 'marker' || brush === 'eraser') {
+          // Redraw full path one last time for clean result
           const sctx = state.scratchCtx;
+          sctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
           sctx.lineCap  = 'round';
           sctx.lineJoin = 'round';
           sctx.lineWidth = state.brushSize;
           sctx.strokeStyle = brush === 'eraser' ? '#fff' : state.color;
+          const pts = state.strokePoints;
           sctx.beginPath();
-          sctx.moveTo(state.lastMidX, state.lastMidY);
-          sctx.lineTo(state.lastX, state.lastY);
+          sctx.moveTo(pts[0].x, pts[0].y);
+          if (pts.length === 1) {
+            sctx.lineTo(pts[0].x, pts[0].y);
+          } else {
+            for (let i = 1; i < pts.length - 1; i++) {
+              const mx = (pts[i].x + pts[i + 1].x) / 2;
+              const my = (pts[i].y + pts[i + 1].y) / 2;
+              sctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+            }
+            sctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+          }
           sctx.stroke();
           compositeScratchToLayer(layer, brush);
         }
@@ -1832,13 +1853,47 @@
   // ═══════════════════════════════════════════════════════
   // EXPORT
   // ═══════════════════════════════════════════════════════
+  function renderBackground(ctx, w, h) {
+    const bg = BACKGROUNDS.find(b => b.id === state.selectedBackground);
+    if (!bg) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); return; }
+    if (bg.pattern === 'grid') {
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 1;
+      for (let x = 0; x <= w; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+      for (let y = 0; y <= h; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+    } else if (bg.pattern === 'dots') {
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#cccccc';
+      for (let x = 14; x < w; x += 28) for (let y = 14; y < h; y += 28) {
+        ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (bg.pattern === 'lined') {
+      ctx.fillStyle = '#fafcff'; ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = '#b0c8e8'; ctx.lineWidth = 1;
+      for (let y = 36; y <= h; y += 36) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+    } else if (bg.style && bg.style.startsWith('linear-gradient')) {
+      // Parse CSS gradient into canvas gradient
+      const colors = bg.style.match(/#[0-9a-fA-F]{6}/g) || ['#ffffff'];
+      const angle = parseFloat(bg.style.match(/(\d+)deg/) ? bg.style.match(/(\d+)deg/)[1] : '180');
+      const rad = (angle - 90) * Math.PI / 180;
+      const cx = w / 2, cy = h / 2, len = Math.max(w, h);
+      const grad = ctx.createLinearGradient(
+        cx - Math.cos(rad) * len / 2, cy - Math.sin(rad) * len / 2,
+        cx + Math.cos(rad) * len / 2, cy + Math.sin(rad) * len / 2
+      );
+      colors.forEach((c, i) => grad.addColorStop(i / Math.max(colors.length - 1, 1), c));
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
+    } else {
+      ctx.fillStyle = bg.style || '#ffffff'; ctx.fillRect(0, 0, w, h);
+    }
+  }
+
   function exportPNG() {
     const merged = document.createElement('canvas');
     merged.width  = state.canvasWidth;
     merged.height = state.canvasHeight;
     const mctx = merged.getContext('2d');
-    mctx.fillStyle = '#ffffff';
-    mctx.fillRect(0, 0, merged.width, merged.height);
+    renderBackground(mctx, merged.width, merged.height);
     state.layers.forEach(l => {
       if (!l.visible) return;
       mctx.globalAlpha = l.opacity ?? 1;
@@ -1877,13 +1932,12 @@
         })),
         activeLayerId: state.activeLayerId,
       };
-      // Thumbnail: merge all visible layers onto white background
+      // Thumbnail: merge all visible layers onto background
       const thumbCanvas = document.createElement('canvas');
       thumbCanvas.width  = state.canvasWidth;
       thumbCanvas.height = state.canvasHeight;
       const tctx = thumbCanvas.getContext('2d');
-      tctx.fillStyle = '#ffffff';
-      tctx.fillRect(0, 0, thumbCanvas.width, thumbCanvas.height);
+      renderBackground(tctx, thumbCanvas.width, thumbCanvas.height);
       state.layers.forEach(l => {
         if (!l.visible) return;
         tctx.globalAlpha = l.opacity ?? 1;
@@ -1932,10 +1986,17 @@
     state.redoStack = [];
     state.currentProjectId = projectData.id;
 
-    // Setup canvas
-    state.canvasWidth  = projectData.canvasWidth  || 1080;
-    state.canvasHeight = projectData.canvasHeight || 1080;
-    setupCanvas();
+    // Restore canvas at saved dimensions (don't recalculate from viewport)
+    const w = projectData.canvasWidth  || 1080;
+    const h = projectData.canvasHeight || 1080;
+    state.canvasWidth  = w;
+    state.canvasHeight = h;
+    traceCanvas.width   = w;
+    traceCanvas.height  = h;
+    objectsCanvas.width = w;
+    objectsCanvas.height = h;
+    previewCanvas.width = w;
+    previewCanvas.height = h;
 
     // Restore background
     if (projectData.background) {
