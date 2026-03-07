@@ -49,26 +49,28 @@
           <span class="hotspot-label">Help</span>
         </button>
 
+        <!-- Tutorial tips live inside room-pan so they share hotspot coordinates -->
+        <div class="tutorial-tip" id="tip-gallery">
+          <span>See your saved art here!</span>
+        </div>
+        <div class="tutorial-tip" id="tip-easel">
+          <span>Tap to start drawing your daily spark!</span>
+        </div>
+        <div class="tutorial-tip" id="tip-lightbulb">
+          <span>Get inspired with a new idea!</span>
+        </div>
+        <div class="tutorial-tip" id="tip-bell">
+          <span>Check out what's new!</span>
+        </div>
+        <div class="tutorial-tip" id="tip-cat">
+          <span>Tap me to hide this guide</span>
+        </div>
+
       </div>
     </div>
 
-    <!-- Tutorial tooltip overlay -->
+    <!-- Tutorial overlay (dark backdrop + dismiss text) -->
     <div id="tutorial-overlay" class="hidden">
-      <div class="tutorial-tip" id="tip-gallery">
-        <span>See your saved art here!</span>
-      </div>
-      <div class="tutorial-tip" id="tip-easel">
-        <span>Tap to start drawing your daily spark!</span>
-      </div>
-      <div class="tutorial-tip" id="tip-lightbulb">
-        <span>Get inspired with a new idea!</span>
-      </div>
-      <div class="tutorial-tip" id="tip-bell">
-        <span>Check out what's new!</span>
-      </div>
-      <div class="tutorial-tip" id="tip-cat">
-        <span>Tap me to hide this guide</span>
-      </div>
       <div id="tutorial-dismiss">Tap anywhere to close</div>
     </div>
 
@@ -161,6 +163,53 @@
             <path d="M2 18 L8 12 L13 17 L17 13 L22 18"/>
           </svg>
           <span>Overlay</span>
+        </button>
+      </div>
+      <!-- Select-mode toolbar (appears when object is selected) -->
+      <div id="select-toolbar" class="hidden">
+        <button class="tb-sub-btn" data-selact="delete" aria-label="Delete">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+          </svg>
+          <span>Delete</span>
+        </button>
+        <button class="tb-sub-btn" data-selact="copy" aria-label="Copy">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          <span>Copy</span>
+        </button>
+        <button class="tb-sub-btn" data-selact="up" aria-label="Up">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 16V8"/><path d="M8 12l4-4 4 4"/>
+          </svg>
+          <span>Up</span>
+        </button>
+        <button class="tb-sub-btn" data-selact="down" aria-label="Down">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 8v8"/><path d="M8 12l4 4 4-4"/>
+          </svg>
+          <span>Down</span>
+        </button>
+        <button class="tb-sub-btn" data-selact="front" aria-label="Front">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 18V6"/><path d="M6 10l6-6 6 6"/>
+          </svg>
+          <span>Front</span>
+        </button>
+        <button class="tb-sub-btn" data-selact="back" aria-label="Back">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 6v12"/><path d="M6 14l6 6 6-6"/>
+          </svg>
+          <span>Back</span>
+        </button>
+        <button class="tb-sub-btn" data-selact="mirror" aria-label="Mirror">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3v18" stroke-dasharray="2 2"/><path d="M17 7h2v10h-2z"/><path d="M5 7h2v10H5z"/>
+            <path d="M19 9l2 3-2 3"/><path d="M5 9L3 12l2 3"/>
+          </svg>
+          <span>Mirror</span>
         </button>
       </div>
       <!-- Main bottom bar (always visible) -->

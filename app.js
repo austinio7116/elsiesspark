@@ -559,6 +559,7 @@
     state.selectedObject = null;
     renderLayerList();
     renderObjects();
+    updateSelectToolbar();
   }
 
   function updateUndoRedoButtons() {
@@ -683,11 +684,13 @@
           };
           previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
           drawSelectionHandles();
+          updateSelectToolbar();
         } else {
           state.selectedObject = null;
           state.selectDrag = null;
           previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
           renderObjects();
+          updateSelectToolbar();
         }
       }
       return;
@@ -1661,6 +1664,7 @@
     ctx.save();
     ctx.translate(obj.x, obj.y);
     ctx.rotate(obj.rotation * Math.PI / 180);
+    if (obj.scaleX && obj.scaleX !== 1) ctx.scale(obj.scaleX, 1);
     if (obj.type === 'sticker') {
       const { w, h } = getObjectDims(obj);
       ctx.drawImage(obj.img, -w / 2, -h / 2, w, h);
@@ -1814,6 +1818,7 @@
     exitTextMode();
     previewCanvas.style.cursor = 'default';
     previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+    updateSelectToolbar();
   }
 
   function exitSelectMode() {
@@ -1822,6 +1827,7 @@
     state.selectDrag = null;
     previewCanvas.style.cursor = 'crosshair';
     previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+    updateSelectToolbar();
   }
 
   function deleteSelectedObject() {
@@ -1834,6 +1840,92 @@
     state.selectedObject = null;
     previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
     renderObjects();
+    updateSelectToolbar();
+  }
+
+  function copySelectedObject() {
+    if (!state.selectedObject) return;
+    const layer = getActiveLayer();
+    if (!layer) return;
+    pushUndo();
+    const clone = JSON.parse(JSON.stringify(state.selectedObject));
+    clone.id = ++objectIdCounter;
+    clone.x += 20;
+    clone.y += 20;
+    layer.objects.push(clone);
+    state.selectedObject = clone;
+    renderObjects();
+    drawSelectionHandles();
+  }
+
+  function moveSelectedObjectUp() {
+    if (!state.selectedObject) return;
+    const layer = getActiveLayer();
+    if (!layer) return;
+    const idx = layer.objects.findIndex(o => o.id === state.selectedObject.id);
+    if (idx < 0 || idx >= layer.objects.length - 1) return;
+    pushUndo();
+    [layer.objects[idx], layer.objects[idx + 1]] = [layer.objects[idx + 1], layer.objects[idx]];
+    renderObjects();
+    drawSelectionHandles();
+  }
+
+  function moveSelectedObjectDown() {
+    if (!state.selectedObject) return;
+    const layer = getActiveLayer();
+    if (!layer) return;
+    const idx = layer.objects.findIndex(o => o.id === state.selectedObject.id);
+    if (idx <= 0) return;
+    pushUndo();
+    [layer.objects[idx], layer.objects[idx - 1]] = [layer.objects[idx - 1], layer.objects[idx]];
+    renderObjects();
+    drawSelectionHandles();
+  }
+
+  function moveSelectedObjectToFront() {
+    if (!state.selectedObject) return;
+    const layer = getActiveLayer();
+    if (!layer) return;
+    const idx = layer.objects.findIndex(o => o.id === state.selectedObject.id);
+    if (idx < 0 || idx >= layer.objects.length - 1) return;
+    pushUndo();
+    const [obj] = layer.objects.splice(idx, 1);
+    layer.objects.push(obj);
+    renderObjects();
+    drawSelectionHandles();
+  }
+
+  function moveSelectedObjectToBack() {
+    if (!state.selectedObject) return;
+    const layer = getActiveLayer();
+    if (!layer) return;
+    const idx = layer.objects.findIndex(o => o.id === state.selectedObject.id);
+    if (idx <= 0) return;
+    pushUndo();
+    const [obj] = layer.objects.splice(idx, 1);
+    layer.objects.unshift(obj);
+    renderObjects();
+    drawSelectionHandles();
+  }
+
+  function mirrorSelectedObject() {
+    if (!state.selectedObject) return;
+    pushUndo();
+    const obj = state.selectedObject;
+    if (obj.scaleX === undefined) obj.scaleX = 1;
+    obj.scaleX *= -1;
+    renderObjects();
+    drawSelectionHandles();
+  }
+
+  function updateSelectToolbar() {
+    const bar = $('#select-toolbar');
+    if (!bar) return;
+    if (state.selectMode && state.selectedObject) {
+      bar.classList.remove('hidden');
+    } else {
+      bar.classList.add('hidden');
+    }
   }
 
   // ═══════════════════════════════════════════════════════
@@ -2623,10 +2715,13 @@
     });
     $('#hotspot-cat').addEventListener('click', () => {
       const overlay = $('#tutorial-overlay');
+      const pan = $('#room-pan');
       overlay.classList.toggle('hidden');
+      pan.classList.toggle('tutorial-active');
     });
     $('#tutorial-overlay').addEventListener('click', () => {
       $('#tutorial-overlay').classList.add('hidden');
+      $('#room-pan').classList.remove('tutorial-active');
     });
 
     // ── Draw view navigation ──
@@ -2664,6 +2759,9 @@
 
     function toggleSubmenu() {
       submenu.classList.toggle('hidden');
+      if (!submenu.classList.contains('hidden')) {
+        $('#select-toolbar')?.classList.add('hidden');
+      }
     }
 
     function closeSubmenu() {
@@ -2686,6 +2784,20 @@
           // stickers, backgrounds, etc.
           openSheet(tool);
         }
+      });
+    });
+
+    // ── Select toolbar buttons ──
+    $$('[data-selact]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.selact;
+        if (action === 'delete') deleteSelectedObject();
+        else if (action === 'copy') copySelectedObject();
+        else if (action === 'up') moveSelectedObjectUp();
+        else if (action === 'down') moveSelectedObjectDown();
+        else if (action === 'front') moveSelectedObjectToFront();
+        else if (action === 'back') moveSelectedObjectToBack();
+        else if (action === 'mirror') mirrorSelectedObject();
       });
     });
 
@@ -2891,6 +3003,7 @@
           state.selectedObject = null;
           previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
           renderObjects();
+          updateSelectToolbar();
           return;
         }
         if (state.textMode) { exitTextMode(); return; }
