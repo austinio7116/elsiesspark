@@ -96,6 +96,7 @@
       <div id="canvas-container">
         <canvas id="trace-canvas"></canvas>
         <!-- drawing layer canvases inserted here by JS -->
+        <canvas id="objects-canvas"></canvas>
         <canvas id="preview-canvas"></canvas>
       </div>
 
@@ -128,38 +129,81 @@
 
     <!-- Bottom toolbar -->
     <div id="draw-toolbar">
-      <button class="tb-btn active" data-tool="brushes" aria-label="Brushes">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 22l7.5-7.5M3 22c0-3 1.5-5 4-5"/>
-          <path d="M10.5 14.5L20 5"/>
-          <path d="M18.5 3.5a2 2 0 0 1 2.8 0l.2.2a2 2 0 0 1 0 2.8L20 8l-3-3z"/>
-        </svg>
-      </button>
-      <button class="tb-btn" data-tool="eraser" aria-label="Eraser">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 17l6-6 8 8-3 3H3v-5z"/>
-          <path d="M9 11l4-4 6 6"/>
-          <line x1="2" y1="22" x2="22" y2="22"/>
-        </svg>
-      </button>
-      <button class="tb-btn" data-tool="color" aria-label="Color" id="tb-color-btn">
-        <span id="tb-color-swatch"></span>
-      </button>
-      <button class="tb-btn" data-tool="stickers" aria-label="Stickers">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2 L15 9 L22 9 L16 14 L18 21 L12 17 L6 21 L8 14 L2 9 L9 9 Z"/></svg>
-      </button>
-      <button class="tb-btn" data-tool="layers" aria-label="Layers">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,2 22,8.5 12,15 2,8.5"/><polyline points="2,15 12,21 22,15"/><polyline points="2,11 12,17 22,11"/></svg>
-      </button>
-      <button class="tb-btn" data-tool="backgrounds" aria-label="Background">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="2" width="20" height="20" rx="3"/><circle cx="8" cy="9" r="2"/><path d="M2 18 L8 12 L13 17 L17 13 L22 18"/></svg>
-      </button>
-      <button class="tb-btn" id="btn-undo" data-tool="undo" aria-label="Undo">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h10a6 6 0 0 1 0 12H9"/><path d="M7 5L4 8l3 3"/></svg>
-      </button>
-      <button class="tb-btn" id="btn-redo" data-tool="redo" aria-label="Redo">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8H10a6 6 0 0 0 0 12h5"/><path d="M17 5l3 3-3 3"/></svg>
-      </button>
+      <!-- Submenu (appears above main bar when tools-menu is tapped, hides after selection) -->
+      <div id="toolbar-submenu" class="hidden">
+        <button class="tb-sub-btn active" data-subtool="brushes" aria-label="Draw">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+            <path d="M15 5l4 4"/>
+          </svg>
+          <span>Draw</span>
+        </button>
+        <button class="tb-sub-btn" data-subtool="text" aria-label="Text">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" stroke="none">
+            <path d="M3 5V3h10v2H9v14H7V5H3z"/>
+            <path d="M15 11v-1h6v1h-2v9h-2v-9h-2z"/>
+          </svg>
+          <span>Text</span>
+        </button>
+        <button class="tb-sub-btn" data-subtool="stickers" aria-label="Sticker">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M8 14.5c1 2 6 2 8 0" stroke-linecap="round"/>
+            <circle cx="9" cy="10" r="1.2" fill="currentColor" stroke="none"/>
+            <circle cx="15" cy="10" r="1.2" fill="currentColor" stroke="none"/>
+          </svg>
+          <span>Sticker</span>
+        </button>
+        <button class="tb-sub-btn" data-subtool="backgrounds" aria-label="Overlay">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <rect x="2" y="2" width="20" height="20" rx="3"/>
+            <circle cx="8" cy="9" r="2"/>
+            <path d="M2 18 L8 12 L13 17 L17 13 L22 18"/>
+          </svg>
+          <span>Overlay</span>
+        </button>
+      </div>
+      <!-- Main bottom bar (always visible) -->
+      <div id="toolbar-main">
+        <button class="tb-btn active" data-tool="tools-menu" id="btn-tools-menu" aria-label="Tools">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <!-- Pencil (bottom-left to top-right) -->
+            <path d="M2 22l1-4L17.5 3.5a2 2 0 0 1 2.8 2.8L6 21z"/>
+            <line x1="15" y1="6" x2="18" y2="9"/>
+            <!-- Ruler (top-left to bottom-right) -->
+            <g transform="rotate(-45 12 12)">
+              <rect x="10" y="0" width="4.5" height="24" rx="1"/>
+              <line x1="10" y1="5" x2="12" y2="5"/>
+              <line x1="10" y1="9" x2="12.5" y2="9"/>
+              <line x1="10" y1="13" x2="12" y2="13"/>
+              <line x1="10" y1="17" x2="12.5" y2="17"/>
+            </g>
+          </svg>
+        </button>
+        <button class="tb-btn" data-tool="eraser" aria-label="Eraser">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 20H9L3 14a2 2 0 0 1 0-2.8L14.2 3a2 2 0 0 1 2.8 0L22 8a2 2 0 0 1 0 2.8L15 18"/>
+            <line x1="9" y1="20" x2="22" y2="20"/>
+          </svg>
+        </button>
+        <button class="tb-btn" data-tool="pointer" aria-label="Select">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 3v16l4.5-4.5L13 22l3-1.5L12.5 13 18 10z" fill="currentColor" stroke="none"/>
+          </svg>
+        </button>
+        <button class="tb-btn" data-tool="color" aria-label="Color" id="tb-color-btn">
+          <span id="tb-color-swatch"></span>
+        </button>
+        <button class="tb-btn" id="btn-undo" data-tool="undo" aria-label="Undo">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h10a6 6 0 0 1 0 12H9"/><path d="M7 5L4 8l3 3"/></svg>
+        </button>
+        <button class="tb-btn" id="btn-redo" data-tool="redo" aria-label="Redo">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8H10a6 6 0 0 0 0 12h5"/><path d="M17 5l3 3-3 3"/></svg>
+        </button>
+        <button class="tb-btn" data-tool="layers" aria-label="Layers">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,2 22,8.5 12,15 2,8.5"/><polyline points="2,15 12,21 22,15"/><polyline points="2,11 12,17 22,11"/></svg>
+        </button>
+      </div>
     </div>
 
     <!-- Sheet overlay (backdrop) -->
@@ -275,6 +319,9 @@
       <div class="sheet-body">
         <button id="btn-add-layer">+ Add Layer</button>
         <ul id="layer-list"></ul>
+        <div class="sheet-section-label">Canvas</div>
+        <button id="btn-open-backgrounds" class="sheet-link-btn">Background &amp; Trace Image</button>
+        <button id="btn-layer-export" class="sheet-link-btn">Export as PNG</button>
       </div>
     </div>
 
@@ -289,6 +336,36 @@
       </div>
       <div class="sheet-body">
         <div id="sticker-list"></div>
+      </div>
+    </div>
+
+    <!-- ── Bottom Sheet: Text ── -->
+    <div id="sheet-text" class="bottom-sheet hidden">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title">Text</span>
+        <button class="sheet-close-btn" data-sheet="text">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
+        </button>
+      </div>
+      <div class="sheet-body">
+        <input type="text" id="text-input" placeholder="Type your text..." maxlength="120" autocomplete="off">
+        <div id="text-font-grid">
+          <button class="text-font-btn active" data-font="Nunito" style="font-family:Nunito">Aa</button>
+          <button class="text-font-btn" data-font="serif" style="font-family:Georgia,serif">Aa</button>
+          <button class="text-font-btn" data-font="monospace" style="font-family:monospace">Aa</button>
+          <button class="text-font-btn" data-font="cursive" style="font-family:'Segoe Script',cursive">Aa</button>
+        </div>
+        <div class="slider-row size-row">
+          <label>Size</label>
+          <input type="range" id="text-size" min="12" max="200" value="48">
+          <span class="slider-val" id="text-size-label">48</span>
+        </div>
+        <div id="text-style-row">
+          <button class="text-style-btn" id="text-bold" aria-label="Bold"><b>B</b></button>
+          <button class="text-style-btn" id="text-italic" aria-label="Italic"><i>I</i></button>
+        </div>
+        <button id="btn-place-text">Place on Canvas</button>
       </div>
     </div>
 

@@ -195,6 +195,14 @@
     stickerPos: null,
     stickerDragging: false,
     stickerRotation: 0,
+    // Text tool
+    textMode: null,   // { text, font, size, bold, italic }
+    textPos: null,
+    textDragging: false,
+    // Select tool
+    selectMode: false,
+    selectedObject: null,
+    selectDrag: null,  // { type, startX, startY, origX, origY, origSize, origFontSize, origRotation }
     // Color picker
     spectrumHue: 0,
     spectrumS: 0,
@@ -210,9 +218,11 @@
 
   // Canvas elements (resolved after DOM ready)
   let container, traceCanvas, traceCtx, previewCanvas, previewCtx;
+  let objectsCanvas, objectsCtx;
 
-  // ── Layer counter ─────────────────────────────────────
+  // ── Counters ────────────────────────────────────────────
   let layerIdCounter = 0;
+  let objectIdCounter = 0;
 
   // ═══════════════════════════════════════════════════════
   // INIT
@@ -221,6 +231,8 @@
     container     = $('#canvas-container');
     traceCanvas   = $('#trace-canvas');
     traceCtx      = traceCanvas.getContext('2d');
+    objectsCanvas = $('#objects-canvas');
+    objectsCtx    = objectsCanvas.getContext('2d');
     previewCanvas = $('#preview-canvas');
     previewCtx    = previewCanvas.getContext('2d');
 
@@ -352,6 +364,8 @@
     state.canvasHeight = h;
     traceCanvas.width   = w;
     traceCanvas.height  = h;
+    objectsCanvas.width = w;
+    objectsCanvas.height = h;
     previewCanvas.width = w;
     previewCanvas.height = h;
     applyBackground(state.selectedBackground);
@@ -373,7 +387,7 @@
     // Container is native canvas size; transform handles zoom + pan
     container.style.width  = state.canvasWidth + 'px';
     container.style.height = state.canvasHeight + 'px';
-    [traceCanvas, previewCanvas, ...state.layers.map(l => l.canvas)]
+    [traceCanvas, objectsCanvas, previewCanvas, ...state.layers.map(l => l.canvas)]
       .filter(Boolean)
       .forEach(c => { c.style.width = state.canvasWidth + 'px'; c.style.height = state.canvasHeight + 'px'; });
     // Center in area, then apply pan offset
@@ -401,7 +415,7 @@
     canvas.style.zIndex = id;
     container.insertBefore(canvas, previewCanvas);
     const ctx = canvas.getContext('2d');
-    const layer = { id, name: name || `Layer ${id}`, canvas, ctx, visible: true, opacity: 1 };
+    const layer = { id, name: name || `Layer ${id}`, canvas, ctx, visible: true, opacity: 1, objects: [] };
     state.layers.push(layer);
     state.activeLayerId = id;
     renderLayerList();
@@ -453,12 +467,14 @@
       li.querySelector('.layer-visibility').addEventListener('change', e => {
         l.visible = e.target.checked;
         l.canvas.style.display = l.visible ? '' : 'none';
+        renderObjects();
       });
       li.querySelector('.layer-delete').addEventListener('click', () => removeLayer(l.id));
       li.querySelector('.layer-opacity-slider').addEventListener('input', e => {
         l.opacity = parseInt(e.target.value) / 100;
         l.canvas.style.opacity = l.opacity;
         li.querySelector('.layer-opacity-val').textContent = e.target.value + '%';
+        renderObjects();
       });
       list.appendChild(li);
     }
@@ -471,6 +487,7 @@
     return state.layers.map(l => ({
       id: l.id, name: l.name, visible: l.visible, opacity: l.opacity ?? 1,
       data: l.canvas.toDataURL(),
+      objects: l.objects ? l.objects.map(o => ({ ...o })) : [],
     }));
   }
 
@@ -507,10 +524,13 @@
       img.src = sd.data;
       layer.visible = sd.visible;
       layer.opacity = sd.opacity ?? 1;
+      layer.objects = sd.objects ? sd.objects.map(o => ({ ...o })) : [];
       layer.canvas.style.display = sd.visible ? '' : 'none';
       layer.canvas.style.opacity = layer.opacity;
     });
+    state.selectedObject = null;
     renderLayerList();
+    renderObjects();
   }
 
   function updateUndoRedoButtons() {
@@ -583,6 +603,9 @@
   function startStroke(e) {
     e.preventDefault();
     trackPointer(e);
+    // Close tools submenu on canvas interaction
+    const sub = $('#toolbar-submenu');
+    if (sub && !sub.classList.contains('hidden')) sub.classList.add('hidden');
 
     if (touch.pointers.size === 2) {
       touch.isGesture = true;
@@ -605,6 +628,48 @@
     }
     if (touch.isGesture || touch.pointers.size > 1) return;
 
+    // ── Select mode ──
+    if (state.selectMode) {
+      const pos = getCanvasPos(e);
+      const handle = hitTestHandle(pos.x, pos.y);
+      if (handle) {
+        pushUndo();
+        const obj = state.selectedObject;
+        state.selectDrag = {
+          type: handle, startX: pos.x, startY: pos.y,
+          origX: obj.x, origY: obj.y,
+          origSize: obj.size || obj.fontSize,
+          origRotation: obj.rotation,
+        };
+      } else {
+        const hit = hitTestObjects(pos.x, pos.y);
+        if (hit) {
+          pushUndo();
+          state.selectedObject = hit;
+          state.selectDrag = {
+            type: 'move', startX: pos.x, startY: pos.y,
+            origX: hit.x, origY: hit.y,
+            origSize: hit.size || hit.fontSize,
+            origRotation: hit.rotation,
+          };
+          previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+          drawSelectionHandles();
+        } else {
+          state.selectedObject = null;
+          state.selectDrag = null;
+          previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+          renderObjects();
+        }
+      }
+      return;
+    }
+    if (state.textMode) {
+      const pos = getCanvasPos(e);
+      state.textPos = pos;
+      state.textDragging = true;
+      drawTextPreview();
+      return;
+    }
     if (state.stickerMode) {
       const pos = getCanvasPos(e);
       state.stickerPos = pos;
@@ -691,6 +756,37 @@
       return;
     }
 
+    // ── Select mode drag ──
+    if (state.selectMode && state.selectDrag && state.selectedObject) {
+      const pos = getCanvasPos(e);
+      const d = state.selectDrag;
+      const obj = state.selectedObject;
+      if (d.type === 'move') {
+        obj.x = d.origX + (pos.x - d.startX);
+        obj.y = d.origY + (pos.y - d.startY);
+      } else if (d.type === 'rotate') {
+        const a1 = Math.atan2(d.startY - d.origY, d.startX - d.origX);
+        const a2 = Math.atan2(pos.y - obj.y, pos.x - obj.x);
+        obj.rotation = d.origRotation + (a2 - a1) * 180 / Math.PI;
+      } else if (d.type.startsWith('scale')) {
+        const dist0 = Math.hypot(d.startX - d.origX, d.startY - d.origY) || 1;
+        const dist1 = Math.hypot(pos.x - obj.x, pos.y - obj.y);
+        const scale = Math.max(0.1, dist1 / dist0);
+        if (obj.type === 'sticker') {
+          obj.size = Math.max(16, Math.min(600, d.origSize * scale));
+        } else if (obj.type === 'text') {
+          obj.fontSize = Math.max(12, Math.min(300, Math.round(d.origSize * scale)));
+        }
+      }
+      previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+      renderObjects();
+      return;
+    }
+    if (state.textMode && state.textDragging) {
+      state.textPos = getCanvasPos(e);
+      drawTextPreview();
+      return;
+    }
     if (state.stickerMode) {
       state.stickerPos = getCanvasPos(e);
       drawStickerPreview();
@@ -735,6 +831,18 @@
 
   function endStroke(e) {
     untrackPointer(e);
+    if (state.selectMode && state.selectDrag) {
+      if (state.selectDrag.type !== 'move' || state.selectDrag.startX !== state.selectedObject?.x) {
+        // Object was modified — push undo
+        // (undo was already captured in the next startStroke that modifies)
+      }
+      state.selectDrag = null;
+      return;
+    }
+    if (state.textMode && state.textDragging && !touch.isGesture) {
+      commitText();
+      return;
+    }
     if (state.stickerMode && state.stickerDragging && !touch.isGesture) {
       commitSticker();
       return;
@@ -939,7 +1047,10 @@
 
   function updateColorSwatch() {
     const sw = $('#tb-color-swatch');
-    if (sw) sw.style.background = state.color;
+    if (!sw) return;
+    sw.style.background = state.color;
+    sw.style.backgroundClip = 'padding-box';
+    sw.style.boxShadow = 'inset 0 0 0 2.5px white';
   }
 
   // ═══════════════════════════════════════════════════════
@@ -1191,7 +1302,9 @@
   }
 
   function _startStickerMode(name, img, aspect) {
+    exitTextMode();
     exitStickerMode();
+    exitSelectMode();
     const size = state.brushSize * 6 + 40;
     state.stickerMode     = { img, size, name, aspect };
     state.stickerPos      = { x: state.canvasWidth / 2, y: state.canvasHeight / 2 };
@@ -1269,15 +1382,284 @@
     const layer = getActiveLayer();
     if (!layer || !layer.visible) return;
     pushUndo();
-    const { img } = state.stickerMode;
-    const { w, h } = stickerDims();
+    const { img, name, aspect, size } = state.stickerMode;
     const { x, y } = state.stickerPos;
-    layer.ctx.save();
-    layer.ctx.translate(x, y);
-    layer.ctx.rotate(state.stickerRotation * Math.PI / 180);
-    layer.ctx.drawImage(img, -w / 2, -h / 2, w, h);
-    layer.ctx.restore();
+    layer.objects.push({
+      id: ++objectIdCounter, type: 'sticker',
+      x, y, rotation: state.stickerRotation,
+      img, name, aspect, size,
+    });
     exitStickerMode();
+    renderObjects();
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // TEXT TOOL
+  // ═══════════════════════════════════════════════════════
+
+  function enterTextMode(text, font, size, bold, italic) {
+    exitStickerMode();
+    exitTextMode();
+    exitSelectMode();
+    state.textMode = { text, font, size, bold, italic };
+    state.textPos  = { x: state.canvasWidth / 2, y: state.canvasHeight / 2 };
+    state.textDragging = false;
+    previewCanvas.style.cursor = 'text';
+    drawTextPreview();
+    const touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    showToast(touch ? 'Tap to place your text.' : 'Click to place. Scroll to resize. Esc to cancel.');
+  }
+
+  function exitTextMode() {
+    if (!state.textMode) return;
+    state.textMode = null;
+    state.textPos  = null;
+    state.textDragging = false;
+    previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+    previewCanvas.style.cursor = 'crosshair';
+  }
+
+  function textFontStr(tm) {
+    let s = '';
+    if (tm.italic) s += 'italic ';
+    if (tm.bold) s += 'bold ';
+    s += tm.size + 'px ';
+    if (tm.font === 'cursive') s += "'Segoe Script', cursive";
+    else if (tm.font === 'serif') s += "Georgia, 'Times New Roman', serif";
+    else if (tm.font === 'monospace') s += "'Courier New', monospace";
+    else s += "'Nunito', sans-serif";
+    return s;
+  }
+
+  function drawTextPreview() {
+    if (!state.textMode || !state.textPos) return;
+    const { text, font, size, bold, italic } = state.textMode;
+    const { x, y } = state.textPos;
+    previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+    previewCtx.save();
+    previewCtx.globalAlpha = 0.7;
+    previewCtx.font = textFontStr(state.textMode);
+    previewCtx.fillStyle = state.color;
+    previewCtx.textAlign = 'center';
+    previewCtx.textBaseline = 'middle';
+    previewCtx.fillText(text, x, y);
+    previewCtx.restore();
+    // Dashed bounding box
+    const metrics = previewCtx.measureText(text);
+    previewCtx.save();
+    previewCtx.font = textFontStr(state.textMode);
+    const tw = previewCtx.measureText(text).width;
+    const th = size * 1.2;
+    previewCtx.strokeStyle = 'rgba(232,114,92,0.5)';
+    previewCtx.lineWidth = 1.5;
+    previewCtx.setLineDash([4, 4]);
+    previewCtx.strokeRect(x - tw / 2 - 6, y - th / 2 - 2, tw + 12, th + 4);
+    previewCtx.setLineDash([]);
+    previewCtx.restore();
+  }
+
+  function commitText() {
+    if (!state.textMode || !state.textPos) return;
+    const layer = getActiveLayer();
+    if (!layer || !layer.visible) return;
+    pushUndo();
+    const { text, font, size, bold, italic } = state.textMode;
+    const { x, y } = state.textPos;
+    layer.objects.push({
+      id: ++objectIdCounter, type: 'text',
+      x, y, rotation: 0,
+      text, font, fontSize: size, bold, italic,
+      color: state.color, opacity: state.brushOpacity,
+    });
+    exitTextMode();
+    renderObjects();
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // OBJECT SYSTEM (render, hit-test, select)
+  // ═══════════════════════════════════════════════════════
+
+  function getObjectDims(obj) {
+    if (obj.type === 'sticker') {
+      const s = obj.size;
+      if (obj.aspect >= 1) return { w: s, h: s / obj.aspect };
+      return { w: s * obj.aspect, h: s };
+    }
+    // text — measure width
+    objectsCtx.save();
+    objectsCtx.font = textObjFontStr(obj);
+    const tw = objectsCtx.measureText(obj.text).width;
+    objectsCtx.restore();
+    return { w: tw, h: obj.fontSize * 1.2 };
+  }
+
+  function textObjFontStr(obj) {
+    let s = '';
+    if (obj.italic) s += 'italic ';
+    if (obj.bold) s += 'bold ';
+    s += obj.fontSize + 'px ';
+    if (obj.font === 'cursive') s += "'Segoe Script', cursive";
+    else if (obj.font === 'serif') s += "Georgia, 'Times New Roman', serif";
+    else if (obj.font === 'monospace') s += "'Courier New', monospace";
+    else s += "'Nunito', sans-serif";
+    return s;
+  }
+
+  function drawObjectTo(ctx, obj) {
+    ctx.save();
+    ctx.translate(obj.x, obj.y);
+    ctx.rotate(obj.rotation * Math.PI / 180);
+    if (obj.type === 'sticker') {
+      const { w, h } = getObjectDims(obj);
+      ctx.drawImage(obj.img, -w / 2, -h / 2, w, h);
+    } else if (obj.type === 'text') {
+      ctx.font = textObjFontStr(obj);
+      ctx.fillStyle = obj.color;
+      ctx.globalAlpha = obj.opacity;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(obj.text, 0, 0);
+    }
+    ctx.restore();
+  }
+
+  function renderObjects() {
+    if (!objectsCanvas) return;
+    objectsCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+    state.layers.forEach(l => {
+      if (!l.visible || !l.objects) return;
+      objectsCtx.globalAlpha = l.opacity ?? 1;
+      l.objects.forEach(obj => drawObjectTo(objectsCtx, obj));
+    });
+    objectsCtx.globalAlpha = 1;
+    drawSelectionHandles();
+  }
+
+  // ── Hit testing ──
+  function isPointInObject(px, py, obj) {
+    const dx = px - obj.x, dy = py - obj.y;
+    const a = -obj.rotation * Math.PI / 180;
+    const lx = dx * Math.cos(a) - dy * Math.sin(a);
+    const ly = dx * Math.sin(a) + dy * Math.cos(a);
+    const { w, h } = getObjectDims(obj);
+    return Math.abs(lx) <= w / 2 + 8 && Math.abs(ly) <= h / 2 + 8;
+  }
+
+  function hitTestObjects(px, py) {
+    // Only test objects on the active layer
+    const layer = getActiveLayer();
+    if (!layer || !layer.objects) return null;
+    for (let i = layer.objects.length - 1; i >= 0; i--) {
+      if (isPointInObject(px, py, layer.objects[i])) return layer.objects[i];
+    }
+    return null;
+  }
+
+  // ── Selection handles ──
+  const HANDLE_SIZE = 10;
+
+  function getSelectionCorners(obj) {
+    const { w, h } = getObjectDims(obj);
+    const hw = w / 2 + 6, hh = h / 2 + 6;
+    const a = obj.rotation * Math.PI / 180;
+    const cos = Math.cos(a), sin = Math.sin(a);
+    function rot(lx, ly) {
+      return { x: obj.x + lx * cos - ly * sin, y: obj.y + lx * sin + ly * cos };
+    }
+    return {
+      tl: rot(-hw, -hh), tr: rot(hw, -hh),
+      bl: rot(-hw, hh),  br: rot(hw, hh),
+      rotHandle: rot(0, -hh - 28),
+    };
+  }
+
+  function drawSelectionHandles() {
+    const obj = state.selectedObject;
+    if (!obj) return;
+    const c = getSelectionCorners(obj);
+    const ctx = previewCtx;
+    ctx.save();
+    // Dashed bounding box
+    ctx.strokeStyle = 'rgba(232,114,92,0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(c.tl.x, c.tl.y);
+    ctx.lineTo(c.tr.x, c.tr.y);
+    ctx.lineTo(c.br.x, c.br.y);
+    ctx.lineTo(c.bl.x, c.bl.y);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Rotation line
+    const topMid = { x: (c.tl.x + c.tr.x) / 2, y: (c.tl.y + c.tr.y) / 2 };
+    ctx.strokeStyle = 'rgba(232,114,92,0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(topMid.x, topMid.y);
+    ctx.lineTo(c.rotHandle.x, c.rotHandle.y);
+    ctx.stroke();
+    // Corner handles
+    [c.tl, c.tr, c.bl, c.br].forEach(p => {
+      ctx.fillStyle = 'white';
+      ctx.strokeStyle = '#e8725c';
+      ctx.lineWidth = 2;
+      ctx.fillRect(p.x - HANDLE_SIZE / 2, p.y - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE);
+      ctx.strokeRect(p.x - HANDLE_SIZE / 2, p.y - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE);
+    });
+    // Rotation handle (circle)
+    ctx.beginPath();
+    ctx.arc(c.rotHandle.x, c.rotHandle.y, 7, 0, Math.PI * 2);
+    ctx.fillStyle = 'white';
+    ctx.fill();
+    ctx.strokeStyle = '#e8725c';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function hitTestHandle(px, py) {
+    const obj = state.selectedObject;
+    if (!obj) return null;
+    const c = getSelectionCorners(obj);
+    const threshold = HANDLE_SIZE + 4;
+    function near(p) { return Math.abs(px - p.x) < threshold && Math.abs(py - p.y) < threshold; }
+    if (near(c.rotHandle)) return 'rotate';
+    if (near(c.tl)) return 'scale-tl';
+    if (near(c.tr)) return 'scale-tr';
+    if (near(c.bl)) return 'scale-bl';
+    if (near(c.br)) return 'scale-br';
+    if (isPointInObject(px, py, obj)) return 'move';
+    return null;
+  }
+
+  function enterSelectMode() {
+    state.selectMode = true;
+    state.selectedObject = null;
+    exitStickerMode();
+    exitTextMode();
+    previewCanvas.style.cursor = 'default';
+    previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+  }
+
+  function exitSelectMode() {
+    state.selectMode = false;
+    state.selectedObject = null;
+    state.selectDrag = null;
+    previewCanvas.style.cursor = 'crosshair';
+    previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+  }
+
+  function deleteSelectedObject() {
+    if (!state.selectedObject) return;
+    const layer = getActiveLayer();
+    if (!layer) return;
+    pushUndo();
+    const idx = layer.objects.findIndex(o => o.id === state.selectedObject.id);
+    if (idx >= 0) layer.objects.splice(idx, 1);
+    state.selectedObject = null;
+    previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+    renderObjects();
   }
 
   // ═══════════════════════════════════════════════════════
@@ -1343,6 +1725,9 @@
   // SHEET SYSTEM
   // ═══════════════════════════════════════════════════════
   function openSheet(id) {
+    // Close the tools submenu whenever a sheet opens
+    const sub = $('#toolbar-submenu');
+    if (sub) sub.classList.add('hidden');
     if (state.openSheet === id) { closeSheet(); return; }
     if (state.openSheet) {
       const prev = $('#sheet-' + state.openSheet);
@@ -1458,6 +1843,8 @@
       if (!l.visible) return;
       mctx.globalAlpha = l.opacity ?? 1;
       mctx.drawImage(l.canvas, 0, 0);
+      // Draw objects for this layer
+      if (l.objects) l.objects.forEach(obj => drawObjectTo(mctx, obj));
     });
     mctx.globalAlpha = 1;
     const link = document.createElement('a');
@@ -1481,6 +1868,12 @@
         layers: state.layers.map(l => ({
           id: l.id, name: l.name, visible: l.visible, opacity: l.opacity ?? 1,
           data: l.canvas.toDataURL(),
+          objects: (l.objects || []).map(o => {
+            const s = { ...o };
+            // Can't serialize Image — save reference info instead
+            if (s.type === 'sticker') { delete s.img; }
+            return s;
+          }),
         })),
         activeLayerId: state.activeLayerId,
       };
@@ -1495,6 +1888,7 @@
         if (!l.visible) return;
         tctx.globalAlpha = l.opacity ?? 1;
         tctx.drawImage(l.canvas, 0, 0);
+        if (l.objects) l.objects.forEach(obj => drawObjectTo(tctx, obj));
       });
       tctx.globalAlpha = 1;
       projectData.thumbnail = thumbCanvas.toDataURL('image/png');
@@ -1557,7 +1951,33 @@
       layer.canvas.style.display = ld.visible ? '' : 'none';
       layer.canvas.style.opacity = layer.opacity;
       const img = new Image();
-      img.onload = () => layer.ctx.drawImage(img, 0, 0);
+      img.onload = () => {
+        layer.ctx.drawImage(img, 0, 0);
+        // Restore objects after raster is loaded
+        if (ld.objects) {
+          layer.objects = ld.objects.map(o => {
+            const obj = { ...o };
+            if (obj.type === 'sticker' && !obj.img) {
+              // Reconstruct Image from sticker name
+              const sticker = STICKERS.find(s => s.name === obj.name);
+              const fileSt  = FILE_STICKERS.find(s => s.name === obj.name);
+              if (sticker) {
+                const blob = new Blob([sticker.svg], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(blob);
+                const simg = new Image();
+                simg.onload = () => { URL.revokeObjectURL(url); obj.img = simg; renderObjects(); };
+                simg.src = url;
+              } else if (fileSt) {
+                const simg = new Image();
+                simg.crossOrigin = 'anonymous';
+                simg.onload = () => { obj.img = simg; renderObjects(); };
+                simg.src = fileSt.src;
+              }
+            }
+            return obj;
+          });
+        }
+      };
       img.src = ld.data;
     });
 
@@ -1565,6 +1985,7 @@
     state.activeLayerId = projectData.activeLayerId || state.layers[0]?.id;
     renderLayerList();
     updateUndoRedoButtons();
+    setTimeout(() => renderObjects(), 100);
     if (projectData.prompt) {
       const el = $('#draw-prompt-text');
       if (el) el.textContent = projectData.prompt;
@@ -1797,7 +2218,10 @@
 
     previewCanvas.addEventListener('wheel', e => {
       e.preventDefault();
-      if (state.stickerMode) {
+      if (state.textMode) {
+        state.textMode.size = Math.max(12, Math.min(200, state.textMode.size + (e.deltaY > 0 ? -4 : 4)));
+        drawTextPreview();
+      } else if (state.stickerMode) {
         if (e.shiftKey) state.stickerRotation += e.deltaY > 0 ? 15 : -15;
         else state.stickerMode.size = Math.max(16, Math.min(600, state.stickerMode.size + (e.deltaY > 0 ? -8 : 8)));
         drawStickerPreview();
@@ -1847,12 +2271,16 @@
     $('#btn-back-room').addEventListener('click', () => {
       closeSheet();
       exitStickerMode();
+      exitTextMode();
+      exitSelectMode();
       showView('room');
     });
     $('#btn-done').addEventListener('click', () => {
       saveProject();
       closeSheet();
       exitStickerMode();
+      exitTextMode();
+      exitSelectMode();
       showView('room');
     });
 
@@ -1868,16 +2296,56 @@
     // ── News navigation ──
     $('#btn-back-news').addEventListener('click', () => showView('room'));
 
-    // ── Bottom toolbar buttons ──
+    // ── Tools submenu ──
+    const submenu = $('#toolbar-submenu');
+    const toolsMenuBtn = $('#btn-tools-menu');
+
+    function toggleSubmenu() {
+      submenu.classList.toggle('hidden');
+    }
+
+    function closeSubmenu() {
+      submenu.classList.add('hidden');
+    }
+
+    // Submenu item clicks
+    $$('.tb-sub-btn[data-subtool]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tool = btn.dataset.subtool;
+        $$('.tb-sub-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        closeSubmenu();
+
+        if (tool === 'text') {
+          openSheet('text');
+        } else if (tool === 'brushes') {
+          openSheet('brushes');
+        } else {
+          // stickers, backgrounds, etc.
+          openSheet(tool);
+        }
+      });
+    });
+
+    // ── Main toolbar buttons ──
     $$('.tb-btn[data-tool]').forEach(btn => {
       btn.addEventListener('click', () => {
         const tool = btn.dataset.tool;
+        if (tool === 'tools-menu') {
+          toggleSubmenu();
+          return;
+        }
+        closeSubmenu();
         if (tool === 'eraser') {
-          // Toggle eraser directly, no sheet
           exitStickerMode();
+          exitTextMode();
+          exitSelectMode();
           $$('.brush-btn').forEach(b => b.classList.remove('active'));
           state.activeBrush = 'eraser';
-          // Visual active on toolbar
+          $$('.tb-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        } else if (tool === 'pointer') {
+          enterSelectMode();
           $$('.tb-btn').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
         } else if (tool === 'undo') {
@@ -1886,15 +2354,19 @@
           redo();
         } else {
           openSheet(tool);
-          // Brush tool activates brush sheet but also marks btn
-          $$('.tb-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
         }
       });
     });
 
-    // Mark brushes button as default active
-    $$('.tb-btn[data-tool="brushes"]').forEach(b => b.classList.add('active'));
+    // ── Layer sheet: background & export shortcuts ──
+    $('#btn-open-backgrounds')?.addEventListener('click', () => {
+      closeSheet();
+      setTimeout(() => openSheet('backgrounds'), 100);
+    });
+    $('#btn-layer-export')?.addEventListener('click', () => {
+      const exportBtn = $('#btn-export');
+      if (exportBtn) exportBtn.click();
+    });
 
     // ── Sheet overlay dismiss ──
     $('#sheet-overlay').addEventListener('click', closeSheet);
@@ -1963,9 +2435,13 @@
         btn.classList.add('active');
         state.activeBrush = btn.dataset.brush;
         exitStickerMode();
-        // Set brushes tool as active in toolbar
+        exitTextMode();
+        exitSelectMode();
+        // Set tools-menu as active in main bar, Draw as active in submenu
         $$('.tb-btn').forEach(b => b.classList.remove('active'));
-        $$('.tb-btn[data-tool="brushes"]').forEach(b => b.classList.add('active'));
+        $('#btn-tools-menu')?.classList.add('active');
+        $$('.tb-sub-btn').forEach(b => b.classList.remove('active'));
+        $$('.tb-sub-btn[data-subtool="brushes"]').forEach(b => b.classList.add('active'));
         closeSheet();
       });
     });
@@ -2005,6 +2481,38 @@
     });
     $('#sticker-cancel')?.addEventListener('click', () => exitStickerMode());
 
+    // ── Text sheet ──
+    const textSizeSlider = $('#text-size');
+    if (textSizeSlider) {
+      textSizeSlider.addEventListener('input', e => {
+        $('#text-size-label').textContent = e.target.value;
+      });
+    }
+    $$('.text-font-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('.text-font-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+    $('#text-bold')?.addEventListener('click', e => {
+      e.currentTarget.classList.toggle('active');
+    });
+    $('#text-italic')?.addEventListener('click', e => {
+      e.currentTarget.classList.toggle('active');
+    });
+    $('#btn-place-text')?.addEventListener('click', () => {
+      const input = $('#text-input');
+      const text = input?.value.trim();
+      if (!text) { showToast('Type something first!'); return; }
+      const fontBtn = document.querySelector('.text-font-btn.active');
+      const font = fontBtn?.dataset.font || 'Nunito';
+      const size = parseInt($('#text-size')?.value || 48);
+      const bold = $('#text-bold')?.classList.contains('active') || false;
+      const italic = $('#text-italic')?.classList.contains('active') || false;
+      closeSheet();
+      enterTextMode(text, font, size, bold, italic);
+    });
+
     // ── Background sheet ──
     $('#btn-import-image')?.addEventListener('click', () => $('#file-import').click());
     $('#file-import')?.addEventListener('change', e => {
@@ -2017,8 +2525,22 @@
     // ── Keyboard shortcuts ──
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
+        if (state.selectMode && state.selectedObject) {
+          state.selectedObject = null;
+          previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+          renderObjects();
+          return;
+        }
+        if (state.textMode) { exitTextMode(); return; }
         if (state.stickerMode) { exitStickerMode(); return; }
         closeSheet();
+      }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (state.selectMode && state.selectedObject && e.target.tagName !== 'INPUT') {
+          e.preventDefault();
+          deleteSelectedObject();
+          return;
+        }
       }
       if (e.target.tagName === 'INPUT') return;
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
