@@ -153,7 +153,8 @@
     fitZoomLevel: 1,
     // Tools
     activeBrush: 'pen',
-    brushSize: 4,
+    brushSize: 20,
+    eraserSize: 30,
     brushOpacity: 1,
     color: '#222222',
     // Layers
@@ -605,6 +606,10 @@
   // ═══════════════════════════════════════════════════════
   // DRAWING ENGINE
   // ═══════════════════════════════════════════════════════
+  function getActiveSize() {
+    return state.activeBrush === 'eraser' ? state.eraserSize : state.brushSize;
+  }
+
   function getCanvasPos(e) {
     const rect = previewCanvas.getBoundingClientRect();
     return {
@@ -722,9 +727,9 @@
     const brush = state.activeBrush;
     // Pen at full opacity: draw directly to layer (no scratch canvas needed)
     state.directDraw = (brush === 'pen' && state.brushOpacity >= 1);
-    if (brush === 'pen' || brush === 'marker' || brush === 'eraser') {
+    if (brush === 'pen' || brush === 'marker' || brush === 'glitz' || brush === 'eraser') {
       // Always save pre-stroke state for pen/marker so we can convert to object
-      if (brush === 'pen' || brush === 'marker') {
+      if (brush === 'pen' || brush === 'marker' || brush === 'glitz') {
         if (!state.preStrokeCanvas) {
           state.preStrokeCanvas = document.createElement('canvas');
           state.preStrokeCtx = state.preStrokeCanvas.getContext('2d');
@@ -739,7 +744,7 @@
         ctx.save();
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        ctx.lineWidth = state.brushSize;
+        ctx.lineWidth = getActiveSize();
         ctx.strokeStyle = state.color;
         ctx.beginPath();
         ctx.moveTo(pos.x, pos.y);
@@ -766,7 +771,7 @@
         const sctx = state.scratchCtx;
         sctx.lineCap = 'round';
         sctx.lineJoin = 'round';
-        sctx.lineWidth = state.brushSize;
+        sctx.lineWidth = getActiveSize();
         sctx.strokeStyle = brush === 'eraser' ? '#fff' : state.color;
         sctx.beginPath();
         sctx.moveTo(pos.x, pos.y);
@@ -867,7 +872,7 @@
     const ctx   = layer.ctx;
     const brush = state.activeBrush;
 
-    if (brush === 'pen' || brush === 'marker' || brush === 'eraser') {
+    if (brush === 'pen' || brush === 'marker' || brush === 'glitz' || brush === 'eraser') {
       if (state.directDraw) {
         // Direct draw: draw just this segment onto the layer
         const ctx = layer.ctx;
@@ -876,7 +881,7 @@
         ctx.save();
         ctx.lineCap  = 'round';
         ctx.lineJoin = 'round';
-        ctx.lineWidth = state.brushSize;
+        ctx.lineWidth = getActiveSize();
         ctx.strokeStyle = state.color;
         ctx.beginPath();
         ctx.moveTo(state.lastMidX, state.lastMidY);
@@ -891,7 +896,7 @@
         sctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
         sctx.lineCap  = 'round';
         sctx.lineJoin = 'round';
-        sctx.lineWidth = state.brushSize;
+        sctx.lineWidth = getActiveSize();
         sctx.strokeStyle = brush === 'eraser' ? '#fff' : state.color;
         const pts = state.strokePoints;
         sctx.beginPath();
@@ -945,14 +950,14 @@
       const layer = getActiveLayer();
       if (layer) {
         const brush = state.activeBrush;
-        if (brush === 'pen' || brush === 'marker' || brush === 'eraser') {
+        if (brush === 'pen' || brush === 'marker' || brush === 'glitz' || brush === 'eraser') {
           if (state.directDraw) {
             // Direct draw: draw final segment
             const ctx = layer.ctx;
             ctx.save();
             ctx.lineCap  = 'round';
             ctx.lineJoin = 'round';
-            ctx.lineWidth = state.brushSize;
+            ctx.lineWidth = getActiveSize();
             ctx.strokeStyle = state.color;
             ctx.beginPath();
             ctx.moveTo(state.lastMidX, state.lastMidY);
@@ -965,7 +970,7 @@
             sctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
             sctx.lineCap  = 'round';
             sctx.lineJoin = 'round';
-            sctx.lineWidth = state.brushSize;
+            sctx.lineWidth = getActiveSize();
             sctx.strokeStyle = brush === 'eraser' ? '#fff' : state.color;
             const pts = state.strokePoints;
             sctx.beginPath();
@@ -985,7 +990,7 @@
           }
         }
         // Convert pen/marker strokes to selectable objects
-        if ((brush === 'pen' || brush === 'marker') && state.strokePoints.length > 0) {
+        if ((brush === 'pen' || brush === 'marker' || brush === 'glitz') && state.strokePoints.length > 0) {
           // Restore the layer canvas to pre-stroke state
           layer.ctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
           if (state.preStrokeCanvas) {
@@ -1194,6 +1199,12 @@
     updateColorSwatch();
     syncSlidersTabs(hex);
     updateColorGridSelection();
+    if (state.selectMode && state.selectedObject && (state.selectedObject.type === 'stroke' || state.selectedObject.type === 'text')) {
+      pushUndo();
+      state.selectedObject.color = hex;
+      renderObjects();
+      drawSelectionHandles();
+    }
   }
 
   function updateColorSwatch() {
@@ -1697,6 +1708,48 @@
         ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
       }
       ctx.stroke();
+      // Glitz: overlay glitter particles along the stroke path
+      if (obj.brush === 'glitz') {
+        const pts = obj.points;
+        const seed = obj.id || 0;
+        const rng = (function(s) { return function() { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; }; })(seed);
+        const step = Math.max(2, obj.brushSize * 0.3);
+        for (let i = 0; i < pts.length - 1; i++) {
+          const dx = pts[i + 1].x - pts[i].x;
+          const dy = pts[i + 1].y - pts[i].y;
+          const segLen = Math.hypot(dx, dy);
+          const steps = Math.max(1, Math.floor(segLen / step));
+          for (let j = 0; j < steps; j++) {
+            const t = j / steps;
+            const bx = pts[i].x + dx * t;
+            const by = pts[i].y + dy * t;
+            const count = Math.floor(rng() * 3) + 2;
+            for (let k = 0; k < count; k++) {
+              const spread = obj.brushSize * 0.45;
+              const gx = bx + (rng() - 0.5) * spread * 2;
+              const gy = by + (rng() - 0.5) * spread * 2;
+              const gr = rng() * obj.brushSize * 0.12 + 0.5;
+              const bright = rng() * 0.5 + 0.5;
+              ctx.globalAlpha = bright * (obj.opacity || 1);
+              ctx.fillStyle = rng() > 0.5 ? '#fff' : shiftHue(obj.color, Math.floor(rng() * 60 - 30));
+              ctx.beginPath();
+              ctx.arc(gx, gy, gr, 0, Math.PI * 2);
+              ctx.fill();
+              // Draw tiny sparkle cross on some particles
+              if (rng() > 0.7) {
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 0.5;
+                ctx.globalAlpha = bright * 0.8 * (obj.opacity || 1);
+                const arm = gr * 2;
+                ctx.beginPath();
+                ctx.moveTo(gx - arm, gy); ctx.lineTo(gx + arm, gy);
+                ctx.moveTo(gx, gy - arm); ctx.lineTo(gx, gy + arm);
+                ctx.stroke();
+              }
+            }
+          }
+        }
+      }
     }
     ctx.restore();
   }
@@ -2818,6 +2871,7 @@
           state.activeBrush = 'eraser';
           $$('.tb-btn').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
+          openSheet('eraser');
         } else if (tool === 'pointer') {
           enterSelectMode();
           $$('.tb-btn').forEach(b => b.classList.remove('active'));
@@ -2925,6 +2979,14 @@
       sizeSlider.addEventListener('input', e => {
         state.brushSize = parseInt(e.target.value);
         $('#brush-size-label').textContent = state.brushSize;
+      });
+    }
+
+    const eraserSlider = $('#eraser-size');
+    if (eraserSlider) {
+      eraserSlider.addEventListener('input', e => {
+        state.eraserSize = parseInt(e.target.value);
+        $('#eraser-size-label').textContent = state.eraserSize;
       });
     }
 
