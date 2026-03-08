@@ -156,6 +156,7 @@
     brushSize: 20,
     eraserSize: 30,
     brushOpacity: 1,
+    brushSoftness: 0,
     color: '#222222',
     // Layers
     layers: [],
@@ -700,7 +701,11 @@
     // Procedural brushes handle their own opacity in drawObjectTo
     const isProc = (brush === 'sprinkles' || brush === 'vine' || brush === 'fairylights' || brush === 'glitz');
     previewCtx.globalAlpha = isProc ? 1 : (brush === 'marker' ? state.brushOpacity * 0.5 : state.brushOpacity);
+    if (state.brushSoftness > 0 && (brush === 'pen' || brush === 'marker')) {
+      previewCtx.filter = `blur(${state.brushSoftness * getActiveSize() * 0.4}px)`;
+    }
     previewCtx.drawImage(state.scratchCanvas, 0, 0);
+    previewCtx.filter = 'none';
     previewCtx.restore();
   }
 
@@ -1014,6 +1019,7 @@
             color: brush === 'eraser' ? '#000' : state.color,
             brushSize: activeSize,
             opacity: state.brushOpacity,
+            softness: state.brushSoftness,
             brush: brush,
             baseWidth: maxX - minX + activeSize * 2 * expandFactor,
             baseHeight: maxY - minY + activeSize * 2 * expandFactor,
@@ -1112,6 +1118,7 @@
     sw.style.background = state.color;
     sw.style.backgroundClip = 'padding-box';
     sw.style.boxShadow = 'inset 0 0 0 2.5px white';
+    updateBrushPreview();
   }
 
   // ═══════════════════════════════════════════════════════
@@ -1595,25 +1602,44 @@
       const bs = obj.brush;
 
       if (bs === 'pen' || bs === 'marker' || bs === 'eraser') {
+        const soft = obj.softness || 0;
+        const useSoft = soft > 0 && bs !== 'eraser';
+        // If soft, draw stroke to temp canvas then composite with blur
+        const tgt = useSoft ? _getSoftTmpCtx(ctx.canvas.width, ctx.canvas.height) : ctx;
+        if (useSoft) {
+          tgt.save();
+          tgt.translate(obj.x, obj.y);
+          tgt.rotate(obj.rotation * Math.PI / 180);
+          tgt.scale(obj.scale || 1, obj.scale || 1);
+        }
         if (bs === 'eraser') ctx.globalCompositeOperation = 'destination-out';
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = obj.brushSize;
-        ctx.strokeStyle = bs === 'eraser' ? '#000' : obj.color;
-        ctx.globalAlpha = bs === 'marker' ? opacity * 0.5 : opacity;
-        ctx.beginPath();
-        ctx.moveTo(pts[0].x, pts[0].y);
+        tgt.lineCap = 'round';
+        tgt.lineJoin = 'round';
+        tgt.lineWidth = obj.brushSize;
+        tgt.strokeStyle = bs === 'eraser' ? '#000' : obj.color;
+        tgt.globalAlpha = bs === 'marker' ? opacity * 0.5 : opacity;
+        tgt.beginPath();
+        tgt.moveTo(pts[0].x, pts[0].y);
         if (pts.length === 1) {
-          ctx.lineTo(pts[0].x, pts[0].y);
+          tgt.lineTo(pts[0].x, pts[0].y);
         } else {
           for (let i = 1; i < pts.length - 1; i++) {
             const mx = (pts[i].x + pts[i + 1].x) / 2;
             const my = (pts[i].y + pts[i + 1].y) / 2;
-            ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+            tgt.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
           }
-          ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+          tgt.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
         }
-        ctx.stroke();
+        tgt.stroke();
+        if (useSoft) {
+          tgt.restore();
+          // Reset transform so we can blit the full-size temp canvas aligned
+          ctx.restore();
+          ctx.save();
+          ctx.filter = `blur(${soft * obj.brushSize * 0.4}px)`;
+          ctx.drawImage(tgt.canvas, 0, 0);
+          ctx.filter = 'none';
+        }
 
       } else if (bs === 'glitz') {
         // Glitz: base stroke + glitter overlay in single-color shades
@@ -2073,6 +2099,18 @@
     ctx.restore();
   }
 
+  // Temp canvas for soft-brush rendering (reused)
+  let _softTmpCanvas, _softTmpCtx;
+  function _getSoftTmpCtx(w, h) {
+    if (!_softTmpCanvas) {
+      _softTmpCanvas = document.createElement('canvas');
+      _softTmpCtx = _softTmpCanvas.getContext('2d');
+    }
+    _softTmpCanvas.width = w;
+    _softTmpCanvas.height = h;
+    return _softTmpCtx;
+  }
+
   // Temp canvas for per-layer rendering (reused)
   let _layerTmpCanvas, _layerTmpCtx;
   function getLayerTmpCanvas() {
@@ -2528,6 +2566,76 @@
   // ═══════════════════════════════════════════════════════
   // SHEET SYSTEM
   // ═══════════════════════════════════════════════════════
+  function updateBrushPreview() {
+    const canvas = $('#brush-preview-canvas');
+    if (!canvas) return;
+    const show = state.activeBrush === 'pen' || state.activeBrush === 'marker';
+    canvas.style.display = show ? '' : 'none';
+    if (!show) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth * dpr;
+    const h = canvas.clientHeight * dpr;
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, w, h);
+
+    const size = state.brushSize * dpr;
+    const soft = state.brushSoftness;
+    const color = state.color;
+    const isMarker = state.activeBrush === 'marker';
+    const alpha = isMarker ? state.brushOpacity * 0.5 : state.brushOpacity;
+
+    // Draw a smooth S-curve stroke preview
+    const pad = Math.max(size * 0.5 + soft * size * 0.5, 12 * dpr);
+    const x0 = pad, x1 = w - pad;
+    const cy = h / 2;
+    const amp = Math.min((h - size) / 2 - soft * size * 0.3, h * 0.28);
+
+    if (soft > 0) {
+      // Soft brush: draw to temp canvas, blit with blur
+      const tmp = document.createElement('canvas');
+      tmp.width = w; tmp.height = h;
+      const tc = tmp.getContext('2d');
+      tc.lineCap = 'round';
+      tc.lineJoin = 'round';
+      tc.lineWidth = size;
+      tc.strokeStyle = color;
+      tc.globalAlpha = alpha;
+      tc.beginPath();
+      tc.moveTo(x0, cy);
+      tc.bezierCurveTo(x0 + (x1 - x0) * 0.33, cy - amp, x0 + (x1 - x0) * 0.66, cy + amp, x1, cy);
+      tc.stroke();
+      ctx.filter = `blur(${soft * size * 0.4}px)`;
+      ctx.drawImage(tmp, 0, 0);
+      ctx.filter = 'none';
+    } else {
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = size;
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.moveTo(x0, cy);
+      ctx.bezierCurveTo(x0 + (x1 - x0) * 0.33, cy - amp, x0 + (x1 - x0) * 0.66, cy + amp, x1, cy);
+      ctx.stroke();
+    }
+  }
+
+  function updateBrushOptions() {
+    $$('.brush-options').forEach(el => el.classList.add('hidden'));
+    const opt = $(`#brush-opt-${state.activeBrush}`);
+    if (opt) opt.classList.remove('hidden');
+    // Show softness slider only for pen and marker
+    const softnessRow = $('#softness-row');
+    if (softnessRow) {
+      const show = state.activeBrush === 'pen' || state.activeBrush === 'marker';
+      softnessRow.style.display = show ? '' : 'none';
+    }
+    updateBrushPreview();
+  }
+
   function openSheet(id) {
     // Close the tools submenu whenever a sheet opens
     const sub = $('#toolbar-submenu');
@@ -2548,6 +2656,10 @@
     overlay.classList.remove('hidden');
     if (previewCanvas) previewCanvas.style.pointerEvents = 'none';
 
+    // Show/hide brush-specific options
+    if (id === 'brushes') {
+      updateBrushOptions();
+    }
     // Lazy-init spectrum/hue canvases
     if (id === 'color') {
       setTimeout(() => {
@@ -2679,19 +2791,30 @@
     }
   }
 
+  function renderLayerToCanvas(targetCtx, l) {
+    if (!l.visible) return;
+    const hasEraser = l.objects && l.objects.some(o => o.brush === 'eraser');
+    if (hasEraser) {
+      const tmp = getLayerTmpCanvas();
+      tmp.ctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+      tmp.ctx.drawImage(l.canvas, 0, 0);
+      l.objects.forEach(obj => drawObjectTo(tmp.ctx, obj));
+      targetCtx.globalAlpha = l.opacity ?? 1;
+      targetCtx.drawImage(tmp.canvas, 0, 0);
+    } else {
+      targetCtx.globalAlpha = l.opacity ?? 1;
+      targetCtx.drawImage(l.canvas, 0, 0);
+      if (l.objects) l.objects.forEach(obj => drawObjectTo(targetCtx, obj));
+    }
+  }
+
   function exportPNG() {
     const merged = document.createElement('canvas');
     merged.width  = state.canvasWidth;
     merged.height = state.canvasHeight;
     const mctx = merged.getContext('2d');
     renderBackground(mctx, merged.width, merged.height);
-    state.layers.forEach(l => {
-      if (!l.visible) return;
-      mctx.globalAlpha = l.opacity ?? 1;
-      mctx.drawImage(l.canvas, 0, 0);
-      // Draw objects for this layer
-      if (l.objects) l.objects.forEach(obj => drawObjectTo(mctx, obj));
-    });
+    state.layers.forEach(l => renderLayerToCanvas(mctx, l));
     mctx.globalAlpha = 1;
     const link = document.createElement('a');
     link.download = 'elsies-spark-' + Date.now() + '.png';
@@ -2760,12 +2883,7 @@
       thumbCanvas.height = state.canvasHeight;
       const tctx = thumbCanvas.getContext('2d');
       renderBackground(tctx, thumbCanvas.width, thumbCanvas.height);
-      state.layers.forEach(l => {
-        if (!l.visible) return;
-        tctx.globalAlpha = l.opacity ?? 1;
-        tctx.drawImage(l.canvas, 0, 0);
-        if (l.objects) l.objects.forEach(obj => drawObjectTo(tctx, obj));
-      });
+      state.layers.forEach(l => renderLayerToCanvas(tctx, l));
       tctx.globalAlpha = 1;
       projectData.thumbnail = thumbCanvas.toDataURL('image/png');
 
@@ -3372,6 +3490,7 @@
       opacitySlider.addEventListener('input', e => {
         state.brushOpacity = parseInt(e.target.value) / 100;
         $('#opacity-label').textContent = e.target.value + '%';
+        updateBrushPreview();
       });
     }
 
@@ -3379,12 +3498,6 @@
     $('#btn-save-swatch')?.addEventListener('click', saveSwatch);
 
     // ── Brush sheet ──
-    function updateBrushOptions() {
-      $$('.brush-options').forEach(el => el.classList.add('hidden'));
-      const opt = $(`#brush-opt-${state.activeBrush}`);
-      if (opt) opt.classList.remove('hidden');
-    }
-
     $$('.brush-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         $$('.brush-btn').forEach(b => b.classList.remove('active'));
@@ -3427,6 +3540,16 @@
       sizeSlider.addEventListener('input', e => {
         state.brushSize = parseInt(e.target.value);
         $('#brush-size-label').textContent = state.brushSize;
+        updateBrushPreview();
+      });
+    }
+
+    const softnessSlider = $('#brush-softness');
+    if (softnessSlider) {
+      softnessSlider.addEventListener('input', e => {
+        state.brushSoftness = parseInt(e.target.value) / 100;
+        $('#brush-softness-label').textContent = e.target.value + '%';
+        updateBrushPreview();
       });
     }
 

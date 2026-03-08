@@ -352,10 +352,20 @@
             <span>Fairy Lights</span>
           </button>
         </div>
-        <div class="slider-row size-row">
-          <label>Size</label>
+        <canvas id="brush-preview-canvas" width="240" height="60"></canvas>
+        <div class="brush-slider-group size-row">
+          <div class="brush-slider-header">
+            <label>Size</label>
+            <span class="slider-val" id="brush-size-label">20</span>
+          </div>
           <input type="range" id="brush-size" min="1" max="80" value="20">
-          <span class="slider-val" id="brush-size-label">20</span>
+        </div>
+        <div class="brush-slider-group" id="softness-row">
+          <div class="brush-slider-header">
+            <label>Softness</label>
+            <span class="slider-val" id="brush-softness-label">0%</span>
+          </div>
+          <input type="range" id="brush-softness" min="0" max="100" value="0">
         </div>
         <div id="brush-opt-sprinkles" class="brush-options hidden">
           <div class="slider-row">
