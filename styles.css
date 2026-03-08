@@ -944,9 +944,20 @@ button:active { transform: scale(0.95); }
   margin-bottom: 4px;
   font-size: 13px;
   font-weight: 600;
-  cursor: pointer;
+  cursor: grab;
   background: #f9f5f0;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.layer-item.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+}
+
+.layer-item.drag-over {
+  box-shadow: 0 -2px 0 0 var(--accent) inset;
 }
 
 .layer-item.active {
@@ -975,6 +986,16 @@ button:active { transform: scale(0.95); }
 .layer-item .layer-delete:active { color: var(--accent); opacity: 1; }
 
 .layer-row { display: flex; align-items: center; gap: 8px; width: 100%; }
+
+.layer-drag-handle {
+  cursor: grab;
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.5;
+  padding: 0 2px;
+  letter-spacing: 1px;
+}
 
 .layer-opacity-row {
   display: flex;
@@ -1387,28 +1408,38 @@ button:active { transform: scale(0.95); }
   overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: 14px;
   align-content: start;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
-  padding: 12px;
+  padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   background: #fff;
+  scroll-behavior: smooth;
 }
 
 .gallery-thumb {
-  aspect-ratio: 3/4;
+  aspect-ratio: 1/1;
   background: var(--bg);
   cursor: pointer;
   overflow: hidden;
   position: relative;
   border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.gallery-thumb:active {
+  transform: scale(0.97);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.10);
 }
 
 .gallery-thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: #fafafa;
+  padding: 4px;
 }
 
 .gallery-thumb-label {
@@ -1416,12 +1447,114 @@ button:active { transform: scale(0.95); }
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 8px 10px 6px;
+  padding: 20px 10px 8px;
   font-size: 11px;
   font-weight: 700;
   color: white;
-  background: linear-gradient(transparent, rgba(0,0,0,0.45));
+  background: linear-gradient(transparent, rgba(0,0,0,0.5));
   border-radius: 0 0 16px 16px;
+}
+
+.gallery-thumb-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.45);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  z-index: 2;
+  opacity: 0.7;
+  transition: opacity 0.15s, background 0.15s;
+  box-shadow: none;
+  padding: 0;
+}
+
+.gallery-thumb-delete:hover,
+.gallery-thumb-delete:active {
+  opacity: 1;
+  background: rgba(220,50,50,0.75);
+}
+
+/* ── Delete confirmation modal ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: modalFadeIn 0.15s ease;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-box {
+  background: var(--surface-raised);
+  border-radius: 20px;
+  padding: 28px 24px 20px;
+  max-width: 300px;
+  width: 85%;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  animation: modalSlideUp 0.2s ease;
+}
+
+@keyframes modalSlideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-box h3 {
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.modal-box p {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  line-height: 1.4;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.modal-actions button {
+  flex: 1;
+  padding: 11px 0;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+}
+
+.modal-btn-cancel {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.modal-btn-danger {
+  background: #e53935;
+  color: white;
 }
 
 #gallery-empty {
