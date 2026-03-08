@@ -2181,12 +2181,14 @@
         }
 
       } else if (bs === 'tree') {
-        // Tree: draws trunk following stroke, adds branches and leaves procedurally
+        // ── Fractal Tree Generator ──────────────────────────────
+        // Tapered trunk polygon along user stroke, recursive branching
+        // with da Vinci width rule and tapered bezier segments.
         const seed = obj.id || 0;
         const rng = (function(s) { return function() { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; }; })(seed);
         ctx.globalAlpha = opacity;
 
-        // Compute arc lengths
+        // ── Arc-length utilities for the stroke path ──
         const arcLens = [0];
         for (let i = 1; i < pts.length; i++) {
           arcLens.push(arcLens[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
@@ -2194,218 +2196,405 @@
         const totalLen = arcLens[arcLens.length - 1];
         if (totalLen < 2) { ctx.restore(); return; }
 
-        function pointAtArcTr(d) {
+        function ptAt(d) {
+          d = Math.max(0, Math.min(d, totalLen));
           for (let i = 1; i < arcLens.length; i++) {
             if (arcLens[i] >= d) {
-              const segT = (d - arcLens[i - 1]) / (arcLens[i] - arcLens[i - 1] || 1);
-              return {
-                x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * segT,
-                y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * segT,
-                nx: -(pts[i].y - pts[i - 1].y), ny: pts[i].x - pts[i - 1].x,
-              };
+              const t = (d - arcLens[i - 1]) / (arcLens[i] - arcLens[i - 1] || 1);
+              return { x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * t,
+                       y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * t };
             }
           }
-          const last = pts.length - 1;
-          const nx2 = last > 0 ? -(pts[last].y - pts[last - 1].y) : 0;
-          const ny2 = last > 0 ? (pts[last].x - pts[last - 1].x) : -1;
-          return { x: pts[last].x, y: pts[last].y, nx: nx2, ny: ny2 };
+          return { x: pts[pts.length - 1].x, y: pts[pts.length - 1].y };
+        }
+        function dirAt(d) {
+          d = Math.max(0.01, Math.min(d, totalLen));
+          for (let i = 1; i < arcLens.length; i++) {
+            if (arcLens[i] >= d) {
+              const dx = pts[i].x - pts[i - 1].x, dy = pts[i].y - pts[i - 1].y;
+              const l = Math.hypot(dx, dy) || 1;
+              return { dx: dx / l, dy: dy / l };
+            }
+          }
+          return { dx: 0, dy: -1 };
         }
 
-        // Detect crown: check if the last portion of points loops back
-        let hasCrown = false;
-        let crownCenterX = 0, crownCenterY = 0, crownRadius = 0;
-        let trunkEndDist = totalLen;
+        // ── Crown detection ──
+        let hasCrown = false, crownCX = 0, crownCY = 0, crownR = 0, trunkEnd = totalLen;
         if (pts.length > 10) {
-          // Check if end of stroke comes close to a point earlier in the stroke
-          const checkFrom = Math.floor(pts.length * 0.4);
-          const endPt = pts[pts.length - 1];
-          for (let i = checkFrom; i < pts.length - 5; i++) {
-            const dist = Math.hypot(endPt.x - pts[i].x, endPt.y - pts[i].y);
-            if (dist < obj.brushSize * 3) {
+          const from = Math.floor(pts.length * 0.35);
+          const end = pts[pts.length - 1];
+          for (let i = from; i < pts.length - 5; i++) {
+            if (Math.hypot(end.x - pts[i].x, end.y - pts[i].y) < obj.brushSize * 3) {
               hasCrown = true;
-              // Crown is the loop portion
-              const crownPts = pts.slice(i);
-              let cx = 0, cy = 0;
-              crownPts.forEach(p => { cx += p.x; cy += p.y; });
-              cx /= crownPts.length;
-              cy /= crownPts.length;
-              crownCenterX = cx;
-              crownCenterY = cy;
-              let maxR = 0;
-              crownPts.forEach(p => { maxR = Math.max(maxR, Math.hypot(p.x - cx, p.y - cy)); });
-              crownRadius = maxR;
-              trunkEndDist = arcLens[i];
+              const cp = pts.slice(i);
+              let sx = 0, sy = 0;
+              cp.forEach(p => { sx += p.x; sy += p.y; });
+              crownCX = sx / cp.length; crownCY = sy / cp.length;
+              let mr = 0;
+              cp.forEach(p => { mr = Math.max(mr, Math.hypot(p.x - crownCX, p.y - crownCY)); });
+              crownR = Math.max(mr, obj.brushSize * 2);
+              trunkEnd = arcLens[i];
               break;
             }
           }
         }
 
-        // Bark colors from selected color (or brown default)
+        // ── Color helpers ──
         const hex = obj.color;
         const cr = parseInt(hex.slice(1, 3), 16), cg = parseInt(hex.slice(3, 5), 16), cb = parseInt(hex.slice(5, 7), 16);
-        const baseHsl = rgbToHsl(cr, cg, cb);
-        // Use color as leaf color; bark is always brown-ish
-        const barkH = 25 / 360, barkS = 0.55, barkL = 0.32;
-        const barkRgb = hslToRgb(barkH, barkS, barkL);
-        const darkBarkRgb = hslToRgb(barkH, barkS, barkL * 0.6);
+        const leafHsl = rgbToHsl(cr, cg, cb);
+        const barkBaseH = 25 / 360, barkBaseS = 0.45, barkBaseL = 0.28;
 
-        // Draw trunk — thick line that tapers
-        const trunkW = Math.max(4, obj.brushSize);
-        for (let pass = 0; pass < 2; pass++) {
-          // Pass 0: dark outline, Pass 1: bark color
-          const w = pass === 0 ? trunkW + 2 : trunkW;
-          const col = pass === 0 ? darkBarkRgb : barkRgb;
+        function bark(lAdj) {
+          const r = hslToRgb(barkBaseH + (rng() - 0.5) * 0.02, barkBaseS, Math.max(0.1, Math.min(0.48, barkBaseL + lAdj)));
+          return `rgb(${r[0]},${r[1]},${r[2]})`;
+        }
+        function leaf() {
+          const r = hslToRgb(
+            leafHsl[0] + (rng() - 0.5) * 0.07,
+            Math.min(1, leafHsl[1] + (rng() - 0.2) * 0.12),
+            Math.max(0.22, Math.min(0.7, leafHsl[2] + (rng() - 0.4) * 0.18))
+          );
+          return `rgb(${r[0]},${r[1]},${r[2]})`;
+        }
+
+        const trunkW = Math.max(5, obj.brushSize);
+
+        // ── Draw tapered trunk as filled polygon ──
+        const nSamples = Math.max(12, Math.floor(trunkEnd / 2.5));
+        const leftE = [], rightE = [];
+        for (let i = 0; i <= nSamples; i++) {
+          const t = i / nSamples;
+          const d = t * trunkEnd;
+          const p = ptAt(d);
+          const dr = dirAt(d);
+          const nx = -dr.dy, ny = dr.dx;
+          const taper = 1 - t * 0.72;
+          const hw = trunkW * 0.5 * taper;
+          leftE.push({ x: p.x + nx * hw, y: p.y + ny * hw });
+          rightE.push({ x: p.x - nx * hw, y: p.y - ny * hw });
+        }
+
+        // Filled trunk body
+        ctx.beginPath();
+        ctx.moveTo(leftE[0].x, leftE[0].y);
+        for (let i = 1; i < leftE.length; i++) ctx.lineTo(leftE[i].x, leftE[i].y);
+        for (let i = rightE.length - 1; i >= 0; i--) ctx.lineTo(rightE[i].x, rightE[i].y);
+        ctx.closePath();
+        ctx.fillStyle = bark(0);
+        ctx.fill();
+
+        // Dark edges for depth
+        ctx.lineWidth = Math.max(0.6, trunkW * 0.035);
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = bark(-0.1);
+        ctx.beginPath();
+        ctx.moveTo(leftE[0].x, leftE[0].y);
+        for (let i = 1; i < leftE.length; i++) ctx.lineTo(leftE[i].x, leftE[i].y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(rightE[0].x, rightE[0].y);
+        for (let i = 1; i < rightE.length; i++) ctx.lineTo(rightE[i].x, rightE[i].y);
+        ctx.stroke();
+
+        // Bark texture — short horizontal strokes following contour
+        for (let i = 2; i < nSamples - 1; i++) {
+          if (rng() > 0.6) continue;
+          const t = i / nSamples;
+          const d = t * trunkEnd;
+          const p = ptAt(d);
+          const dr = dirAt(d);
+          const nx = -dr.dy, ny = dr.dx;
+          const taper = 1 - t * 0.72;
+          const hw = trunkW * 0.5 * taper;
+          const off = (rng() - 0.5) * hw * 0.7;
+          ctx.strokeStyle = bark(-0.06 + rng() * 0.03);
+          ctx.lineWidth = Math.max(0.4, trunkW * 0.025);
+          ctx.globalAlpha = opacity * (0.12 + rng() * 0.18);
+          ctx.beginPath();
+          ctx.moveTo(p.x + nx * (off - hw * 0.3), p.y + ny * (off - hw * 0.3));
+          ctx.lineTo(p.x + nx * (off + hw * 0.3), p.y + ny * (off + hw * 0.3));
+          ctx.stroke();
+        }
+        ctx.globalAlpha = opacity;
+
+        // ── Quadratic bezier helper ──
+        function bezPt(sx, sy, mx, my, ex, ey, t) {
+          const u = 1 - t;
+          return { x: u * u * sx + 2 * u * t * mx + t * t * ex,
+                   y: u * u * sy + 2 * u * t * my + t * t * ey };
+        }
+
+        // ── Draw a tapered branch segment as many short strokes ──
+        function drawTapered(sx, sy, mx, my, ex, ey, w0, w1, col) {
+          const len = Math.hypot(ex - sx, ey - sy);
+          const segs = Math.max(4, Math.ceil(len / 2));
           ctx.lineCap = 'round';
-          ctx.lineJoin = 'round';
-          ctx.lineWidth = w;
-          ctx.strokeStyle = `rgb(${col[0]},${col[1]},${col[2]})`;
-          ctx.beginPath();
-          ctx.moveTo(pts[0].x, pts[0].y);
-          const endIdx = hasCrown ? Math.floor(pts.length * 0.4) + 5 : pts.length;
-          const drawPts = pts.slice(0, endIdx);
-          if (drawPts.length <= 2) {
-            ctx.lineTo(drawPts[drawPts.length - 1].x, drawPts[drawPts.length - 1].y);
-          } else {
-            for (let i = 1; i < drawPts.length - 1; i++) {
-              const mx = (drawPts[i].x + drawPts[i + 1].x) / 2;
-              const my = (drawPts[i].y + drawPts[i + 1].y) / 2;
-              ctx.quadraticCurveTo(drawPts[i].x, drawPts[i].y, mx, my);
-            }
-            ctx.lineTo(drawPts[drawPts.length - 1].x, drawPts[drawPts.length - 1].y);
-          }
-          ctx.stroke();
-        }
-
-        // Bark texture lines
-        ctx.lineWidth = Math.max(0.5, trunkW * 0.08);
-        ctx.strokeStyle = `rgba(${darkBarkRgb[0]},${darkBarkRgb[1]},${darkBarkRgb[2]},0.3)`;
-        for (let d = trunkW; d < trunkEndDist - trunkW; d += trunkW * (0.4 + rng() * 0.6)) {
-          const p = pointAtArcTr(d);
-          const nLen = Math.hypot(p.nx, p.ny) || 1;
-          const nx = p.nx / nLen * trunkW * 0.4;
-          const ny = p.ny / nLen * trunkW * 0.4;
-          ctx.beginPath();
-          ctx.moveTo(p.x + nx * (rng() - 0.3), p.y + ny * (rng() - 0.3));
-          ctx.lineTo(p.x - nx * (rng() - 0.3), p.y - ny * (rng() - 0.3));
-          ctx.stroke();
-        }
-
-        // Helper: draw a leaf cluster
-        function drawLeafCluster(lx, ly, clusterSize) {
-          const numLeaves = 3 + Math.floor(rng() * 5);
-          for (let k = 0; k < numLeaves; k++) {
-            const angle = rng() * Math.PI * 2;
-            const dist = rng() * clusterSize * 0.6;
-            const leafX = lx + Math.cos(angle) * dist;
-            const leafY = ly + Math.sin(angle) * dist;
-            const leafSize = clusterSize * (0.3 + rng() * 0.4);
-            const leafAngle = rng() * Math.PI * 2;
-
-            // Leaf color variations
-            const lShift = (rng() - 0.4) * 0.15;
-            const hShift = (rng() - 0.5) * 0.08;
-            const leafRgb = hslToRgb(
-              baseHsl[0] + hShift,
-              Math.min(1, baseHsl[1] + 0.1),
-              Math.max(0.25, Math.min(0.75, baseHsl[2] + lShift))
-            );
-
-            ctx.save();
-            ctx.translate(leafX, leafY);
-            ctx.rotate(leafAngle);
-            ctx.fillStyle = `rgb(${leafRgb[0]},${leafRgb[1]},${leafRgb[2]})`;
+          ctx.strokeStyle = col;
+          for (let i = 0; i < segs; i++) {
+            const t0 = i / segs, t1 = (i + 1) / segs;
+            const p0 = bezPt(sx, sy, mx, my, ex, ey, t0);
+            const p1 = bezPt(sx, sy, mx, my, ex, ey, t1);
+            ctx.lineWidth = w0 + (w1 - w0) * (t0 + t1) * 0.5;
             ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.bezierCurveTo(leafSize * 0.3, -leafSize * 0.4, leafSize * 0.8, -leafSize * 0.25, leafSize, 0);
-            ctx.bezierCurveTo(leafSize * 0.8, leafSize * 0.25, leafSize * 0.3, leafSize * 0.4, 0, 0);
-            ctx.fill();
-            ctx.restore();
+            ctx.moveTo(p0.x, p0.y);
+            ctx.lineTo(p1.x, p1.y);
+            ctx.stroke();
           }
         }
 
-        // Helper: draw a branch with sub-branches
-        function drawBranch(startX, startY, angle, length, width, depth) {
-          if (depth <= 0 || length < 3) return;
-          const endX = startX + Math.cos(angle) * length;
-          const endY = startY + Math.sin(angle) * length;
+        // ── Draw a thick limb as a filled tapered polygon (like the trunk) ──
+        function drawLimb(sx, sy, mx, my, ex, ey, w0, w1) {
+          const nSeg = Math.max(8, Math.ceil(Math.hypot(ex - sx, ey - sy) / 2));
+          const leftPts = [], rightPts = [];
+          for (let i = 0; i <= nSeg; i++) {
+            const t = i / nSeg;
+            const p = bezPt(sx, sy, mx, my, ex, ey, t);
+            // Tangent via derivative of quadratic bezier
+            const dtx = 2 * (1 - t) * (mx - sx) + 2 * t * (ex - mx);
+            const dty = 2 * (1 - t) * (my - sy) + 2 * t * (ey - my);
+            const dl = Math.hypot(dtx, dty) || 1;
+            const nx = -dty / dl, ny = dtx / dl; // perpendicular
+            const hw = (w0 + (w1 - w0) * t) * 0.5;
+            leftPts.push({ x: p.x + nx * hw, y: p.y + ny * hw });
+            rightPts.push({ x: p.x - nx * hw, y: p.y - ny * hw });
+          }
 
-          // Draw branch line
-          const branchRgb = depth > 1 ? barkRgb : darkBarkRgb;
-          ctx.lineCap = 'round';
-          ctx.lineWidth = width;
-          ctx.strokeStyle = `rgb(${branchRgb[0]},${branchRgb[1]},${branchRgb[2]})`;
+          // Filled body
           ctx.beginPath();
-          ctx.moveTo(startX, startY);
-          // Add slight curve
-          const midX = (startX + endX) / 2 + (rng() - 0.5) * length * 0.2;
-          const midY = (startY + endY) / 2 + (rng() - 0.5) * length * 0.15;
-          ctx.quadraticCurveTo(midX, midY, endX, endY);
+          ctx.moveTo(leftPts[0].x, leftPts[0].y);
+          for (let i = 1; i < leftPts.length; i++) ctx.lineTo(leftPts[i].x, leftPts[i].y);
+          // Round cap at tip
+          const tipP = bezPt(sx, sy, mx, my, ex, ey, 1);
+          ctx.arc(tipP.x, tipP.y, w1 * 0.5, Math.atan2(leftPts[nSeg].y - tipP.y, leftPts[nSeg].x - tipP.x),
+                  Math.atan2(rightPts[nSeg].y - tipP.y, rightPts[nSeg].x - tipP.x));
+          for (let i = rightPts.length - 1; i >= 0; i--) ctx.lineTo(rightPts[i].x, rightPts[i].y);
+          // Round cap at base
+          const baseP = bezPt(sx, sy, mx, my, ex, ey, 0);
+          ctx.arc(baseP.x, baseP.y, w0 * 0.5, Math.atan2(rightPts[0].y - baseP.y, rightPts[0].x - baseP.x),
+                  Math.atan2(leftPts[0].y - baseP.y, leftPts[0].x - baseP.x));
+          ctx.closePath();
+          ctx.fillStyle = bark(0);
+          ctx.fill();
+
+          // Dark edges
+          ctx.lineWidth = Math.max(0.5, w0 * 0.04);
+          ctx.lineJoin = 'round';
+          ctx.lineCap = 'round';
+          ctx.strokeStyle = bark(-0.1);
+          ctx.beginPath();
+          ctx.moveTo(leftPts[0].x, leftPts[0].y);
+          for (let i = 1; i < leftPts.length; i++) ctx.lineTo(leftPts[i].x, leftPts[i].y);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(rightPts[0].x, rightPts[0].y);
+          for (let i = 1; i < rightPts.length; i++) ctx.lineTo(rightPts[i].x, rightPts[i].y);
           ctx.stroke();
 
-          // Sub-branches
-          const numSub = 1 + Math.floor(rng() * 3);
-          for (let i = 0; i < numSub; i++) {
-            const t = 0.4 + rng() * 0.5;
-            const bx = startX + (endX - startX) * t + (rng() - 0.5) * width;
-            const by = startY + (endY - startY) * t + (rng() - 0.5) * width;
-            const subAngle = angle + (rng() - 0.5) * 1.2;
-            const subLen = length * (0.4 + rng() * 0.3);
-            const subW = Math.max(0.5, width * 0.6);
-            drawBranch(bx, by, subAngle, subLen, subW, depth - 1);
+          // Bark texture stripes
+          ctx.lineWidth = Math.max(0.3, w0 * 0.025);
+          for (let i = 2; i < nSeg - 1; i++) {
+            if (rng() > 0.55) continue;
+            const t = i / nSeg;
+            const p = bezPt(sx, sy, mx, my, ex, ey, t);
+            const dtx = 2 * (1 - t) * (mx - sx) + 2 * t * (ex - mx);
+            const dty = 2 * (1 - t) * (my - sy) + 2 * t * (ey - my);
+            const dl = Math.hypot(dtx, dty) || 1;
+            const nx = -dty / dl, ny = dtx / dl;
+            const hw = (w0 + (w1 - w0) * t) * 0.5;
+            const off = (rng() - 0.5) * hw * 0.6;
+            ctx.strokeStyle = bark(-0.06 + rng() * 0.03);
+            ctx.globalAlpha = opacity * (0.1 + rng() * 0.15);
+            ctx.beginPath();
+            ctx.moveTo(p.x + nx * (off - hw * 0.3), p.y + ny * (off - hw * 0.3));
+            ctx.lineTo(p.x + nx * (off + hw * 0.3), p.y + ny * (off + hw * 0.3));
+            ctx.stroke();
+          }
+          ctx.globalAlpha = opacity;
+        }
+
+        // ── Collect all geometry, then render back→front ──
+        const branches = []; // { sx,sy, mx,my, ex,ey, w0,w1, depth }
+        const leaves = [];   // { x,y, size }
+
+        // ── Recursive fractal growth ──
+        function grow(sx, sy, angle, len, width, depth, maxD) {
+          if (depth > maxD || width < 0.4 || len < 1.5) return;
+
+          // Gentle random curvature — more pronounced on thinner branches
+          const bendAmt = depth < 2 ? 0.25 : 0.45;
+          const bend = (rng() - 0.5) * bendAmt;
+          const midA = angle + bend;
+          const mx = sx + Math.cos(midA) * len * 0.5;
+          const my = sy + Math.sin(midA) * len * 0.5;
+          const ex = sx + Math.cos(angle + bend * 0.5) * len;
+          const ey = sy + Math.sin(angle + bend * 0.5) * len;
+
+          // Da Vinci taper: endWidth = width * ratio
+          const endW = width * (0.68 + rng() * 0.06);
+          branches.push({ sx, sy, mx, my, ex, ey, w0: width, w1: endW, depth });
+
+          // ── Leaves along any branch past depth 1 ──
+          // Distributed at multiple points, not just the tip
+          const isSmall = depth >= maxD - 2 || endW < 3;
+          if (isSmall) {
+            const baseLSize = Math.max(4, obj.brushSize * (0.5 + rng() * 0.4));
+            // Tip cluster — always
+            leaves.push({ x: ex, y: ey, size: baseLSize * (1 + rng() * 0.5) });
+            // Along the branch at 30%, 60% — scattered around the branch
+            for (const bt of [0.25 + rng() * 0.15, 0.55 + rng() * 0.15]) {
+              const mp = bezPt(sx, sy, mx, my, ex, ey, bt);
+              const spread = width * 1.5 + baseLSize * 0.4;
+              leaves.push({
+                x: mp.x + (rng() - 0.5) * spread,
+                y: mp.y + (rng() - 0.5) * spread,
+                size: baseLSize * (0.7 + rng() * 0.5)
+              });
+            }
+            // Extra side clusters on slightly thicker small branches
+            if (endW > 1.5 && rng() > 0.3) {
+              const et = 0.4 + rng() * 0.4;
+              const ep = bezPt(sx, sy, mx, my, ex, ey, et);
+              leaves.push({
+                x: ep.x + (rng() - 0.5) * width * 3,
+                y: ep.y + (rng() - 0.5) * width * 3,
+                size: baseLSize * (0.8 + rng() * 0.4)
+              });
+            }
           }
 
-          // Leaves at the tip
-          drawLeafCluster(endX, endY, obj.brushSize * (0.8 + rng() * 0.6));
+          // Terminal — don't fork further
+          if (depth >= maxD || endW < 1.2) return;
+
+          // ── Split into children ──
+          const nKids = rng() > 0.55 ? 3 : 2;
+          const spread = 0.35 + rng() * 0.25;
+          const endAngle = Math.atan2(ey - my, ex - mx); // direction at tip
+
+          for (let c = 0; c < nKids; c++) {
+            const frac = nKids === 2
+              ? (c === 0 ? -1 : 1) * (spread * (0.7 + rng() * 0.6))
+              : (c - 1) * spread * (0.7 + rng() * 0.6);
+            const childAngle = endAngle + frac;
+            const childW = endW / Math.sqrt(nKids) * (0.85 + rng() * 0.3);
+            const childLen = len * (0.62 + rng() * 0.16);
+            grow(ex, ey, childAngle, childLen, Math.max(0.4, childW), depth + 1, maxD);
+          }
         }
+
+        // ── Seed the fractal from trunk top ──
+        const topP = ptAt(trunkEnd);
+        const topD = dirAt(trunkEnd);
+        const trunkAngle = Math.atan2(topD.dy, topD.dx);
+        const topW = trunkW * 0.28;
+        const maxDepth = Math.max(4, Math.min(7, Math.ceil(Math.log2(Math.max(trunkEnd, 40)) + 1)));
 
         if (hasCrown) {
-          // Draw crown: fill the looped area with branches and leaves
-          const numBranches = 8 + Math.floor(rng() * 8);
-          for (let i = 0; i < numBranches; i++) {
-            const angle = rng() * Math.PI * 2;
-            const dist = rng() * crownRadius * 0.7;
-            const bx = crownCenterX + Math.cos(angle) * dist;
-            const by = crownCenterY + Math.sin(angle) * dist;
-            const branchAngle = Math.atan2(by - crownCenterY, bx - crownCenterX) + (rng() - 0.5) * 0.8;
-            const branchLen = crownRadius * (0.3 + rng() * 0.5);
-            const branchW = Math.max(1, trunkW * (0.15 + rng() * 0.15));
-            drawBranch(bx, by, branchAngle, branchLen, branchW, 2);
+          // Main extension towards crown center
+          const toCrown = Math.atan2(crownCY - topP.y, crownCX - topP.x);
+          const mainLen = Math.max(crownR * 0.5, trunkEnd * 0.12);
+          grow(topP.x, topP.y, toCrown, mainLen, topW, 0, maxDepth);
+          // Fan additional primary limbs from trunk top
+          const nPri = 3 + Math.floor(rng() * 2);
+          for (let i = 0; i < nPri; i++) {
+            const a = toCrown + (rng() - 0.5) * 1.6;
+            grow(topP.x, topP.y, a, mainLen * (0.55 + rng() * 0.35), topW * (0.6 + rng() * 0.3), 0, maxDepth);
           }
-          // Fill crown with extra leaf clusters
-          const numClusters = 12 + Math.floor(rng() * 10);
-          for (let i = 0; i < numClusters; i++) {
-            const angle = rng() * Math.PI * 2;
-            const dist = rng() * crownRadius * 0.9;
-            const cx = crownCenterX + Math.cos(angle) * dist;
-            const cy = crownCenterY + Math.sin(angle) * dist;
-            drawLeafCluster(cx, cy, obj.brushSize * (0.6 + rng() * 0.8));
+          // Side branches along upper trunk even in crown mode
+          let sideF = 1;
+          for (let frac = 0.3 + rng() * 0.08; frac < 0.85; frac += 0.1 + rng() * 0.08) {
+            sideF *= -1;
+            const d = frac * trunkEnd;
+            const p = ptAt(d);
+            const dr = dirAt(d);
+            const nx = -dr.dy * sideF, ny = dr.dx * sideF;
+            const taper = 1 - frac * 0.72;
+            const hw = trunkW * 0.5 * taper;
+            const bx = p.x + nx * hw;
+            const by = p.y + ny * hw;
+            const outA = Math.atan2(ny, nx);
+            const bAngle = outA + (rng() - 0.5) * 0.4;
+            const bW = topW * taper * (0.4 + rng() * 0.3);
+            const bLen = mainLen * (0.25 + rng() * 0.25);
+            grow(bx, by, bAngle, bLen, Math.max(0.6, bW), 1, maxDepth);
           }
         } else {
-          // No crown: add branches along the trunk
-          const branchSpacing = Math.max(20, trunkW * 2);
-          let side = 1;
-          // Start branches from ~30% of trunk, denser toward top
-          const startDist = trunkEndDist * 0.3;
-          for (let d = startDist; d < trunkEndDist - branchSpacing * 0.5; d += branchSpacing * (0.5 + rng() * 0.6)) {
-            const p = pointAtArcTr(d);
-            const nLen = Math.hypot(p.nx, p.ny) || 1;
-            const nx = p.nx / nLen, ny = p.ny / nLen;
-            side *= -1;
+          // Primary fork at top
+          const mainLen = trunkEnd * (0.22 + rng() * 0.12);
+          grow(topP.x, topP.y, trunkAngle, mainLen, topW, 0, maxDepth);
 
-            // Branch angle: outward from trunk + slightly upward
-            const baseAngle = Math.atan2(ny * side, nx * side);
-            const upBias = -0.3 - rng() * 0.4; // slightly upward
-            const branchAngle = baseAngle + upBias;
-            const progress = (d - startDist) / (trunkEndDist - startDist);
-            const branchLen = obj.brushSize * (1.5 + rng() * 2) * (0.5 + progress * 0.8);
-            const branchW = Math.max(1, trunkW * (0.2 + rng() * 0.15) * (1 - progress * 0.3));
-
-            drawBranch(p.x, p.y, branchAngle, branchLen, branchW, 2 + Math.floor(rng() * 2));
+          // Side branches emerging from trunk — starting low, alternating sides
+          let sideFlag = 1;
+          for (let frac = 0.18 + rng() * 0.06; frac < 0.93; frac += 0.08 + rng() * 0.06) {
+            sideFlag *= -1;
+            const d = frac * trunkEnd;
+            const p = ptAt(d);
+            const dr = dirAt(d);
+            const nx = -dr.dy * sideFlag, ny = dr.dx * sideFlag;
+            const taper = 1 - frac * 0.72;
+            const hw = trunkW * 0.5 * taper;
+            // Branch starts at trunk surface
+            const bx = p.x + nx * hw;
+            const by = p.y + ny * hw;
+            // Outward + slightly upward angle, more upward for higher branches
+            const outAngle = Math.atan2(ny, nx);
+            const upBias = frac * 0.4; // higher branches angle more toward trunk direction
+            const bAngle = outAngle * (1 - upBias) + trunkAngle * upBias + (rng() - 0.5) * 0.3;
+            // Lower branches are shorter and thinner, upper ones longer
+            const lenScale = 0.3 + frac * 0.7;
+            const bW = topW * taper * (0.45 + rng() * 0.35);
+            const bLen = mainLen * (0.3 + rng() * 0.3) * lenScale;
+            // Lower branches get fewer recursion levels
+            const depthStart = frac < 0.35 ? 2 : 1;
+            grow(bx, by, bAngle, bLen, Math.max(0.6, bW), depthStart, maxDepth);
           }
-          // Leaves at the very top
-          const topPt = pointAtArcTr(trunkEndDist);
-          drawLeafCluster(topPt.x, topPt.y, obj.brushSize * (1.5 + rng()));
-          drawLeafCluster(topPt.x + (rng() - 0.5) * obj.brushSize, topPt.y + (rng() - 0.5) * obj.brushSize, obj.brushSize * (1 + rng()));
+        }
+
+        // ── Render branches: thick (deep=0) first, thin last ──
+        branches.sort((a, b) => a.depth - b.depth);
+        for (const br of branches) {
+          if (br.depth < 2 && br.w0 > 2) {
+            // First 2 layers: filled polygon with bark texture like the trunk
+            drawLimb(br.sx, br.sy, br.mx, br.my, br.ex, br.ey, br.w0, br.w1);
+          } else {
+            // Thinner branches: segmented tapered strokes
+            const col = bark((br.depth * 0.02) + (rng() - 0.5) * 0.04);
+            drawTapered(br.sx, br.sy, br.mx, br.my, br.ex, br.ey, br.w0, br.w1, col);
+          }
+        }
+
+        // ── Render leaves ──
+        for (const lc of leaves) {
+          const n = 5 + Math.floor(rng() * 7);
+          for (let k = 0; k < n; k++) {
+            const a = rng() * Math.PI * 2;
+            const d = rng() * lc.size * 0.6;
+            const lx = lc.x + Math.cos(a) * d;
+            const ly = lc.y + Math.sin(a) * d;
+            const ls = lc.size * (0.3 + rng() * 0.4);
+            const la = rng() * Math.PI * 2;
+            ctx.save();
+            ctx.translate(lx, ly);
+            ctx.rotate(la);
+            ctx.fillStyle = leaf();
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.bezierCurveTo(ls * 0.3, -ls * 0.38, ls * 0.78, -ls * 0.22, ls, 0);
+            ctx.bezierCurveTo(ls * 0.78, ls * 0.22, ls * 0.3, ls * 0.38, 0, 0);
+            ctx.fill();
+            // Leaf midrib
+            ctx.strokeStyle = leaf();
+            ctx.lineWidth = Math.max(0.3, ls * 0.04);
+            ctx.globalAlpha = opacity * 0.35;
+            ctx.beginPath();
+            ctx.moveTo(ls * 0.08, 0);
+            ctx.lineTo(ls * 0.85, 0);
+            ctx.stroke();
+            ctx.restore();
+            ctx.globalAlpha = opacity;
+          }
         }
       }
     }
