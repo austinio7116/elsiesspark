@@ -543,6 +543,8 @@ button:active { transform: scale(0.95); }
   left: 0;
   right: 0;
   max-height: 72vh;
+  max-width: 520px;
+  margin: 0 auto;
   background: var(--surface-raised);
   border-radius: 20px 20px 0 0;
   z-index: 500;

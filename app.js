@@ -298,6 +298,7 @@
     // Color picker
     spectrumHue: 0,
     spectrumS: 0,
+    spectrumV: 13,
     spectrumL: 13,
     savedSwatches: [],
     // Background
@@ -1285,10 +1286,13 @@
     const canvas = $('#spectrum-canvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const w = canvas.width = canvas.offsetWidth * window.devicePixelRatio || 300;
-    const h = canvas.height = canvas.offsetHeight * window.devicePixelRatio || 180;
-    canvas.style.width  = (canvas.width  / window.devicePixelRatio) + 'px';
-    canvas.style.height = (canvas.height / window.devicePixelRatio) + 'px';
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = canvas.offsetWidth  || 300;
+    const cssH = canvas.offsetHeight || 180;
+    canvas.width  = cssW * dpr;
+    canvas.height = cssH * dpr;
+    const w = canvas.width;
+    const h = canvas.height;
 
     // White → current hue (left-right), then black overlay (top-bottom)
     const hue = state.spectrumHue;
@@ -1309,10 +1313,11 @@
     const canvas = $('#hue-canvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    canvas.width  = canvas.offsetWidth  * window.devicePixelRatio || 300;
-    canvas.height = canvas.offsetHeight * window.devicePixelRatio || 22;
-    canvas.style.width  = (canvas.width  / window.devicePixelRatio) + 'px';
-    canvas.style.height = (canvas.height / window.devicePixelRatio) + 'px';
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = canvas.offsetWidth  || 300;
+    const cssH = canvas.offsetHeight || 22;
+    canvas.width  = cssW * dpr;
+    canvas.height = cssH * dpr;
     const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
     for (let i = 0; i <= 360; i += 30) {
       grad.addColorStop(i / 360, `hsl(${i},100%,50%)`);
@@ -1330,7 +1335,7 @@
     // S goes 0-100 (left=0, right=100), L goes 0-100 (bottom=100, top=0) but in HSV terms:
     // We use S and a brightness value
     const x = (state.spectrumS / 100) * w;
-    const y = (1 - (state.spectrumL / 100)) * h;
+    const y = (1 - (state.spectrumV / 100)) * h;
     cursor.style.left = x + 'px';
     cursor.style.top  = y + 'px';
     cursor.style.background = state.color;
@@ -1351,7 +1356,8 @@
     const y = Math.max(0, Math.min(e.clientY - rect.top,  rect.height));
     state.spectrumS = Math.round((x / rect.width)  * 100);
     const brightness = Math.round((1 - y / rect.height) * 100);
-    // Convert HSV-like (hue, S, brightness) to HSL
+    state.spectrumV = brightness;
+    // Convert HSV (hue, S, brightness) to HSL
     const hue  = state.spectrumHue;
     const s    = state.spectrumS;
     const v    = brightness;
@@ -1373,8 +1379,11 @@
     state.spectrumHue = Math.round((x / rect.width) * 360);
     updateHueCursor();
     drawSpectrum();
-    // Re-pick from the same relative position in spectrum
-    const hex = hslToHex(state.spectrumHue, state.spectrumS, state.spectrumL || 50);
+    // Re-pick from the same relative position in spectrum (convert HSV to HSL)
+    const sv = state.spectrumS, vv = state.spectrumV || 50;
+    const lRaw = vv * (2 - sv / 100) / 2;
+    const sHSL = lRaw === 0 || lRaw === 100 ? 0 : (vv - lRaw) / Math.min(lRaw, 100 - lRaw) * 100;
+    const hex = hslToHex(state.spectrumHue, Math.round(sHSL), Math.round(lRaw));
     state.color = hex;
     updateColorSwatch();
     updateSlidersFromColor();
@@ -1408,7 +1417,12 @@
   function syncSlidersTabs(hex) {
     const [h, s, l] = hexToHsl(hex);
     state.spectrumHue = h;
-    state.spectrumS   = s;
+    // Convert HSL (s, l) to HSV (s, v) for spectrum cursor
+    const sF = s / 100, lF = l / 100;
+    const v = lF + sF * Math.min(lF, 1 - lF);
+    const sv = v === 0 ? 0 : 2 * (1 - lF / v);
+    state.spectrumS   = Math.round(sv * 100);
+    state.spectrumV   = Math.round(v * 100);
     state.spectrumL   = l;
     updateSlidersFromColor();
     if ($('#tab-spectrum').classList.contains('active')) {
@@ -4393,7 +4407,6 @@
         $('#btn-tools-menu')?.classList.add('active');
         $$('.tb-sub-btn').forEach(b => b.classList.remove('active'));
         $$('.tb-sub-btn[data-subtool="brushes"]').forEach(b => b.classList.add('active'));
-        closeSheet();
       });
     });
 
