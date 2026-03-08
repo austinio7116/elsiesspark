@@ -806,7 +806,7 @@
     previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
     previewCtx.save();
     // Procedural brushes handle their own opacity in drawObjectTo
-    const isProc = (brush === 'sprinkles' || brush === 'vine' || brush === 'fairylights' || brush === 'glitz' || brush === 'rainbow' || brush === 'tree');
+    const isProc = (brush === 'sprinkles' || brush === 'vine' || brush === 'fairylights' || brush === 'glitz' || brush === 'rainbow' || brush === 'tree' || brush === 'water' || brush === 'grass' || brush === 'fur');
     previewCtx.globalAlpha = isProc ? 1 : (brush === 'marker' ? state.brushOpacity * 0.5 : state.brushOpacity);
     if (state.brushSoftness > 0 && (brush === 'pen' || brush === 'marker')) {
       previewCtx.filter = `blur(${state.brushSoftness * getActiveSize() * 0.4}px)`;
@@ -1124,7 +1124,7 @@
           const relPoints = pts.map(p => ({ x: p.x - cx, y: p.y - cy }));
           const activeSize = getActiveSize();
           // For procedural brushes, expand bounding box to account for decorations
-          const expandFactor = (brush === 'vine' || brush === 'fairylights') ? 3 : (brush === 'sprinkles' ? 4 : (brush === 'tree' ? 5 : 1));
+          const expandFactor = (brush === 'vine' || brush === 'fairylights') ? 3 : (brush === 'sprinkles' ? 4 : (brush === 'tree' ? 5 : (brush === 'water' || brush === 'grass' || brush === 'fur') ? 3 : 1));
           layer.objects.push({
             id: state.pendingStrokeId, type: 'stroke',
             x: cx, y: cy, rotation: 0, scale: 1,
@@ -2794,6 +2794,620 @@
             ctx.globalAlpha = opacity;
           }
         }
+      } else if (bs === 'water') {
+        // Water brush — based on real water optics:
+        //   - Beer-Lambert depth absorption (red absorbed first, blue penetrates deepest)
+        //   - Fresnel effect (edges more reflective, center more transparent)
+        //   - Caustic network (refracted light forms connected bright lines, not random blobs)
+        //   - Specular highlights with high contrast, sparse coverage, slight warmth
+        //   - Subsurface scattering glow at thin edges (more saturated teal/turquoise)
+        //   - Crest/trough value contrast for ripples (not just lines)
+        //   - Soft graduated edges, not hard cutoffs
+        const seed = obj.id || 0;
+        const rng = (function(s) { return function() { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; }; })(seed);
+        const hex = obj.color;
+        const cr = parseInt(hex.slice(1, 3), 16), cg = parseInt(hex.slice(3, 5), 16), cb = parseInt(hex.slice(5, 7), 16);
+        const baseHsl = rgbToHsl(cr, cg, cb);
+        const bSize = obj.brushSize;
+
+        // Path utilities
+        function getNormal(i) {
+          let dx, dy;
+          if (i === 0 && pts.length > 1) { dx = pts[1].x - pts[0].x; dy = pts[1].y - pts[0].y; }
+          else if (i >= pts.length - 1 && pts.length > 1) { dx = pts[pts.length - 1].x - pts[pts.length - 2].x; dy = pts[pts.length - 1].y - pts[pts.length - 2].y; }
+          else { dx = pts[i + 1].x - pts[i - 1].x; dy = pts[i + 1].y - pts[i - 1].y; }
+          const len = Math.hypot(dx, dy) || 1;
+          return { nx: -dy / len, ny: dx / len, tx: dx / len, ty: dy / len };
+        }
+        const segLens = [];
+        let totalLen = 0;
+        for (let i = 0; i < pts.length - 1; i++) {
+          const sl = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+          segLens.push(sl);
+          totalLen += sl;
+        }
+        function pointAtDist(d) {
+          d = Math.max(0, Math.min(totalLen, d));
+          let accum = 0;
+          for (let i = 0; i < segLens.length; i++) {
+            if (accum + segLens[i] >= d || i === segLens.length - 1) {
+              const t = segLens[i] > 0 ? (d - accum) / segLens[i] : 0;
+              return { x: pts[i].x + (pts[i + 1].x - pts[i].x) * t, y: pts[i].y + (pts[i + 1].y - pts[i].y) * t };
+            }
+            accum += segLens[i];
+          }
+          return pts[pts.length - 1];
+        }
+        function normalAtDist(d) {
+          const idx = Math.min(pts.length - 1, Math.max(0, Math.floor((d / totalLen) * (pts.length - 1))));
+          return getNormal(idx);
+        }
+        if (totalLen < 1) { ctx.restore(); return; }
+
+        // ── Derived colors (5-color water palette from art theory) ──
+        // Deep: darker, more saturated — simulates depth absorption (Beer-Lambert)
+        const deepRgb = hslToRgb(baseHsl[0], Math.min(1, baseHsl[1] * 1.3), Math.max(0.05, baseHsl[2] * 0.45));
+        // Mid: the base color itself
+        const midRgb = [cr, cg, cb];
+        // Shadow: darkest tone for wave troughs
+        const shadowRgb = hslToRgb(baseHsl[0], Math.min(1, baseHsl[1] * 1.1), Math.max(0.03, baseHsl[2] * 0.3));
+        // Highlight: bright, slightly warm-shifted (specular reflects light source, usually warm)
+        const hlHue = baseHsl[0] + 0.02; // tiny warm shift
+        const hlRgb = hslToRgb(hlHue, baseHsl[1] * 0.3, Math.min(0.97, baseHsl[2] + 0.4));
+        // Subsurface scatter: more saturated, shifted toward teal/cyan — light that entered water and bounced back
+        const sssHue = baseHsl[0] + (baseHsl[0] < 0.5 ? 0.03 : -0.03); // nudge toward cyan
+        const sssRgb = hslToRgb(sssHue, Math.min(1, baseHsl[1] * 1.5 + 0.15), Math.min(0.7, baseHsl[2] + 0.15));
+
+        // ══════════════════════════════════════════════════════════
+        // LAYER 1: Depth body — graduated transparent fill
+        //   Darker at center (depth absorption), lighter/transparent at edges (Fresnel)
+        //   Uses multiple radial gradient circles along path
+        // ══════════════════════════════════════════════════════════
+        const bodyStep = Math.max(2, bSize * 0.3);
+        for (let d = 0; d <= totalLen; d += bodyStep) {
+          const p = pointAtDist(d);
+          const gradR = bSize * 0.9;
+          const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, gradR);
+          // Center: deep color, more opaque (looking through more water)
+          grd.addColorStop(0, `rgba(${deepRgb[0]},${deepRgb[1]},${deepRgb[2]},${0.18 * opacity})`);
+          // Mid: base color
+          grd.addColorStop(0.45, `rgba(${midRgb[0]},${midRgb[1]},${midRgb[2]},${0.12 * opacity})`);
+          // Edge: subsurface scatter glow — more saturated at thin edges
+          grd.addColorStop(0.75, `rgba(${sssRgb[0]},${sssRgb[1]},${sssRgb[2]},${0.07 * opacity})`);
+          // Outer: soft falloff to transparent (graduated edge, not hard cutoff)
+          grd.addColorStop(1, `rgba(${midRgb[0]},${midRgb[1]},${midRgb[2]},0)`);
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = grd;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, gradR, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // LAYER 2: Ripples with crest/trough contrast
+        //   Smooth quadratic curves — bright crests paired with dark troughs.
+        //   Fewer ripples, smoothly interpolated, irregular spacing.
+        // ══════════════════════════════════════════════════════════
+        const numRipples = Math.max(2, Math.floor(bSize * 0.08));
+        // Helper: sample points along a ripple wave, then draw as smooth quadratic curve
+        function drawSmoothRipple(rippleOffset, freq, amp, phase) {
+          const step = Math.max(4, totalLen / 30);
+          const ripPts = [];
+          for (let d = 0; d <= totalLen; d += step) {
+            const p = pointAtDist(d);
+            const n = normalAtDist(d);
+            const wave = Math.sin(d * freq + phase) * amp;
+            ripPts.push({ x: p.x + n.nx * (rippleOffset + wave), y: p.y + n.ny * (rippleOffset + wave) });
+          }
+          if (ripPts.length < 2) return;
+          ctx.beginPath();
+          ctx.moveTo(ripPts[0].x, ripPts[0].y);
+          for (let i = 1; i < ripPts.length - 1; i++) {
+            const mx = (ripPts[i].x + ripPts[i + 1].x) / 2;
+            const my = (ripPts[i].y + ripPts[i + 1].y) / 2;
+            ctx.quadraticCurveTo(ripPts[i].x, ripPts[i].y, mx, my);
+          }
+          ctx.lineTo(ripPts[ripPts.length - 1].x, ripPts[ripPts.length - 1].y);
+          ctx.stroke();
+        }
+        for (let r = 0; r < numRipples; r++) {
+          const rippleOffset = (r / (numRipples - 1) - 0.5) * bSize * 1.2 + (rng() - 0.5) * bSize * 0.1;
+          const freq = 0.012 + rng() * 0.02;
+          const amp = bSize * (0.03 + rng() * 0.06);
+          const phase = rng() * Math.PI * 2;
+
+          // Dark trough
+          ctx.globalAlpha = opacity * (0.05 + rng() * 0.05);
+          ctx.strokeStyle = `rgb(${shadowRgb[0]},${shadowRgb[1]},${shadowRgb[2]})`;
+          ctx.lineWidth = Math.max(0.8, bSize * 0.025);
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          drawSmoothRipple(rippleOffset, freq, amp, phase);
+
+          // Bright crest — half wavelength offset
+          ctx.globalAlpha = opacity * (0.04 + rng() * 0.05);
+          ctx.strokeStyle = `rgb(${hlRgb[0]},${hlRgb[1]},${hlRgb[2]})`;
+          ctx.lineWidth = Math.max(0.6, bSize * 0.02);
+          drawSmoothRipple(rippleOffset + bSize * 0.015, freq, amp, phase + Math.PI);
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // LAYER 3: Caustic network
+        //   Real caustics form connected, web-like bright lines (not isolated blobs).
+        //   Generated by overlapping sinusoidal "lenses" — bright where waves converge,
+        //   dark where they diverge. We approximate with connected curved segments.
+        // ══════════════════════════════════════════════════════════
+        const causticLines = Math.max(3, Math.floor(totalLen / (bSize * 2)));
+        for (let c = 0; c < causticLines; c++) {
+          const startD = rng() * totalLen;
+          const lineLen = bSize * (0.5 + rng() * 1.5);
+          const startP = pointAtDist(startD);
+          const startN = normalAtDist(startD);
+          const offN = (rng() - 0.5) * bSize * 0.8;
+          const sx = startP.x + startN.nx * offN;
+          const sy = startP.y + startN.ny * offN;
+
+          // Caustic line — a short curved bright line
+          const segs = Math.floor(2 + rng() * 3);
+          ctx.globalAlpha = opacity * (0.08 + rng() * 0.1);
+          // Caustics have slight chromatic separation at edges
+          const causticHue = baseHsl[0] + (rng() - 0.5) * 0.04;
+          const causticRgb = hslToRgb(causticHue, baseHsl[1] * 0.5, Math.min(0.95, baseHsl[2] + 0.35 + rng() * 0.1));
+          ctx.strokeStyle = `rgb(${causticRgb[0]},${causticRgb[1]},${causticRgb[2]})`;
+          ctx.lineWidth = Math.max(0.3, bSize * 0.015 + rng() * bSize * 0.02);
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          let cx2 = sx, cy2 = sy;
+          for (let s = 0; s < segs; s++) {
+            const angle = rng() * Math.PI * 2;
+            const segR = lineLen / segs * (0.5 + rng());
+            const nx = cx2 + Math.cos(angle) * segR;
+            const ny = cy2 + Math.sin(angle) * segR;
+            // Use quadratic curve for organic feel
+            const cpx = (cx2 + nx) / 2 + (rng() - 0.5) * segR * 0.6;
+            const cpy = (cy2 + ny) / 2 + (rng() - 0.5) * segR * 0.6;
+            ctx.quadraticCurveTo(cpx, cpy, nx, ny);
+            cx2 = nx; cy2 = ny;
+          }
+          ctx.stroke();
+
+          // Occasional branching (caustic networks are multiply-connected)
+          if (rng() > 0.5) {
+            const brAngle = rng() * Math.PI * 2;
+            const brLen = lineLen * (0.3 + rng() * 0.4);
+            const bex = cx2 + Math.cos(brAngle) * brLen;
+            const bey = cy2 + Math.sin(brAngle) * brLen;
+            ctx.globalAlpha = opacity * (0.05 + rng() * 0.06);
+            ctx.beginPath();
+            ctx.moveTo(cx2, cy2);
+            ctx.quadraticCurveTo(
+              (cx2 + bex) / 2 + (rng() - 0.5) * brLen * 0.4,
+              (cy2 + bey) / 2 + (rng() - 0.5) * brLen * 0.4,
+              bex, bey
+            );
+            ctx.stroke();
+          }
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // LAYER 4: Specular sparkles — 4-point cross-star glints
+        //   Sparse, high-contrast shimmer points on wave crests.
+        //   Each is a 4-armed star with tapered rays and a bright center dot.
+        //   Slightly warm-tinted (sunlight), varied sizes for depth.
+        // ══════════════════════════════════════════════════════════
+        const specCount = Math.max(2, Math.floor(totalLen / (bSize * 2.5)));
+        const warmRgb = hslToRgb(0.11, 0.1, 0.98);
+        const warmStr = `rgb(${warmRgb[0]},${warmRgb[1]},${warmRgb[2]})`;
+        for (let s = 0; s < specCount; s++) {
+          const d = rng() * totalLen;
+          const p = pointAtDist(d);
+          const n = normalAtDist(d);
+          const offN = (rng() - 0.5) * bSize * 0.6;
+          const sx = p.x + n.nx * offN;
+          const sy = p.y + n.ny * offN;
+
+          const sparkleSize = bSize * (0.05 + rng() * 0.08);
+          const specAlpha = 0.25 + rng() * 0.3;
+          const rot = rng() * Math.PI * 0.25;
+
+          ctx.save();
+          ctx.translate(sx, sy);
+          ctx.rotate(rot);
+
+          // Subtle glow behind
+          const glowR = sparkleSize * 2.2;
+          const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, glowR);
+          glow.addColorStop(0, `rgba(255,255,255,${0.1 * opacity * specAlpha})`);
+          glow.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(0, 0, glowR, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 4 tapered rays
+          ctx.globalAlpha = opacity * specAlpha;
+          ctx.fillStyle = warmStr;
+          const armLen = sparkleSize * (1.8 + rng() * 0.8);
+          const armWidth = sparkleSize * (0.1 + rng() * 0.06);
+          for (let a = 0; a < 4; a++) {
+            const angle = a * Math.PI / 2;
+            const ax = Math.cos(angle);
+            const ay = Math.sin(angle);
+            const px = -ay;
+            const py = ax;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(px * armWidth, py * armWidth);
+            ctx.lineTo(ax * armLen, ay * armLen);
+            ctx.lineTo(-px * armWidth, -py * armWidth);
+            ctx.closePath();
+            ctx.fill();
+          }
+
+          // Center dot
+          ctx.globalAlpha = opacity * Math.min(1, specAlpha * 1.2);
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(0, 0, sparkleSize * 0.2, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.restore();
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // LAYER 5: Subsurface scattering edge glow
+        //   At thin water edges, light passes through a short path and exits
+        //   as a characteristic saturated teal/turquoise glow. This is the most
+        //   saturated color in the water palette. Placed along outer edges of stroke.
+        // ══════════════════════════════════════════════════════════
+        const sssStep = Math.max(3, bSize * 0.4);
+        for (let d = 0; d <= totalLen; d += sssStep) {
+          const p = pointAtDist(d);
+          const n = normalAtDist(d);
+          // Both edges
+          for (let side = -1; side <= 1; side += 2) {
+            const edgeDist = bSize * (0.55 + rng() * 0.15) * side;
+            const ex = p.x + n.nx * edgeDist;
+            const ey = p.y + n.ny * edgeDist;
+            const glowR = bSize * (0.15 + rng() * 0.1);
+            const grd = ctx.createRadialGradient(ex, ey, 0, ex, ey, glowR);
+            grd.addColorStop(0, `rgba(${sssRgb[0]},${sssRgb[1]},${sssRgb[2]},${0.1 * opacity})`);
+            grd.addColorStop(1, `rgba(${sssRgb[0]},${sssRgb[1]},${sssRgb[2]},0)`);
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = grd;
+            ctx.beginPath();
+            ctx.arc(ex, ey, glowR, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // LAYER 6: Distorted broken reflections
+        //   Real water doesn't reflect perfectly — ripples break reflections into
+        //   wobbling horizontal bands. We draw short, slightly wobbly horizontal
+        //   strokes of varying lightness scattered across the body.
+        // ══════════════════════════════════════════════════════════
+        const reflCount = Math.max(4, Math.floor(totalLen / (bSize * 0.7)));
+        for (let r = 0; r < reflCount; r++) {
+          const d = rng() * totalLen;
+          const p = pointAtDist(d);
+          const n = normalAtDist(d);
+          const offN = (rng() - 0.5) * bSize * 0.7;
+          const rx = p.x + n.nx * offN;
+          const ry = p.y + n.ny * offN;
+
+          // Horizontal band — broken reflection
+          const bandLen = bSize * (0.15 + rng() * 0.3);
+          const bandLight = baseHsl[2] + (rng() - 0.3) * 0.25;
+          const bandRgb = hslToRgb(baseHsl[0], baseHsl[1] * 0.7, Math.max(0.1, Math.min(0.9, bandLight)));
+          ctx.globalAlpha = opacity * (0.04 + rng() * 0.05);
+          ctx.strokeStyle = `rgb(${bandRgb[0]},${bandRgb[1]},${bandRgb[2]})`;
+          ctx.lineWidth = Math.max(0.5, bSize * 0.02 + rng() * bSize * 0.02);
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          // Horizontal-ish wobble (water reflections stretch horizontally)
+          const wobAmp = bSize * 0.02;
+          ctx.moveTo(rx - bandLen, ry + (rng() - 0.5) * wobAmp);
+          ctx.quadraticCurveTo(
+            rx, ry + (rng() - 0.5) * wobAmp * 2,
+            rx + bandLen, ry + (rng() - 0.5) * wobAmp
+          );
+          ctx.stroke();
+        }
+
+      } else if (bs === 'grass') {
+        // Grass: individual blades growing upward from the stroke path
+        // Each blade is a tapered quadratic curve that bends naturally,
+        // with color variation (lighter tips, darker bases, hue shifts).
+        const seed = obj.id || 0;
+        const rng = (function(s) { return function() { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; }; })(seed);
+        const hex = obj.color;
+        const cr = parseInt(hex.slice(1, 3), 16), cg = parseInt(hex.slice(3, 5), 16), cb = parseInt(hex.slice(5, 7), 16);
+        const baseHsl = rgbToHsl(cr, cg, cb);
+        const bSize = obj.brushSize;
+
+        // Path length
+        let totalLen = 0;
+        const segLens = [];
+        for (let i = 0; i < pts.length - 1; i++) {
+          const sl = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+          segLens.push(sl);
+          totalLen += sl;
+        }
+        function pointAtDist(d) {
+          d = Math.max(0, Math.min(totalLen, d));
+          let accum = 0;
+          for (let i = 0; i < segLens.length; i++) {
+            if (accum + segLens[i] >= d || i === segLens.length - 1) {
+              const t = segLens[i] > 0 ? (d - accum) / segLens[i] : 0;
+              return { x: pts[i].x + (pts[i + 1].x - pts[i].x) * t, y: pts[i].y + (pts[i + 1].y - pts[i].y) * t };
+            }
+            accum += segLens[i];
+          }
+          return pts[pts.length - 1];
+        }
+        function normalAtDist(d) {
+          const idx = Math.min(pts.length - 1, Math.max(0, Math.floor((d / totalLen) * (pts.length - 1))));
+          let dx, dy;
+          if (idx === 0 && pts.length > 1) { dx = pts[1].x - pts[0].x; dy = pts[1].y - pts[0].y; }
+          else if (idx >= pts.length - 1 && pts.length > 1) { dx = pts[pts.length - 1].x - pts[pts.length - 2].x; dy = pts[pts.length - 1].y - pts[pts.length - 2].y; }
+          else { dx = pts[idx + 1].x - pts[idx - 1].x; dy = pts[idx + 1].y - pts[idx - 1].y; }
+          const len = Math.hypot(dx, dy) || 1;
+          return { nx: -dy / len, ny: dx / len };
+        }
+        if (totalLen < 1) { ctx.restore(); return; }
+
+        // Draw blades at intervals along the stroke
+        const bladeSpacing = Math.max(1.5, bSize * 0.06);
+        const bladeCount = Math.max(5, Math.floor(totalLen / bladeSpacing));
+
+        for (let b = 0; b < bladeCount; b++) {
+          const d = (b / bladeCount) * totalLen + (rng() - 0.5) * bladeSpacing * 0.8;
+          const p = pointAtDist(d);
+          const n = normalAtDist(d);
+
+          // Spread blades across the brush width
+          const spread = (rng() - 0.5) * bSize * 1.2;
+          const baseX = p.x + n.nx * spread;
+          const baseY = p.y + n.ny * spread;
+
+          // Blade height — varies, taller near center of brush, shorter at edges
+          const edgeFactor = 1 - Math.abs(spread) / (bSize * 0.7);
+          const bladeH = bSize * (0.8 + rng() * 1.2) * Math.max(0.3, edgeFactor);
+
+          // Blade grows upward (negative Y) with some lean
+          const lean = (rng() - 0.5) * bSize * 0.6;
+          const tipX = baseX + lean;
+          const tipY = baseY - bladeH;
+
+          // Control point for the bend — creates natural grass curve
+          const bendX = baseX + lean * (0.3 + rng() * 0.4) + (rng() - 0.5) * bSize * 0.2;
+          const bendY = baseY - bladeH * (0.4 + rng() * 0.3);
+
+          // Color: base is darker, tip is lighter/yellower
+          const hueShift = (rng() - 0.5) * 0.06;
+          const baseSat = Math.min(1, baseHsl[1] * (0.9 + rng() * 0.3));
+          const baseLight = Math.max(0.08, baseHsl[2] * (0.6 + rng() * 0.3));
+          const tipLight = Math.min(0.9, baseHsl[2] + 0.1 + rng() * 0.15);
+
+          // Draw blade as tapered stroke (thick at base, thin at tip)
+          const baseWidth = Math.max(0.5, bSize * 0.03 + rng() * bSize * 0.025);
+
+          // Draw in two halves for taper effect
+          const baseRgb = hslToRgb(baseHsl[0] + hueShift, baseSat, baseLight);
+          const tipRgb = hslToRgb(baseHsl[0] + hueShift + 0.02, baseSat * 0.8, tipLight);
+
+          // Lower half — thicker, darker
+          ctx.globalAlpha = opacity * (0.6 + rng() * 0.35);
+          ctx.strokeStyle = `rgb(${baseRgb[0]},${baseRgb[1]},${baseRgb[2]})`;
+          ctx.lineWidth = baseWidth;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(baseX, baseY);
+          ctx.quadraticCurveTo(bendX, bendY, tipX, tipY);
+          ctx.stroke();
+
+          // Overlay lighter tip half
+          const midX = (baseX + bendX + tipX) / 3;
+          const midY = (baseY + bendY + tipY) / 3;
+          ctx.globalAlpha = opacity * (0.3 + rng() * 0.3);
+          ctx.strokeStyle = `rgb(${tipRgb[0]},${tipRgb[1]},${tipRgb[2]})`;
+          ctx.lineWidth = baseWidth * 0.5;
+          ctx.beginPath();
+          ctx.moveTo(midX, midY);
+          ctx.quadraticCurveTo((bendX + tipX) / 2, (bendY + tipY) / 2, tipX, tipY);
+          ctx.stroke();
+
+          // Occasional seed head or small detail at blade tip
+          if (rng() > 0.9) {
+            ctx.globalAlpha = opacity * 0.4;
+            const seedRgb = hslToRgb(baseHsl[0] + 0.05, baseHsl[1] * 0.5, tipLight + 0.1);
+            ctx.fillStyle = `rgb(${seedRgb[0]},${seedRgb[1]},${seedRgb[2]})`;
+            ctx.beginPath();
+            ctx.arc(tipX, tipY, baseWidth * 1.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // Ground shadow along the base of the stroke
+        ctx.globalAlpha = opacity * 0.08;
+        const groundRgb = hslToRgb(baseHsl[0], baseHsl[1] * 0.6, Math.max(0.03, baseHsl[2] * 0.25));
+        ctx.strokeStyle = `rgb(${groundRgb[0]},${groundRgb[1]},${groundRgb[2]})`;
+        ctx.lineWidth = bSize * 0.4;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length - 1; i++) {
+          const mx = (pts[i].x + pts[i + 1].x) / 2;
+          const my = (pts[i].y + pts[i + 1].y) / 2;
+          ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+        }
+        ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+        ctx.stroke();
+
+      } else if (bs === 'fur') {
+        // Fur: layered directional strands following the stroke with natural
+        // variation in length, thickness, wave, and color.
+        // Back-to-front layering: undercoat (short, dense, lighter) then
+        // guard hairs (longer, varied direction, darker tips).
+        const seed = obj.id || 0;
+        const rng = (function(s) { return function() { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; }; })(seed);
+        const hex = obj.color;
+        const cr = parseInt(hex.slice(1, 3), 16), cg = parseInt(hex.slice(3, 5), 16), cb = parseInt(hex.slice(5, 7), 16);
+        const baseHsl = rgbToHsl(cr, cg, cb);
+        const bSize = obj.brushSize;
+
+        // Path utilities
+        let totalLen = 0;
+        const segLens = [];
+        for (let i = 0; i < pts.length - 1; i++) {
+          const sl = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+          segLens.push(sl);
+          totalLen += sl;
+        }
+        function pointAtDist(d) {
+          d = Math.max(0, Math.min(totalLen, d));
+          let accum = 0;
+          for (let i = 0; i < segLens.length; i++) {
+            if (accum + segLens[i] >= d || i === segLens.length - 1) {
+              const t = segLens[i] > 0 ? (d - accum) / segLens[i] : 0;
+              return { x: pts[i].x + (pts[i + 1].x - pts[i].x) * t, y: pts[i].y + (pts[i + 1].y - pts[i].y) * t };
+            }
+            accum += segLens[i];
+          }
+          return pts[pts.length - 1];
+        }
+        function tangentAtDist(d) {
+          const idx = Math.min(pts.length - 1, Math.max(0, Math.floor((d / totalLen) * (pts.length - 1))));
+          let dx, dy;
+          if (idx === 0 && pts.length > 1) { dx = pts[1].x - pts[0].x; dy = pts[1].y - pts[0].y; }
+          else if (idx >= pts.length - 1 && pts.length > 1) { dx = pts[pts.length - 1].x - pts[pts.length - 2].x; dy = pts[pts.length - 1].y - pts[pts.length - 2].y; }
+          else { dx = pts[idx + 1].x - pts[idx - 1].x; dy = pts[idx + 1].y - pts[idx - 1].y; }
+          const len = Math.hypot(dx, dy) || 1;
+          return { tx: dx / len, ty: dy / len, nx: -dy / len, ny: dx / len };
+        }
+        if (totalLen < 1) { ctx.restore(); return; }
+
+        // Helper: draw a single fur strand as a tapered wavy curve
+        function drawStrand(sx, sy, angle, length, baseW, waveAmp, waveFreq, rgb, alpha) {
+          const steps = Math.max(4, Math.floor(length / 3));
+          const stepLen = length / steps;
+          ctx.globalAlpha = opacity * alpha;
+          ctx.lineCap = 'round';
+
+          let cx = sx, cy = sy;
+          for (let i = 0; i < steps; i++) {
+            const t = i / steps;
+            const taper = 1 - t * t; // quadratic taper — thick at root, thin at tip
+            const w = Math.max(0.2, baseW * taper);
+            const wave = Math.sin(i * waveFreq + seed * 0.01) * waveAmp * (0.5 + t);
+            const perpX = -Math.sin(angle);
+            const perpY = Math.cos(angle);
+            const nx = cx + Math.cos(angle) * stepLen + perpX * wave;
+            const ny = cy + Math.sin(angle) * stepLen + perpY * wave;
+
+            // Darken slightly toward tip
+            const tBlend = t * 0.15;
+            const segR = Math.max(0, Math.round(rgb[0] * (1 - tBlend)));
+            const segG = Math.max(0, Math.round(rgb[1] * (1 - tBlend)));
+            const segB = Math.max(0, Math.round(rgb[2] * (1 - tBlend)));
+            ctx.strokeStyle = `rgb(${segR},${segG},${segB})`;
+            ctx.lineWidth = w;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(nx, ny);
+            ctx.stroke();
+
+            cx = nx; cy = ny;
+          }
+        }
+
+        // ── Layer 1: Undercoat — short, dense, lighter/softer strands ──
+        const undercoatSpacing = Math.max(1, bSize * 0.04);
+        const undercoatCount = Math.max(8, Math.floor(totalLen / undercoatSpacing));
+        for (let u = 0; u < undercoatCount; u++) {
+          const d = (u / undercoatCount) * totalLen + (rng() - 0.5) * undercoatSpacing;
+          const p = pointAtDist(d);
+          const t = tangentAtDist(d);
+
+          const spread = (rng() - 0.5) * bSize * 1.0;
+          const sx = p.x + t.nx * spread;
+          const sy = p.y + t.ny * spread;
+
+          // Undercoat follows stroke direction with slight variation
+          const angle = Math.atan2(t.ty, t.tx) + (rng() - 0.5) * 0.8;
+          const length = bSize * (0.3 + rng() * 0.4);
+          const baseW = Math.max(0.3, bSize * 0.02 + rng() * bSize * 0.015);
+
+          // Lighter, desaturated color for undercoat
+          const ucRgb = hslToRgb(
+            baseHsl[0] + (rng() - 0.5) * 0.03,
+            baseHsl[1] * (0.5 + rng() * 0.3),
+            Math.min(0.9, baseHsl[2] + 0.15 + rng() * 0.1)
+          );
+
+          drawStrand(sx, sy, angle, length, baseW, bSize * 0.01, 2 + rng() * 2, ucRgb, 0.2 + rng() * 0.15);
+        }
+
+        // ── Layer 2: Guard hairs — longer, more varied, define the fur silhouette ──
+        const guardSpacing = Math.max(1.5, bSize * 0.07);
+        const guardCount = Math.max(6, Math.floor(totalLen / guardSpacing));
+        for (let g = 0; g < guardCount; g++) {
+          const d = (g / guardCount) * totalLen + (rng() - 0.5) * guardSpacing;
+          const p = pointAtDist(d);
+          const t = tangentAtDist(d);
+
+          const spread = (rng() - 0.5) * bSize * 1.2;
+          const sx = p.x + t.nx * spread;
+          const sy = p.y + t.ny * spread;
+
+          // Guard hairs fan outward from stroke more
+          const angle = Math.atan2(t.ty, t.tx) + (rng() - 0.5) * 1.2;
+          const length = bSize * (0.6 + rng() * 0.9);
+          const baseW = Math.max(0.4, bSize * 0.025 + rng() * bSize * 0.02);
+
+          // Natural color variation — some hairs lighter, some darker
+          const lightVar = (rng() - 0.5) * 0.2;
+          const guardRgb = hslToRgb(
+            baseHsl[0] + (rng() - 0.5) * 0.04,
+            Math.min(1, baseHsl[1] * (0.8 + rng() * 0.4)),
+            Math.max(0.05, Math.min(0.85, baseHsl[2] + lightVar))
+          );
+
+          const waveAmp = bSize * (0.01 + rng() * 0.02);
+          const waveFreq = 1.5 + rng() * 2;
+
+          drawStrand(sx, sy, angle, length, baseW, waveAmp, waveFreq, guardRgb, 0.4 + rng() * 0.35);
+        }
+
+        // ── Layer 3: Highlight hairs — sparse, very thin, bright, catch-light strands ──
+        const hlCount = Math.max(2, Math.floor(totalLen / (bSize * 1.5)));
+        for (let h = 0; h < hlCount; h++) {
+          const d = rng() * totalLen;
+          const p = pointAtDist(d);
+          const t = tangentAtDist(d);
+
+          const spread = (rng() - 0.5) * bSize * 0.8;
+          const sx = p.x + t.nx * spread;
+          const sy = p.y + t.ny * spread;
+
+          const angle = Math.atan2(t.ty, t.tx) + (rng() - 0.5) * 0.6;
+          const length = bSize * (0.5 + rng() * 0.7);
+          const baseW = Math.max(0.2, bSize * 0.012);
+
+          const hlRgb2 = hslToRgb(
+            baseHsl[0],
+            baseHsl[1] * 0.3,
+            Math.min(0.95, baseHsl[2] + 0.3 + rng() * 0.1)
+          );
+
+          drawStrand(sx, sy, angle, length, baseW, bSize * 0.005, 3, hlRgb2, 0.15 + rng() * 0.15);
+        }
+
       }
     }
     ctx.restore();
