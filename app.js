@@ -197,6 +197,9 @@
     savedSwatches: [],
     // Background
     selectedBackground: 'white',
+    // Brush-specific options
+    sprinklesDensity: 5,
+    fairylightsUseColor: false,
   };
 
   // ── DOM helpers ───────────────────────────────────────
@@ -694,7 +697,9 @@
     // Draw live stroke preview onto previewCanvas (sits on top of everything)
     previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
     previewCtx.save();
-    previewCtx.globalAlpha = brush === 'marker' ? state.brushOpacity * 0.5 : state.brushOpacity;
+    // Procedural brushes handle their own opacity in drawObjectTo
+    const isProc = (brush === 'sprinkles' || brush === 'vine' || brush === 'fairylights' || brush === 'glitz');
+    previewCtx.globalAlpha = isProc ? 1 : (brush === 'marker' ? state.brushOpacity * 0.5 : state.brushOpacity);
     previewCtx.drawImage(state.scratchCanvas, 0, 0);
     previewCtx.restore();
   }
@@ -788,49 +793,27 @@
     state.lastMidX = pos.x;
     state.lastMidY = pos.y;
     state.strokePoints = [pos];
+    state.pendingStrokeId = ++objectIdCounter;  // Pre-assign ID for consistent RNG
     const brush = state.activeBrush;
     // All strokes use scratch canvas → preview canvas for correct z-order
     state.directDraw = false;
-    if (brush === 'pen' || brush === 'marker' || brush === 'glitz' || brush === 'eraser') {
-      // Always save pre-stroke state for pen/marker so we can convert to object
-      if (brush === 'pen' || brush === 'marker' || brush === 'glitz' || brush === 'eraser') {
-        if (!state.preStrokeCanvas) {
-          state.preStrokeCanvas = document.createElement('canvas');
-          state.preStrokeCtx = state.preStrokeCanvas.getContext('2d');
-        }
-        state.preStrokeCanvas.width = state.canvasWidth;
-        state.preStrokeCanvas.height = state.canvasHeight;
-        state.preStrokeCtx.drawImage(layer.canvas, 0, 0);
+    {
+      // Always save pre-stroke state so we can convert to object
+      if (!state.preStrokeCanvas) {
+        state.preStrokeCanvas = document.createElement('canvas');
+        state.preStrokeCtx = state.preStrokeCanvas.getContext('2d');
       }
-      if (state.directDraw) {
-        // Direct draw: just draw the dot on the layer
-        const ctx = layer.ctx;
-        ctx.save();
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = getActiveSize();
-        ctx.strokeStyle = state.color;
-        ctx.beginPath();
-        ctx.moveTo(pos.x, pos.y);
-        ctx.lineTo(pos.x, pos.y);
-        ctx.stroke();
-        ctx.restore();
-      } else {
-        // Set up scratch canvas for opacity-correct rendering
-        if (!state.scratchCanvas) {
-          state.scratchCanvas = document.createElement('canvas');
-          state.scratchCtx = state.scratchCanvas.getContext('2d');
-        }
-        state.scratchCanvas.width = state.canvasWidth;
-        state.scratchCanvas.height = state.canvasHeight;
-        // Save pre-stroke state as a canvas (GPU-friendly, avoids putImageData flicker)
-        if (!state.preStrokeCanvas) {
-          state.preStrokeCanvas = document.createElement('canvas');
-          state.preStrokeCtx = state.preStrokeCanvas.getContext('2d');
-        }
-        state.preStrokeCanvas.width = state.canvasWidth;
-        state.preStrokeCanvas.height = state.canvasHeight;
-        state.preStrokeCtx.drawImage(layer.canvas, 0, 0);
+      state.preStrokeCanvas.width = state.canvasWidth;
+      state.preStrokeCanvas.height = state.canvasHeight;
+      state.preStrokeCtx.drawImage(layer.canvas, 0, 0);
+      // Set up scratch canvas for opacity-correct rendering
+      if (!state.scratchCanvas) {
+        state.scratchCanvas = document.createElement('canvas');
+        state.scratchCtx = state.scratchCanvas.getContext('2d');
+      }
+      state.scratchCanvas.width = state.canvasWidth;
+      state.scratchCanvas.height = state.canvasHeight;
+      if (brush === 'pen' || brush === 'marker' || brush === 'eraser') {
         // Draw initial dot on scratch canvas
         const sctx = state.scratchCtx;
         sctx.lineCap = 'round';
@@ -841,13 +824,9 @@
         sctx.moveTo(pos.x, pos.y);
         sctx.lineTo(pos.x, pos.y);
         sctx.stroke();
-        // Composite scratch onto layer
         compositeScratchToLayer(layer, brush);
       }
-    } else if (brush === 'sprinkles') {
-      drawSprinkle(layer.ctx, pos.x, pos.y);
-    } else if (brush === 'fairylights') {
-      drawFairyLight(layer.ctx, pos.x, pos.y);
+      // Procedural brushes (glitz, sprinkles, vine, fairylights) just collect points
     }
   }
 
@@ -933,31 +912,13 @@
     if (!layer) return;
     const pos = getCanvasPos(e);
     state.strokePoints.push(pos);
-    const ctx   = layer.ctx;
     const brush = state.activeBrush;
 
-    if (brush === 'pen' || brush === 'marker' || brush === 'glitz' || brush === 'eraser') {
-      if (state.directDraw) {
-        // Direct draw: draw just this segment onto the layer
-        const ctx = layer.ctx;
-        const midX = (state.lastX + pos.x) / 2;
-        const midY = (state.lastY + pos.y) / 2;
-        ctx.save();
-        ctx.lineCap  = 'round';
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = getActiveSize();
-        ctx.strokeStyle = state.color;
-        ctx.beginPath();
-        ctx.moveTo(state.lastMidX, state.lastMidY);
-        ctx.quadraticCurveTo(state.lastX, state.lastY, midX, midY);
-        ctx.stroke();
-        ctx.restore();
-        state.lastMidX = midX;
-        state.lastMidY = midY;
-      } else {
-        // Scratch canvas path: redraw entire stroke each frame
-        const sctx = state.scratchCtx;
-        sctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+    {
+      // Scratch canvas path: redraw entire stroke each frame
+      const sctx = state.scratchCtx;
+      sctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+      if (brush === 'pen' || brush === 'marker' || brush === 'eraser') {
         sctx.lineCap  = 'round';
         sctx.lineJoin = 'round';
         sctx.lineWidth = getActiveSize();
@@ -976,15 +937,25 @@
           sctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
         }
         sctx.stroke();
-        compositeScratchToLayer(layer, brush);
+      } else {
+        // Procedural brushes (glitz, sprinkles, vine, fairylights): render via drawObjectTo
+        const pts = state.strokePoints;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        pts.forEach(p => { if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y; if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y; });
+        const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+        const relPts = pts.map(p => ({ x: p.x - cx, y: p.y - cy }));
+        const tmpObj = {
+          id: state.pendingStrokeId, type: 'stroke', x: cx, y: cy, rotation: 0, scale: 1,
+          points: relPts, color: state.color, brushSize: getActiveSize(),
+          opacity: state.brushOpacity, brush: brush,
+          baseWidth: maxX - minX + getActiveSize() * 2,
+          baseHeight: maxY - minY + getActiveSize() * 2,
+          sprinklesDensity: state.sprinklesDensity,
+          fairylightsUseColor: state.fairylightsUseColor,
+        };
+        drawObjectTo(sctx, tmpObj);
       }
-    } else if (brush === 'sprinkles') {
-      drawSprinkle(ctx, pos.x, pos.y);
-    } else if (brush === 'vine') {
-      drawVineSegment(ctx, state.lastX, state.lastY, pos.x, pos.y);
-    } else if (brush === 'fairylights') {
-      drawFairyLightSegment(ctx, state.lastX, state.lastY, pos.x, pos.y);
-      drawFairyLight(ctx, pos.x, pos.y);
+      compositeScratchToLayer(layer, brush);
     }
     state.lastX = pos.x;
     state.lastY = pos.y;
@@ -1014,47 +985,8 @@
       const layer = getActiveLayer();
       if (layer) {
         const brush = state.activeBrush;
-        if (brush === 'pen' || brush === 'marker' || brush === 'glitz' || brush === 'eraser') {
-          if (state.directDraw) {
-            // Direct draw: draw final segment
-            const ctx = layer.ctx;
-            ctx.save();
-            ctx.lineCap  = 'round';
-            ctx.lineJoin = 'round';
-            ctx.lineWidth = getActiveSize();
-            ctx.strokeStyle = state.color;
-            ctx.beginPath();
-            ctx.moveTo(state.lastMidX, state.lastMidY);
-            ctx.lineTo(state.lastX, state.lastY);
-            ctx.stroke();
-            ctx.restore();
-          } else {
-            // Scratch canvas: final full-path composite
-            const sctx = state.scratchCtx;
-            sctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
-            sctx.lineCap  = 'round';
-            sctx.lineJoin = 'round';
-            sctx.lineWidth = getActiveSize();
-            sctx.strokeStyle = brush === 'eraser' ? '#fff' : state.color;
-            const pts = state.strokePoints;
-            sctx.beginPath();
-            sctx.moveTo(pts[0].x, pts[0].y);
-            if (pts.length === 1) {
-              sctx.lineTo(pts[0].x, pts[0].y);
-            } else {
-              for (let i = 1; i < pts.length - 1; i++) {
-                const mx = (pts[i].x + pts[i + 1].x) / 2;
-                const my = (pts[i].y + pts[i + 1].y) / 2;
-                sctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
-              }
-              sctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
-            }
-            sctx.stroke();
-            compositeScratchToLayer(layer, brush);
-          }
-        }
-        // Convert strokes (including eraser) to selectable objects
-        if ((brush === 'pen' || brush === 'marker' || brush === 'glitz' || brush === 'eraser') && state.strokePoints.length > 0) {
+        // Convert all strokes to selectable objects
+        if (state.strokePoints.length > 0) {
           // Restore the layer canvas to pre-stroke state
           layer.ctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
           if (state.preStrokeCanvas) {
@@ -1073,16 +1005,20 @@
           const cy = (minY + maxY) / 2;
           const relPoints = pts.map(p => ({ x: p.x - cx, y: p.y - cy }));
           const activeSize = getActiveSize();
+          // For procedural brushes, expand bounding box to account for decorations
+          const expandFactor = (brush === 'vine' || brush === 'fairylights') ? 3 : (brush === 'sprinkles' ? 4 : 1);
           layer.objects.push({
-            id: ++objectIdCounter, type: 'stroke',
+            id: state.pendingStrokeId, type: 'stroke',
             x: cx, y: cy, rotation: 0, scale: 1,
             points: relPoints,
             color: brush === 'eraser' ? '#000' : state.color,
             brushSize: activeSize,
             opacity: state.brushOpacity,
             brush: brush,
-            baseWidth: maxX - minX + activeSize * 2,
-            baseHeight: maxY - minY + activeSize * 2,
+            baseWidth: maxX - minX + activeSize * 2 * expandFactor,
+            baseHeight: maxY - minY + activeSize * 2 * expandFactor,
+            sprinklesDensity: state.sprinklesDensity,
+            fairylightsUseColor: state.fairylightsUseColor,
           });
           previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
           renderObjects();
@@ -1095,111 +1031,7 @@
     scheduleAutosave();
   }
 
-  // ── Procedural Brushes ────────────────────────────────
-  function drawSprinkle(ctx, x, y) {
-    const count = Math.floor(Math.random() * 3) + 1;
-    for (let i = 0; i < count; i++) {
-      ctx.save();
-      ctx.globalAlpha = state.brushOpacity;
-      const spread = state.brushSize * 3;
-      const sx = x + (Math.random() - 0.5) * spread;
-      const sy = y + (Math.random() - 0.5) * spread;
-      const r  = Math.random() * state.brushSize * 0.5 + 1;
-      const shapes = ['circle', 'rect', 'line'];
-      const shape  = shapes[Math.floor(Math.random() * shapes.length)];
-      const hShift = Math.floor(Math.random() * 60) - 30;
-      ctx.fillStyle   = shiftHue(state.color, hShift);
-      ctx.strokeStyle = shiftHue(state.color, hShift);
-      ctx.lineWidth   = Math.max(1, r * 0.5);
-      if (shape === 'circle') {
-        ctx.beginPath();
-        ctx.arc(sx, sy, r, 0, Math.PI * 2);
-        ctx.fill();
-      } else if (shape === 'rect') {
-        ctx.save();
-        ctx.translate(sx, sy);
-        ctx.rotate(Math.random() * Math.PI);
-        ctx.fillRect(-r, -r * 0.4, r * 2, r * 0.8);
-        ctx.restore();
-      } else {
-        const angle = Math.random() * Math.PI;
-        ctx.beginPath();
-        ctx.moveTo(sx - Math.cos(angle) * r, sy - Math.sin(angle) * r);
-        ctx.lineTo(sx + Math.cos(angle) * r, sy + Math.sin(angle) * r);
-        ctx.lineCap = 'round';
-        ctx.stroke();
-      }
-      ctx.restore();
-    }
-  }
-
-  function drawVineSegment(ctx, x1, y1, x2, y2) {
-    ctx.save();
-    ctx.globalAlpha = state.brushOpacity;
-    ctx.strokeStyle = shiftHue(state.color, -10);
-    ctx.lineWidth   = Math.max(1, state.brushSize * 0.4);
-    ctx.lineCap     = 'round';
-    const dist = Math.hypot(x2 - x1, y2 - y1);
-    const amp  = state.brushSize * 1.5;
-    const steps = Math.max(2, Math.floor(dist));
-    ctx.beginPath();
-    for (let i = 0; i <= steps; i++) {
-      const t   = i / steps;
-      const bx  = x1 + (x2 - x1) * t;
-      const by  = y1 + (y2 - y1) * t;
-      const px  = -(y2 - y1) / (dist || 1);
-      const py  =  (x2 - x1) / (dist || 1);
-      const w   = Math.sin((state.strokePoints.length + i) * 0.08) * amp;
-      if (i === 0) ctx.moveTo(bx + px * w, by + py * w);
-      else         ctx.lineTo(bx + px * w, by + py * w);
-    }
-    ctx.stroke();
-    if (Math.random() < 0.15) {
-      const mx = (x1 + x2) / 2 + (Math.random() - 0.5) * amp * 2;
-      const my = (y1 + y2) / 2 + (Math.random() - 0.5) * amp * 2;
-      ctx.fillStyle = shiftHue(state.color, 20);
-      ctx.beginPath();
-      ctx.ellipse(mx, my, state.brushSize * 0.8, state.brushSize * 0.3, Math.random() * Math.PI, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  function drawFairyLightSegment(ctx, x1, y1, x2, y2) {
-    ctx.save();
-    ctx.globalAlpha  = state.brushOpacity * 0.6;
-    ctx.strokeStyle  = state.color;
-    ctx.lineWidth    = Math.max(1, state.brushSize * 0.2);
-    ctx.setLineDash([4, 4]);
-    const dist = Math.hypot(x2 - x1, y2 - y1);
-    const sag  = state.brushSize * 0.8;
-    const px   = -(y2 - y1) / (dist || 1);
-    const py   =  (x2 - x1) / (dist || 1);
-    const cx   = (x1 + x2) / 2 + px * sag * Math.sin(state.strokePoints.length * 0.1);
-    const cy   = (y1 + y2) / 2 + py * sag * Math.sin(state.strokePoints.length * 0.1);
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.quadraticCurveTo(cx, cy, x2, y2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.restore();
-  }
-
-  function drawFairyLight(ctx, x, y) {
-    if (Math.random() > 0.3) return;
-    const r = state.brushSize * 0.6 + Math.random() * state.brushSize * 0.4;
-    const colors = ['#f7c948','#e87461','#7ec8e3','#f0a0c0','#6ab04c','#ffffff'];
-    const c = colors[Math.floor(Math.random() * colors.length)];
-    ctx.save();
-    ctx.globalAlpha  = state.brushOpacity * 0.8;
-    ctx.fillStyle    = c;
-    ctx.shadowColor  = c;
-    ctx.shadowBlur   = r * 2;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
+  // (Procedural brush rendering is now handled in drawObjectTo)
 
   // ── Color helpers ─────────────────────────────────────
   function shiftHue(hex, amount) {
@@ -1758,34 +1590,59 @@
     } else if (obj.type === 'stroke') {
       const scale = obj.scale || 1;
       ctx.scale(scale, scale);
-      if (obj.brush === 'eraser') {
-        ctx.globalCompositeOperation = 'destination-out';
-      }
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.lineWidth = obj.brushSize;
-      ctx.strokeStyle = obj.brush === 'eraser' ? '#000' : obj.color;
-      ctx.globalAlpha = obj.brush === 'marker' ? (obj.opacity || 1) * 0.5 : (obj.opacity || 1);
       const pts = obj.points;
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, pts[0].y);
-      if (pts.length === 1) {
-        ctx.lineTo(pts[0].x, pts[0].y);
-      } else {
-        for (let i = 1; i < pts.length - 1; i++) {
-          const mx = (pts[i].x + pts[i + 1].x) / 2;
-          const my = (pts[i].y + pts[i + 1].y) / 2;
-          ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+      const opacity = obj.opacity || 1;
+      const bs = obj.brush;
+
+      if (bs === 'pen' || bs === 'marker' || bs === 'eraser') {
+        if (bs === 'eraser') ctx.globalCompositeOperation = 'destination-out';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = obj.brushSize;
+        ctx.strokeStyle = bs === 'eraser' ? '#000' : obj.color;
+        ctx.globalAlpha = bs === 'marker' ? opacity * 0.5 : opacity;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        if (pts.length === 1) {
+          ctx.lineTo(pts[0].x, pts[0].y);
+        } else {
+          for (let i = 1; i < pts.length - 1; i++) {
+            const mx = (pts[i].x + pts[i + 1].x) / 2;
+            const my = (pts[i].y + pts[i + 1].y) / 2;
+            ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+          }
+          ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
         }
-        ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
-      }
-      ctx.stroke();
-      // Glitz: overlay glitter particles along the stroke path
-      if (obj.brush === 'glitz') {
-        const pts = obj.points;
+        ctx.stroke();
+
+      } else if (bs === 'glitz') {
+        // Glitz: base stroke + glitter overlay in single-color shades
+        // Draw the base stroke first
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = obj.brushSize;
+        ctx.strokeStyle = obj.color;
+        ctx.globalAlpha = opacity;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        if (pts.length === 1) {
+          ctx.lineTo(pts[0].x, pts[0].y);
+        } else {
+          for (let i = 1; i < pts.length - 1; i++) {
+            const mx = (pts[i].x + pts[i + 1].x) / 2;
+            const my = (pts[i].y + pts[i + 1].y) / 2;
+            ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+          }
+          ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+        }
+        ctx.stroke();
+        // Glitter particles on top
         const seed = obj.id || 0;
         const rng = (function(s) { return function() { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; }; })(seed);
-        const step = Math.max(2, obj.brushSize * 0.3);
+        const hex = obj.color;
+        const cr = parseInt(hex.slice(1, 3), 16), cg = parseInt(hex.slice(3, 5), 16), cb = parseInt(hex.slice(5, 7), 16);
+        const baseHsl = rgbToHsl(cr, cg, cb);
+        const step = Math.max(2, obj.brushSize * 0.25);
         for (let i = 0; i < pts.length - 1; i++) {
           const dx = pts[i + 1].x - pts[i].x;
           const dy = pts[i + 1].y - pts[i].y;
@@ -1795,32 +1652,422 @@
             const t = j / steps;
             const bx = pts[i].x + dx * t;
             const by = pts[i].y + dy * t;
-            const count = Math.floor(rng() * 3) + 2;
+            const count = Math.floor(rng() * 4) + 3;
             for (let k = 0; k < count; k++) {
-              const spread = obj.brushSize * 0.45;
+              const spread = obj.brushSize * 0.5;
               const gx = bx + (rng() - 0.5) * spread * 2;
               const gy = by + (rng() - 0.5) * spread * 2;
-              const gr = rng() * obj.brushSize * 0.12 + 0.5;
-              const bright = rng() * 0.5 + 0.5;
-              ctx.globalAlpha = bright * (obj.opacity || 1);
-              ctx.fillStyle = rng() > 0.5 ? '#fff' : shiftHue(obj.color, Math.floor(rng() * 60 - 30));
+              const gr = rng() * obj.brushSize * 0.1 + 0.3;
+              const bright = rng() * 0.6 + 0.4;
+              const lShift = (rng() - 0.3) * 0.4;
+              const particleL = Math.max(0.1, Math.min(0.95, baseHsl[2] + lShift));
+              const rgb = hslToRgb(baseHsl[0] + (rng() - 0.5) * 0.03, baseHsl[1], particleL);
+              ctx.globalAlpha = bright * opacity;
+              ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
               ctx.beginPath();
               ctx.arc(gx, gy, gr, 0, Math.PI * 2);
               ctx.fill();
-              // Draw tiny sparkle cross on some particles
-              if (rng() > 0.7) {
-                ctx.strokeStyle = '#fff';
+              if (rng() > 0.6) {
+                const hlRgb = hslToRgb(baseHsl[0], baseHsl[1] * 0.3, 0.95);
+                ctx.strokeStyle = `rgb(${hlRgb[0]},${hlRgb[1]},${hlRgb[2]})`;
                 ctx.lineWidth = 0.5;
-                ctx.globalAlpha = bright * 0.8 * (obj.opacity || 1);
-                const arm = gr * 2;
+                ctx.globalAlpha = bright * 0.9 * opacity;
+                const arm = gr * 2.5;
                 ctx.beginPath();
                 ctx.moveTo(gx - arm, gy); ctx.lineTo(gx + arm, gy);
                 ctx.moveTo(gx, gy - arm); ctx.lineTo(gx, gy + arm);
                 ctx.stroke();
               }
+              if (rng() > 0.85) {
+                ctx.globalAlpha = bright * opacity;
+                ctx.fillStyle = '#fff';
+                const ds = gr * 1.5;
+                ctx.beginPath();
+                ctx.moveTo(gx, gy - ds); ctx.lineTo(gx + ds * 0.4, gy);
+                ctx.lineTo(gx, gy + ds); ctx.lineTo(gx - ds * 0.4, gy);
+                ctx.closePath();
+                ctx.fill();
+              }
             }
           }
         }
+
+      } else if (bs === 'sprinkles') {
+        // Sprinkles: pretty confetti — hearts, stars, dots, with a few capsules
+        const seed = obj.id || 0;
+        const rng = (function(s) { return function() { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; }; })(seed);
+        const hex = obj.color;
+        const cr = parseInt(hex.slice(1, 3), 16), cg = parseInt(hex.slice(3, 5), 16), cb = parseInt(hex.slice(5, 7), 16);
+        const baseHsl = rgbToHsl(cr, cg, cb);
+        const density = obj.sprinklesDensity || 5;
+        const step = Math.max(2, obj.brushSize * (1.4 - density * 0.1));
+        for (let i = 0; i < pts.length - 1; i++) {
+          const dx = pts[i + 1].x - pts[i].x;
+          const dy = pts[i + 1].y - pts[i].y;
+          const segLen = Math.hypot(dx, dy);
+          const steps = Math.max(1, Math.floor(segLen / step));
+          for (let j = 0; j < steps; j++) {
+            const t = j / steps;
+            const bx = pts[i].x + dx * t;
+            const by = pts[i].y + dy * t;
+            const count = Math.max(1, Math.floor(density * 0.4));
+            for (let k = 0; k < count; k++) {
+              const spread = obj.brushSize * 1.5;
+              const sx = bx + (rng() - 0.5) * spread * 2;
+              const sy = by + (rng() - 0.5) * spread * 2;
+              const r = rng() * obj.brushSize * 0.2 + obj.brushSize * 0.1;
+              const hueShift = (rng() - 0.5) * 0.15;
+              const satAdj = Math.min(1, baseHsl[1] + 0.2);
+              const lightAdj = Math.max(0.4, Math.min(0.8, baseHsl[2] + (rng() - 0.3) * 0.3));
+              const rgb = hslToRgb(baseHsl[0] + hueShift, satAdj, lightAdj);
+              ctx.globalAlpha = (rng() * 0.3 + 0.7) * opacity;
+              const shape = rng();
+              if (shape < 0.3) {
+                // Heart
+                ctx.save();
+                ctx.translate(sx, sy);
+                ctx.rotate(rng() * 0.6 - 0.3);
+                ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+                const hr = r * 0.7;
+                ctx.beginPath();
+                ctx.moveTo(0, hr * 0.5);
+                ctx.bezierCurveTo(-hr, -hr * 0.3, -hr * 0.5, -hr * 1.3, 0, -hr * 0.4);
+                ctx.bezierCurveTo(hr * 0.5, -hr * 1.3, hr, -hr * 0.3, 0, hr * 0.5);
+                ctx.fill();
+                ctx.restore();
+              } else if (shape < 0.55) {
+                // Star
+                ctx.save();
+                ctx.translate(sx, sy);
+                ctx.rotate(rng() * Math.PI * 2);
+                ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+                const sr = r * 0.8;
+                const spikes = 4 + Math.floor(rng() * 2);
+                ctx.beginPath();
+                for (let s = 0; s < spikes * 2; s++) {
+                  const ang = (s / (spikes * 2)) * Math.PI * 2;
+                  const rad = s % 2 === 0 ? sr : sr * 0.4;
+                  if (s === 0) ctx.moveTo(Math.cos(ang) * rad, Math.sin(ang) * rad);
+                  else ctx.lineTo(Math.cos(ang) * rad, Math.sin(ang) * rad);
+                }
+                ctx.closePath();
+                ctx.fill();
+                // Highlight dot in center
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.beginPath();
+                ctx.arc(0, 0, sr * 0.2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+              } else if (shape < 0.8) {
+                // Circle dot with highlight
+                ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+                ctx.beginPath();
+                ctx.arc(sx, sy, r * 0.55, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.beginPath();
+                ctx.arc(sx - r * 0.12, sy - r * 0.12, r * 0.2, 0, Math.PI * 2);
+                ctx.fill();
+              } else {
+                // Short capsule sprinkle
+                ctx.save();
+                ctx.translate(sx, sy);
+                ctx.rotate(rng() * Math.PI);
+                ctx.lineCap = 'round';
+                ctx.lineWidth = r * 0.7;
+                ctx.strokeStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+                const len = r * 1.4;
+                ctx.beginPath();
+                ctx.moveTo(-len, 0);
+                ctx.lineTo(len, 0);
+                ctx.stroke();
+                ctx.restore();
+              }
+            }
+          }
+        }
+
+      } else if (bs === 'vine') {
+        // Vine: organic curling vine with leaves along the stroke path
+        const seed = obj.id || 0;
+        const rng = (function(s) { return function() { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; }; })(seed);
+        const hex = obj.color;
+        const cr = parseInt(hex.slice(1, 3), 16), cg = parseInt(hex.slice(3, 5), 16), cb = parseInt(hex.slice(5, 7), 16);
+        const baseHsl = rgbToHsl(cr, cg, cb);
+        ctx.globalAlpha = opacity;
+
+        // Draw main vine stem — smooth curve following the stroke path
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        const stemWidth = Math.max(1.5, obj.brushSize * 0.15);
+        const stemRgb = hslToRgb(baseHsl[0], Math.min(1, baseHsl[1] * 0.9), Math.max(0.15, baseHsl[2] * 0.6));
+        ctx.strokeStyle = `rgb(${stemRgb[0]},${stemRgb[1]},${stemRgb[2]})`;
+        ctx.lineWidth = stemWidth;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        if (pts.length <= 2) {
+          ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+        } else {
+          for (let i = 1; i < pts.length - 1; i++) {
+            const mx = (pts[i].x + pts[i + 1].x) / 2;
+            const my = (pts[i].y + pts[i + 1].y) / 2;
+            ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+          }
+          ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+        }
+        ctx.stroke();
+
+        // Compute cumulative arc length for even spacing
+        const arcLens = [0];
+        for (let i = 1; i < pts.length; i++) {
+          arcLens.push(arcLens[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+        }
+        const totalLen = arcLens[arcLens.length - 1];
+        if (totalLen < 2) { ctx.restore(); return; }
+
+        function pointAtArc(d) {
+          for (let i = 1; i < arcLens.length; i++) {
+            if (arcLens[i] >= d) {
+              const segT = (d - arcLens[i - 1]) / (arcLens[i] - arcLens[i - 1] || 1);
+              return {
+                x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * segT,
+                y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * segT,
+                nx: -(pts[i].y - pts[i - 1].y), ny: pts[i].x - pts[i - 1].x
+              };
+            }
+          }
+          return { x: pts[pts.length - 1].x, y: pts[pts.length - 1].y, nx: 0, ny: -1 };
+        }
+
+        // Draw leaves along the vine
+        const leafSpacing = Math.max(10, obj.brushSize * 1.2);
+        let side = 1;
+        for (let d = leafSpacing * 0.5; d < totalLen - leafSpacing * 0.3; d += leafSpacing * (0.7 + rng() * 0.6)) {
+          const p = pointAtArc(d);
+          const nLen = Math.hypot(p.nx, p.ny) || 1;
+          const nx = p.nx / nLen, ny = p.ny / nLen;
+          side *= -1;
+          const leafSize = obj.brushSize * (0.5 + rng() * 0.5);
+
+          // Short stem from vine to leaf
+          const stemLen = leafSize * 0.4 + rng() * leafSize * 0.3;
+          const stemEndX = p.x + nx * side * stemLen;
+          const stemEndY = p.y + ny * side * stemLen;
+          ctx.strokeStyle = `rgb(${stemRgb[0]},${stemRgb[1]},${stemRgb[2]})`;
+          ctx.lineWidth = stemWidth * 0.6;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(stemEndX, stemEndY);
+          ctx.stroke();
+
+          // Draw leaf — teardrop shape
+          ctx.save();
+          ctx.translate(stemEndX, stemEndY);
+          const leafDir = Math.atan2(stemEndY - p.y, stemEndX - p.x) + (rng() - 0.5) * 0.4;
+          ctx.rotate(leafDir);
+
+          // Leaf body — varying green shades
+          const leafLightness = baseHsl[2] + (rng() - 0.3) * 0.2;
+          const leafRgb = hslToRgb(baseHsl[0] + (rng() - 0.5) * 0.06, Math.min(1, baseHsl[1] + 0.1), Math.max(0.2, Math.min(0.75, leafLightness)));
+          ctx.fillStyle = `rgb(${leafRgb[0]},${leafRgb[1]},${leafRgb[2]})`;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.bezierCurveTo(leafSize * 0.3, -leafSize * 0.45, leafSize * 0.8, -leafSize * 0.3, leafSize, 0);
+          ctx.bezierCurveTo(leafSize * 0.8, leafSize * 0.3, leafSize * 0.3, leafSize * 0.45, 0, 0);
+          ctx.fill();
+
+          // Leaf vein (center line)
+          const veinRgb = hslToRgb(baseHsl[0], baseHsl[1] * 0.6, Math.min(0.9, leafLightness + 0.15));
+          ctx.strokeStyle = `rgb(${veinRgb[0]},${veinRgb[1]},${veinRgb[2]})`;
+          ctx.lineWidth = Math.max(0.5, stemWidth * 0.3);
+          ctx.beginPath();
+          ctx.moveTo(leafSize * 0.1, 0);
+          ctx.lineTo(leafSize * 0.85, 0);
+          ctx.stroke();
+
+          // Side veins
+          ctx.lineWidth = Math.max(0.4, stemWidth * 0.2);
+          for (let v = 0.3; v < 0.8; v += 0.2) {
+            ctx.beginPath();
+            ctx.moveTo(leafSize * v, 0);
+            ctx.lineTo(leafSize * (v + 0.12), -leafSize * 0.15);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(leafSize * v, 0);
+            ctx.lineTo(leafSize * (v + 0.12), leafSize * 0.15);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // Curling tendrils
+        for (let d = leafSpacing; d < totalLen; d += leafSpacing * (1.5 + rng() * 2)) {
+          if (rng() > 0.5) continue;
+          const p = pointAtArc(d);
+          const nLen = Math.hypot(p.nx, p.ny) || 1;
+          const nx = p.nx / nLen, ny = p.ny / nLen;
+          const tSide = rng() > 0.5 ? 1 : -1;
+          const curls = 1.5 + rng() * 1.5;
+          const tendrilLen = obj.brushSize * (0.6 + rng() * 0.8);
+          ctx.strokeStyle = `rgb(${stemRgb[0]},${stemRgb[1]},${stemRgb[2]})`;
+          ctx.lineWidth = Math.max(0.5, stemWidth * 0.4);
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          const spiralSteps = 20;
+          for (let s = 1; s <= spiralSteps; s++) {
+            const st = s / spiralSteps;
+            const radius = tendrilLen * st * 0.3;
+            const angle = st * curls * Math.PI * 2;
+            const tx = p.x + nx * tSide * tendrilLen * st + Math.cos(angle) * radius;
+            const ty = p.y + ny * tSide * tendrilLen * st + Math.sin(angle) * radius;
+            ctx.lineTo(tx, ty);
+          }
+          ctx.stroke();
+        }
+
+      } else if (bs === 'fairylights') {
+        // Fairy Lights: wire with pear-shaped bulbs hanging below
+        const seed = obj.id || 0;
+        const rng = (function(s) { return function() { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; }; })(seed);
+        ctx.globalAlpha = opacity;
+
+        // Compute arc lengths for point sampling
+        const arcLens = [0];
+        for (let i = 1; i < pts.length; i++) {
+          arcLens.push(arcLens[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+        }
+        const totalLen = arcLens[arcLens.length - 1];
+        if (totalLen < 2) { ctx.restore(); return; }
+
+        function pointAtArc(d) {
+          for (let i = 1; i < arcLens.length; i++) {
+            if (arcLens[i] >= d) {
+              const segT = (d - arcLens[i - 1]) / (arcLens[i] - arcLens[i - 1] || 1);
+              return {
+                x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * segT,
+                y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * segT,
+              };
+            }
+          }
+          return { x: pts[pts.length - 1].x, y: pts[pts.length - 1].y };
+        }
+
+        // Bulb colors — warm festive palette or single colour from selection
+        const useSelectedColor = obj.fairylightsUseColor;
+        let bulbColors;
+        if (useSelectedColor) {
+          const hex = obj.color;
+          const cr2 = parseInt(hex.slice(1, 3), 16), cg2 = parseInt(hex.slice(3, 5), 16), cb2 = parseInt(hex.slice(5, 7), 16);
+          const bHsl = rgbToHsl(cr2, cg2, cb2);
+          // Generate shades of the selected colour
+          bulbColors = [];
+          for (let i = 0; i < 5; i++) {
+            const lAdj = bHsl[2] + (i - 2) * 0.08;
+            const hAdj = bHsl[0] + (i - 2) * 0.02;
+            const c = hslToRgb(hAdj, Math.min(1, bHsl[1] + 0.1), Math.max(0.25, Math.min(0.85, lAdj)));
+            bulbColors.push(c);
+          }
+        } else {
+          bulbColors = [
+            [255, 200, 60], [230, 80, 80], [100, 200, 120],
+            [90, 160, 230], [220, 130, 200], [255, 160, 60], [180, 130, 255],
+          ];
+        }
+
+        const bulbSpacing = Math.max(12, obj.brushSize * 1.2);
+        const bulbR = Math.max(2, obj.brushSize * 0.3);
+
+        // Pre-compute bulb positions
+        const bulbs = [];
+        for (let d = bulbSpacing * 0.5; d < totalLen; d += bulbSpacing * (0.8 + rng() * 0.4)) {
+          const p = pointAtArc(d);
+          const colorIdx = Math.floor(rng() * bulbColors.length);
+          bulbs.push({ wx: p.x, wy: p.y, bc: bulbColors[colorIdx] });
+        }
+
+        // Draw each bulb — clasp at wire, bulb body hangs below
+        for (const b of bulbs) {
+          const wx = b.wx, wy = b.wy;  // wire attachment point
+          const bc = b.bc;
+          // Clasp sits right at the wire, bulb hangs below it
+          const claspH = bulbR * 0.4;
+          const bulbTopY = wy + claspH;  // top of glass starts just below clasp
+          const bulbCenterY = bulbTopY + bulbR * 0.9;  // center of the round part
+
+          // Outer glow centered on bulb body
+          const glowR = bulbR * 3.5;
+          const glow = ctx.createRadialGradient(wx, bulbCenterY, bulbR * 0.3, wx, bulbCenterY, glowR);
+          glow.addColorStop(0, `rgba(${bc[0]},${bc[1]},${bc[2]},0.3)`);
+          glow.addColorStop(0.5, `rgba(${bc[0]},${bc[1]},${bc[2]},0.08)`);
+          glow.addColorStop(1, `rgba(${bc[0]},${bc[1]},${bc[2]},0)`);
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(wx, bulbCenterY, glowR, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.save();
+          ctx.translate(wx, wy);
+
+          // Metallic clasp — small trapezoid at wire level
+          const capW = bulbR * 0.4;
+          ctx.fillStyle = 'rgba(180,175,155,0.95)';
+          ctx.beginPath();
+          ctx.moveTo(-capW * 0.7, 0);
+          ctx.lineTo(-capW, claspH);
+          ctx.lineTo(capW, claspH);
+          ctx.lineTo(capW * 0.7, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(140,135,120,0.7)';
+          ctx.lineWidth = Math.max(0.4, bulbR * 0.05);
+          ctx.stroke();
+
+          // Pear-shaped glass bulb — wide at top, tapers to point at bottom
+          const bTop = claspH;  // top of glass meets bottom of clasp
+          const bulbGrad = ctx.createRadialGradient(-bulbR * 0.15, bTop + bulbR * 0.5, bulbR * 0.1, 0, bTop + bulbR * 0.7, bulbR * 1.2);
+          bulbGrad.addColorStop(0, `rgba(${Math.min(255, bc[0] + 100)},${Math.min(255, bc[1] + 100)},${Math.min(255, bc[2] + 100)},0.95)`);
+          bulbGrad.addColorStop(0.5, `rgba(${bc[0]},${bc[1]},${bc[2]},0.9)`);
+          bulbGrad.addColorStop(1, `rgba(${Math.max(0, bc[0] - 50)},${Math.max(0, bc[1] - 50)},${Math.max(0, bc[2] - 50)},0.85)`);
+          ctx.fillStyle = bulbGrad;
+          ctx.beginPath();
+          // Start at top-center where clasp meets glass
+          ctx.moveTo(0, bTop);
+          // Right side: go wide then curve down to point
+          ctx.bezierCurveTo(bulbR * 0.5, bTop, bulbR * 1.1, bTop + bulbR * 0.3, bulbR * 1.1, bTop + bulbR * 0.9);
+          ctx.bezierCurveTo(bulbR * 1.1, bTop + bulbR * 1.5, bulbR * 0.4, bTop + bulbR * 2.0, 0, bTop + bulbR * 2.2);
+          // Left side: mirror
+          ctx.bezierCurveTo(-bulbR * 0.4, bTop + bulbR * 2.0, -bulbR * 1.1, bTop + bulbR * 1.5, -bulbR * 1.1, bTop + bulbR * 0.9);
+          ctx.bezierCurveTo(-bulbR * 1.1, bTop + bulbR * 0.3, -bulbR * 0.5, bTop, 0, bTop);
+          ctx.fill();
+
+          // Glass reflection highlight
+          ctx.fillStyle = 'rgba(255,255,255,0.4)';
+          ctx.beginPath();
+          ctx.ellipse(-bulbR * 0.3, bTop + bulbR * 0.7, bulbR * 0.2, bulbR * 0.5, -0.2, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.restore();
+        }
+
+        // Draw the wire on top
+        const wireWidth = Math.max(0.8, obj.brushSize * 0.06);
+        ctx.strokeStyle = 'rgba(60,55,45,0.8)';
+        ctx.lineWidth = wireWidth;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        if (pts.length <= 2) {
+          ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+        } else {
+          for (let i = 1; i < pts.length - 1; i++) {
+            const mx = (pts[i].x + pts[i + 1].x) / 2;
+            const my = (pts[i].y + pts[i + 1].y) / 2;
+            ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+          }
+          ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+        }
+        ctx.stroke();
       }
     }
     ctx.restore();
@@ -3132,6 +3379,12 @@
     $('#btn-save-swatch')?.addEventListener('click', saveSwatch);
 
     // ── Brush sheet ──
+    function updateBrushOptions() {
+      $$('.brush-options').forEach(el => el.classList.add('hidden'));
+      const opt = $(`#brush-opt-${state.activeBrush}`);
+      if (opt) opt.classList.remove('hidden');
+    }
+
     $$('.brush-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         $$('.brush-btn').forEach(b => b.classList.remove('active'));
@@ -3140,6 +3393,7 @@
         exitStickerMode();
         exitTextMode();
         exitSelectMode();
+        updateBrushOptions();
         // Set tools-menu as active in main bar, Draw as active in submenu
         $$('.tb-btn').forEach(b => b.classList.remove('active'));
         $('#btn-tools-menu')?.classList.add('active');
@@ -3148,6 +3402,25 @@
         closeSheet();
       });
     });
+
+    // Sprinkles density slider
+    const densitySlider = $('#sprinkles-density');
+    if (densitySlider) {
+      densitySlider.addEventListener('input', e => {
+        state.sprinklesDensity = parseInt(e.target.value);
+        $('#sprinkles-density-label').textContent = state.sprinklesDensity;
+      });
+    }
+
+    // Fairy lights colour toggle
+    const flToggle = $('#fairylights-color-toggle');
+    if (flToggle) {
+      flToggle.addEventListener('click', () => {
+        const on = flToggle.dataset.on === 'true';
+        flToggle.dataset.on = on ? 'false' : 'true';
+        state.fairylightsUseColor = !on;
+      });
+    }
 
     const sizeSlider = $('#brush-size');
     if (sizeSlider) {
