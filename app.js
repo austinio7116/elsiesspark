@@ -1369,6 +1369,7 @@
     updateColorSwatch();
     updateSpectrumCursor();
     updateSlidersFromColor();
+    updateColorGridSelection();
   }
 
   function pickFromHueBar(e) {
@@ -1387,6 +1388,7 @@
     state.color = hex;
     updateColorSwatch();
     updateSlidersFromColor();
+    updateColorGridSelection();
   }
 
   // ── Sliders tab ───────────────────────────────────────
@@ -1412,6 +1414,18 @@
     updateColorSwatch();
     const preview = $('#slider-preview');
     if (preview) preview.style.background = hex;
+    // Sync spectrum from HSL
+    const sF = s / 100, lF = l / 100;
+    const v = lF + sF * Math.min(lF, 1 - lF);
+    const sv = v === 0 ? 0 : 2 * (1 - lF / v);
+    state.spectrumHue = h;
+    state.spectrumS   = Math.round(sv * 100);
+    state.spectrumV   = Math.round(v * 100);
+    state.spectrumL   = l;
+    drawSpectrum();
+    drawHueBar();
+    updateHueCursor();
+    updateColorGridSelection();
   }
 
   function syncSlidersTabs(hex) {
