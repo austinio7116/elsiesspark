@@ -619,20 +619,22 @@
   }
 
   function compositeScratchToLayer(layer, brush) {
-    const ctx = layer.ctx;
-    // Restore pre-stroke state using drawImage (GPU-batched, no render flush)
-    ctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
-    ctx.drawImage(state.preStrokeCanvas, 0, 0);
-    // Composite scratch canvas with desired opacity and blend mode
-    ctx.save();
-    ctx.globalAlpha = brush === 'marker' ? state.brushOpacity * 0.5 : state.brushOpacity;
     if (brush === 'eraser') {
-      ctx.globalCompositeOperation = 'destination-out';
-    } else if (brush === 'marker') {
-      ctx.globalCompositeOperation = 'multiply';
+      // Eraser: re-render objects, then apply eraser stroke with destination-out on objectsCanvas
+      renderObjects();
+      objectsCtx.save();
+      objectsCtx.globalCompositeOperation = 'destination-out';
+      objectsCtx.globalAlpha = 1;
+      objectsCtx.drawImage(state.scratchCanvas, 0, 0);
+      objectsCtx.restore();
+      return;
     }
-    ctx.drawImage(state.scratchCanvas, 0, 0);
-    ctx.restore();
+    // Draw live stroke preview onto previewCanvas (sits on top of everything)
+    previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+    previewCtx.save();
+    previewCtx.globalAlpha = brush === 'marker' ? state.brushOpacity * 0.5 : state.brushOpacity;
+    previewCtx.drawImage(state.scratchCanvas, 0, 0);
+    previewCtx.restore();
   }
 
   function startStroke(e) {
@@ -725,11 +727,11 @@
     state.lastMidY = pos.y;
     state.strokePoints = [pos];
     const brush = state.activeBrush;
-    // Pen at full opacity: draw directly to layer (no scratch canvas needed)
-    state.directDraw = (brush === 'pen' && state.brushOpacity >= 1);
+    // All strokes use scratch canvas → preview canvas for correct z-order
+    state.directDraw = false;
     if (brush === 'pen' || brush === 'marker' || brush === 'glitz' || brush === 'eraser') {
       // Always save pre-stroke state for pen/marker so we can convert to object
-      if (brush === 'pen' || brush === 'marker' || brush === 'glitz') {
+      if (brush === 'pen' || brush === 'marker' || brush === 'glitz' || brush === 'eraser') {
         if (!state.preStrokeCanvas) {
           state.preStrokeCanvas = document.createElement('canvas');
           state.preStrokeCtx = state.preStrokeCanvas.getContext('2d');
@@ -989,8 +991,8 @@
             compositeScratchToLayer(layer, brush);
           }
         }
-        // Convert pen/marker strokes to selectable objects
-        if ((brush === 'pen' || brush === 'marker' || brush === 'glitz') && state.strokePoints.length > 0) {
+        // Convert strokes (including eraser) to selectable objects
+        if ((brush === 'pen' || brush === 'marker' || brush === 'glitz' || brush === 'eraser') && state.strokePoints.length > 0) {
           // Restore the layer canvas to pre-stroke state
           layer.ctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
           if (state.preStrokeCanvas) {
@@ -1008,17 +1010,19 @@
           const cx = (minX + maxX) / 2;
           const cy = (minY + maxY) / 2;
           const relPoints = pts.map(p => ({ x: p.x - cx, y: p.y - cy }));
+          const activeSize = getActiveSize();
           layer.objects.push({
             id: ++objectIdCounter, type: 'stroke',
             x: cx, y: cy, rotation: 0, scale: 1,
             points: relPoints,
-            color: state.color,
-            brushSize: state.brushSize,
+            color: brush === 'eraser' ? '#000' : state.color,
+            brushSize: activeSize,
             opacity: state.brushOpacity,
             brush: brush,
-            baseWidth: maxX - minX + state.brushSize * 2,
-            baseHeight: maxY - minY + state.brushSize * 2,
+            baseWidth: maxX - minX + activeSize * 2,
+            baseHeight: maxY - minY + activeSize * 2,
           });
+          previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
           renderObjects();
         }
       }
@@ -1689,10 +1693,13 @@
     } else if (obj.type === 'stroke') {
       const scale = obj.scale || 1;
       ctx.scale(scale, scale);
+      if (obj.brush === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out';
+      }
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.lineWidth = obj.brushSize;
-      ctx.strokeStyle = obj.color;
+      ctx.strokeStyle = obj.brush === 'eraser' ? '#000' : obj.color;
       ctx.globalAlpha = obj.brush === 'marker' ? (obj.opacity || 1) * 0.5 : (obj.opacity || 1);
       const pts = obj.points;
       ctx.beginPath();
@@ -1754,13 +1761,35 @@
     ctx.restore();
   }
 
+  // Temp canvas for per-layer rendering (reused)
+  let _layerTmpCanvas, _layerTmpCtx;
+  function getLayerTmpCanvas() {
+    if (!_layerTmpCanvas) {
+      _layerTmpCanvas = document.createElement('canvas');
+      _layerTmpCtx = _layerTmpCanvas.getContext('2d');
+    }
+    _layerTmpCanvas.width = state.canvasWidth;
+    _layerTmpCanvas.height = state.canvasHeight;
+    return { canvas: _layerTmpCanvas, ctx: _layerTmpCtx };
+  }
+
   function renderObjects() {
     if (!objectsCanvas) return;
     objectsCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
     state.layers.forEach(l => {
-      if (!l.visible || !l.objects) return;
-      objectsCtx.globalAlpha = l.opacity ?? 1;
-      l.objects.forEach(obj => drawObjectTo(objectsCtx, obj));
+      if (!l.visible || !l.objects || l.objects.length === 0) return;
+      const hasEraser = l.objects.some(o => o.brush === 'eraser');
+      if (hasEraser) {
+        // Render layer to temp canvas so eraser stays layer-scoped
+        const tmp = getLayerTmpCanvas();
+        tmp.ctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+        l.objects.forEach(obj => drawObjectTo(tmp.ctx, obj));
+        objectsCtx.globalAlpha = l.opacity ?? 1;
+        objectsCtx.drawImage(tmp.canvas, 0, 0);
+      } else {
+        objectsCtx.globalAlpha = l.opacity ?? 1;
+        l.objects.forEach(obj => drawObjectTo(objectsCtx, obj));
+      }
     });
     objectsCtx.globalAlpha = 1;
     drawSelectionHandles();
@@ -1901,10 +1930,13 @@
     const layer = getActiveLayer();
     if (!layer) return;
     pushUndo();
-    const clone = JSON.parse(JSON.stringify(state.selectedObject));
+    const orig = state.selectedObject;
+    const clone = JSON.parse(JSON.stringify(orig));
     clone.id = ++objectIdCounter;
     clone.x += 20;
     clone.y += 20;
+    // Preserve non-serializable properties (e.g. img for stickers)
+    if (orig.img) clone.img = orig.img;
     layer.objects.push(clone);
     state.selectedObject = clone;
     renderObjects();
