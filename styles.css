@@ -1063,12 +1063,20 @@ button:active { transform: scale(0.95); }
 }
 
 .layer-item.dragging {
-  opacity: 0.5;
-  transform: scale(0.95);
+  opacity: 0.35;
+  transform: scale(0.96);
+  background: #e8e2db;
+  border: 2px dashed var(--accent);
+  box-shadow: none;
 }
 
-.layer-item.drag-over {
-  box-shadow: 0 -2px 0 0 var(--accent) inset;
+.layer-drop-indicator {
+  height: 4px;
+  background: var(--accent);
+  border-radius: 2px;
+  margin: 2px 0;
+  box-shadow: 0 0 6px var(--accent);
+  pointer-events: none;
 }
 
 .layer-item.active {
@@ -1101,11 +1109,14 @@ button:active { transform: scale(0.95); }
 .layer-drag-handle {
   cursor: grab;
   color: var(--text-soft);
-  font-size: 14px;
+  font-size: 22px;
   line-height: 1;
-  opacity: 0.5;
-  padding: 0 2px;
+  opacity: 0.6;
+  padding: 8px 6px;
   letter-spacing: 1px;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .layer-opacity-row {

@@ -580,6 +580,8 @@
     return state.layers.find(l => l.id === state.activeLayerId);
   }
 
+  const _layerDrag = { active: false, layerId: null, li: null, pointerId: null, dropIndex: -1 };
+
   function renderLayerList() {
     const list = $('#layer-list');
     if (!list) return;
@@ -590,10 +592,9 @@
       const li = document.createElement('li');
       li.className = 'layer-item' + (l.id === state.activeLayerId ? ' active' : '');
       li.dataset.layerId = l.id;
-      li.draggable = true;
       li.innerHTML = `
         <div class="layer-row">
-          <span class="layer-drag-handle">&#x2261;</span>
+          <span class="layer-drag-handle">&#x2630;</span>
           <input type="checkbox" class="layer-visibility" ${l.visible ? 'checked' : ''}>
           <span class="layer-name">${l.name}</span>
           <button class="layer-delete">&times;</button>
@@ -621,46 +622,100 @@
         renderObjects();
       });
 
-      // Drag and drop events
-      li.addEventListener('dragstart', e => {
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', l.id);
+      // Drag handle: only starts drag via shared layer-list listeners
+      const handle = li.querySelector('.layer-drag-handle');
+      handle.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        _layerDrag.active = true;
+        _layerDrag.layerId = l.id;
+        _layerDrag.li = li;
+        _layerDrag.pointerId = e.pointerId;
         li.classList.add('dragging');
-      });
-      li.addEventListener('dragend', () => {
-        li.classList.remove('dragging');
-        list.querySelectorAll('.layer-item').forEach(el => el.classList.remove('drag-over'));
-      });
-      li.addEventListener('dragover', e => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        li.classList.add('drag-over');
-      });
-      li.addEventListener('dragleave', () => {
-        li.classList.remove('drag-over');
-      });
-      li.addEventListener('drop', e => {
-        e.preventDefault();
-        li.classList.remove('drag-over');
-        const draggedId = parseInt(e.dataTransfer.getData('text/plain'));
-        if (draggedId === l.id) return;
-        reorderLayer(draggedId, l.id);
       });
 
       list.appendChild(li);
     }
   }
 
-  function reorderLayer(draggedId, targetId) {
-    // The list is rendered in reverse (top layer first), so dropping onto
-    // a target means "put dragged layer at target's position in the list"
-    const dragIdx = state.layers.findIndex(l => l.id === draggedId);
-    const targetIdx = state.layers.findIndex(l => l.id === targetId);
-    if (dragIdx === -1 || targetIdx === -1 || dragIdx === targetIdx) return;
+  // Find insertion position from pointer Y — returns index into the visual
+  // list (0 = before first item, items.length = after last item)
+  function _layerDragFindSlot(items, y) {
+    for (let i = 0; i < items.length; i++) {
+      const rect = items[i].getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      if (y < mid) return i;
+    }
+    return items.length;
+  }
 
+  function _layerDragClearIndicator() {
+    const list = $('#layer-list');
+    if (!list) return;
+    const old = list.querySelector('.layer-drop-indicator');
+    if (old) old.remove();
+  }
+
+  function _layerDragShowIndicator(list, items, slot) {
+    _layerDragClearIndicator();
+    const indicator = document.createElement('div');
+    indicator.className = 'layer-drop-indicator';
+    if (slot < items.length) {
+      list.insertBefore(indicator, items[slot]);
+    } else {
+      list.appendChild(indicator);
+    }
+  }
+
+  // Document-level listeners for layer drag (works on both desktop and mobile)
+  document.addEventListener('pointermove', e => {
+    if (!_layerDrag.active) return;
+    e.preventDefault();
+    const list = $('#layer-list');
+    if (!list) return;
+    const items = Array.from(list.querySelectorAll('.layer-item'));
+    const slot = _layerDragFindSlot(items, e.clientY);
+    _layerDrag.dropIndex = slot;
+    _layerDragShowIndicator(list, items, slot);
+  });
+  document.addEventListener('pointerup', e => {
+    if (!_layerDrag.active) return;
+    _layerDrag.active = false;
+    if (_layerDrag.li) _layerDrag.li.classList.remove('dragging');
+    _layerDragClearIndicator();
+    const list = $('#layer-list');
+    if (!list) { _layerDrag.li = null; return; }
+    const items = Array.from(list.querySelectorAll('.layer-item'));
+    const slot = _layerDragFindSlot(items, e.clientY);
+    // Convert visual slot to layers array index.
+    // Visual list is reversed: visual index 0 = layers[layers.length-1]
+    // Visual slot i means "insert so it becomes visual position i"
+    // which is layers array index (layers.length - slot)
+    const dragIdx = state.layers.findIndex(l => l.id === _layerDrag.layerId);
+    if (dragIdx === -1) { _layerDrag.li = null; return; }
+    let targetIdx = state.layers.length - slot;
+    // Adjust for removal offset
+    if (dragIdx < targetIdx) targetIdx--;
+    if (targetIdx < 0) targetIdx = 0;
+    if (targetIdx >= state.layers.length) targetIdx = state.layers.length - 1;
+    if (dragIdx !== targetIdx) {
+      reorderLayer(dragIdx, targetIdx);
+    }
+    _layerDrag.li = null;
+  });
+  document.addEventListener('pointercancel', () => {
+    if (!_layerDrag.active) return;
+    _layerDrag.active = false;
+    if (_layerDrag.li) _layerDrag.li.classList.remove('dragging');
+    _layerDragClearIndicator();
+    _layerDrag.li = null;
+  });
+
+  function reorderLayer(fromIdx, toIdx) {
+    if (fromIdx === toIdx) return;
     pushUndo();
-    const [layer] = state.layers.splice(dragIdx, 1);
-    state.layers.splice(targetIdx, 0, layer);
+    const [layer] = state.layers.splice(fromIdx, 1);
+    state.layers.splice(toIdx, 0, layer);
 
     // Update z-indices to match new order
     state.layers.forEach((l, i) => {
@@ -4721,10 +4776,12 @@
         <div id="inspire-shape" class="inspire-shape"></div>
         <p id="inspire-prompt-text" class="inspire-prompt-text"></p>
         <button id="btn-inspire-go" class="inspire-go-btn">Let's go</button>
+        <button id="btn-inspire-back-room" class="inspire-back-btn">Back to room</button>
       </div>
     `;
-    // Re-bind the "Let's go" button
+    // Re-bind buttons
     $('#btn-inspire-go').addEventListener('click', onInspireGo);
+    $('#btn-inspire-back-room').addEventListener('click', () => showView('room'));
   }
 
   function onInspireGo() {
@@ -4861,6 +4918,7 @@
 
     // ── Inspire (Spark cards) ──
     $('#btn-inspire-go').addEventListener('click', onInspireGo);
+    $('#btn-inspire-back-room').addEventListener('click', () => showView('room'));
     $('#btn-inspire-next').addEventListener('click', () => {
       inspireIndex++;
       if (inspireIndex >= inspireSparks.length) {
