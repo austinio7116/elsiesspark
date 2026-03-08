@@ -285,11 +285,20 @@
 
   function centerRoomPan() {
     if (!roomPanReady) return;
-    const scene = $('#room-scene');
-    const pan = $('#room-pan');
-    roomPanMin = scene.clientWidth - pan.scrollWidth;
-    roomPanX = roomPanMin / 2; // center
-    pan.style.transform = 'translateX(' + roomPanX + 'px)';
+    // Defer to next frame so the view has been laid out after display:flex
+    requestAnimationFrame(() => {
+      const scene = $('#room-scene');
+      const pan = $('#room-pan');
+      const img = $('#room-bg');
+      if (!scene || !img || !img.naturalWidth) return;
+      // Recalculate pan width from image aspect ratio (same as onReady)
+      const ratio = img.naturalWidth / img.naturalHeight;
+      const panW = scene.clientHeight * ratio;
+      pan.style.width = panW + 'px';
+      roomPanMin = scene.clientWidth - panW;
+      roomPanX = roomPanMin / 2; // center
+      pan.style.transform = 'translateX(' + roomPanX + 'px)';
+    });
   }
 
   function initRoomPan() {
@@ -469,8 +478,11 @@
       const pct = Math.round((l.opacity ?? 1) * 100);
       const li = document.createElement('li');
       li.className = 'layer-item' + (l.id === state.activeLayerId ? ' active' : '');
+      li.dataset.layerId = l.id;
+      li.draggable = true;
       li.innerHTML = `
         <div class="layer-row">
+          <span class="layer-drag-handle">&#x2261;</span>
           <input type="checkbox" class="layer-visibility" ${l.visible ? 'checked' : ''}>
           <span class="layer-name">${l.name}</span>
           <button class="layer-delete">&times;</button>
@@ -497,8 +509,56 @@
         li.querySelector('.layer-opacity-val').textContent = e.target.value + '%';
         renderObjects();
       });
+
+      // Drag and drop events
+      li.addEventListener('dragstart', e => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', l.id);
+        li.classList.add('dragging');
+      });
+      li.addEventListener('dragend', () => {
+        li.classList.remove('dragging');
+        list.querySelectorAll('.layer-item').forEach(el => el.classList.remove('drag-over'));
+      });
+      li.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        li.classList.add('drag-over');
+      });
+      li.addEventListener('dragleave', () => {
+        li.classList.remove('drag-over');
+      });
+      li.addEventListener('drop', e => {
+        e.preventDefault();
+        li.classList.remove('drag-over');
+        const draggedId = parseInt(e.dataTransfer.getData('text/plain'));
+        if (draggedId === l.id) return;
+        reorderLayer(draggedId, l.id);
+      });
+
       list.appendChild(li);
     }
+  }
+
+  function reorderLayer(draggedId, targetId) {
+    // The list is rendered in reverse (top layer first), so dropping onto
+    // a target means "put dragged layer at target's position in the list"
+    const dragIdx = state.layers.findIndex(l => l.id === draggedId);
+    const targetIdx = state.layers.findIndex(l => l.id === targetId);
+    if (dragIdx === -1 || targetIdx === -1 || dragIdx === targetIdx) return;
+
+    pushUndo();
+    const [layer] = state.layers.splice(dragIdx, 1);
+    state.layers.splice(targetIdx, 0, layer);
+
+    // Update z-indices to match new order
+    state.layers.forEach((l, i) => {
+      l.canvas.style.zIndex = i + 1;
+    });
+
+    renderLayerList();
+    renderObjects();
+    scheduleAutosave();
   }
 
   // ═══════════════════════════════════════════════════════
@@ -528,6 +588,7 @@
     state.redoStack.push(captureState());
     restoreState(state.undoStack.pop());
     updateUndoRedoButtons();
+    scheduleAutosave();
   }
 
   function redo() {
@@ -535,6 +596,7 @@
     state.undoStack.push(captureState());
     restoreState(state.redoStack.pop());
     updateUndoRedoButtons();
+    scheduleAutosave();
   }
 
   function restoreState(snapshot) {
@@ -1030,6 +1092,7 @@
     state.isDrawing = false;
     state.strokePoints = [];
     state.directDraw = false;
+    scheduleAutosave();
   }
 
   // ── Procedural Brushes ────────────────────────────────
@@ -1557,6 +1620,7 @@
     });
     exitStickerMode();
     renderObjects();
+    scheduleAutosave();
   }
 
   // ═══════════════════════════════════════════════════════
@@ -1639,6 +1703,7 @@
     });
     exitTextMode();
     renderObjects();
+    scheduleAutosave();
   }
 
   // ═══════════════════════════════════════════════════════
@@ -1923,6 +1988,7 @@
     previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
     renderObjects();
     updateSelectToolbar();
+    scheduleAutosave();
   }
 
   function copySelectedObject() {
@@ -2387,9 +2453,40 @@
   }
 
   // ═══════════════════════════════════════════════════════
+  // AUTOSAVE (debounced)
+  // ═══════════════════════════════════════════════════════
+  let autosaveTimer = null;
+  let autosaveDirty = false;
+  function scheduleAutosave() {
+    autosaveDirty = true;
+    if (autosaveTimer) clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(doAutosave, 2000);
+  }
+  function doAutosave() {
+    if (!autosaveDirty) return;
+    if (state.layers.length > 0 && state.currentView === 'draw') {
+      saveProject(true);
+      autosaveDirty = false;
+    }
+  }
+  // Save on page unload so nothing is lost on refresh
+  window.addEventListener('beforeunload', () => {
+    if (autosaveDirty && state.layers.length > 0) {
+      saveProject(true);
+    }
+  });
+  // Also save when leaving the draw view
+  window.addEventListener('visibilitychange', () => {
+    if (document.hidden && autosaveDirty && state.layers.length > 0) {
+      saveProject(true);
+      autosaveDirty = false;
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════
   // SAVE / LOAD (multi-project)
   // ═══════════════════════════════════════════════════════
-  function saveProject() {
+  function saveProject(silent) {
     try {
       const projectData = {
         id: Date.now(),
@@ -2438,9 +2535,9 @@
       // Keep max 20 projects
       projects = projects.slice(0, 20);
       localStorage.setItem('elsiespark-projects', JSON.stringify(projects));
-      showToast('Saved!');
+      if (!silent) showToast('Saved!');
     } catch (e) {
-      showToast('Save failed — storage may be full.');
+      if (!silent) showToast('Save failed — storage may be full.');
     }
   }
 
@@ -2560,13 +2657,59 @@
       label.className = 'gallery-thumb-label';
       label.textContent = p.date || '';
       el.appendChild(label);
-      el.addEventListener('click', () => {
+      // Delete button
+      const delBtn = document.createElement('button');
+      delBtn.className = 'gallery-thumb-delete';
+      delBtn.innerHTML = '&times;';
+      delBtn.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+      });
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        showDeleteModal(p.id);
+      });
+      el.appendChild(delBtn);
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('.gallery-thumb-delete')) return;
         loadProject(p);
         showView('draw');
         fitZoom();
       });
       grid.appendChild(el);
     });
+  }
+
+  function showDeleteModal(projectId) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-box">
+        <h3>Delete Drawing?</h3>
+        <p>This can't be undone. Are you sure you want to delete this drawing?</p>
+        <div class="modal-actions">
+          <button class="modal-btn-cancel">Cancel</button>
+          <button class="modal-btn-danger">Delete</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('.modal-btn-cancel').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    overlay.querySelector('.modal-btn-danger').addEventListener('click', () => {
+      deleteProject(projectId);
+      overlay.remove();
+      renderGallery();
+    });
+  }
+
+  function deleteProject(projectId) {
+    let projects = loadAllProjects();
+    projects = projects.filter(p => p.id !== projectId);
+    localStorage.setItem('elsiespark-projects', JSON.stringify(projects));
+    if (state.currentProjectId === projectId) {
+      state.currentProjectId = null;
+    }
   }
 
   // ═══════════════════════════════════════════════════════
