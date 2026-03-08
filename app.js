@@ -105,6 +105,110 @@
     "A moose in a canoe",
   ];
 
+  // ── Moriah Elizabeth Inspired Daily Prompts ─────────────────────────────────────
+  const MORIAH_PROMPTS = [
+    "Pickle the dinosaur wearing a ridiculous hat",
+    "A cozy treehouse built for Georgie and Cousin Derp",
+    "Derp hosting an underwater tea party",
+    "Pickle riding a skateboard",
+    "Bumblebear's dream garden full of flowers",
+    "A cloud shaped like Pickle",
+    "A tiny dragon baking cookies with Lemon",
+    "A robot walking Georgie",
+    "Sunset over a candy world where Derp lives",
+    "Pickle the penguin at the beach",
+    "An enchanted forest where Pickle discovers a new friend",
+    "A house made of sketchbooks and squishies",
+    "A friendly monster that Derp finds under the bed",
+    "Your breakfast turned into a squishy character",
+    "Pickle racing Derp in a snail vs turtle race",
+    "Moriah's messy art desk after a mystery wheel challenge",
+    "Georgie delivering mail",
+    "An alien visiting Pickle's farm",
+    "A superhero version of Derp with a useless power",
+    "Dancing mushrooms with Pickle",
+    "A sleepy fox cuddling with Georgie",
+    "Pickle sailing through clouds",
+    "Derp as a frog prince at a ball",
+    "Your pet as a Moriah-style squishy character",
+    "A bicycle made of flowers for Bumblebear",
+    "An owl reading Moriah's sketchbook",
+    "Goldfish floating through space with Pickle",
+    "A haunted gingerbread house with Derp inside",
+    "Pickle having a picnic",
+    "Mountains made of pillows for Georgie to nap on",
+    "A whale-shaped submarine with Pickle inside",
+    "A fairy fixing a rainbow with Lemon",
+    "Your shoe turned into a Pickle house",
+    "A horse with butterfly wings that Derp rides",
+    "Rainy day through Moriah's art room window",
+    "A cactus that looks like Derp wearing sunglasses",
+    "An octopus juggling squishies",
+    "A birthday party for Georgie",
+    "Northern lights over Pickle's igloo",
+    "A mouse exploring Moriah's sketchbook library",
+    "Hot air balloons shaped like Pickle and Derp",
+    "A gnome helping Pickle garden",
+    "Your hand holding a magical squishy",
+    "A lighthouse where Derp watches storms",
+    "A chameleon turning into Pickle colours",
+    "A duck that looks suspiciously like Derp",
+    "An elephant painting a Pickle portrait",
+    "A mermaid collecting squishy treasures",
+    "Fireworks celebrating Pickle's birthday",
+    "A bunny astronaut meeting Pickle on the moon",
+    "A steampunk teapot that Derp invented",
+    "Butterflies landing on Bumblebear",
+    "A fox and a crow having lunch with Georgie",
+    "A yeti making snow angels with Pickle",
+    "A pirate map drawn by Derp",
+    "A hedgehog sailing in a leaf boat with Lemon",
+    "A phoenix rising beside Pickle",
+    "Jellyfish lanterns lighting Pickle's ocean",
+    "A deer wearing one of Moriah's scarves",
+    "A miniature Pickle city in a terrarium",
+    "Wolves howling at a disco ball with Derp dancing",
+    "A narwhal wearing a Derp party hat",
+    "A sloth relaxing with Georgie",
+    "Bees building a honey castle for Bumblebear",
+    "A Viking Pickle ship on a calm lake",
+    "Crystals growing in a cave Pickle explores",
+    "A koala riding a unicycle with Derp",
+    "Pickle's giant treehouse connected by bridges",
+    "A storm inside Derp's teacup",
+    "A gecko climbing Moriah's art studio",
+    "A polar bear wandering into Pickle's flower field",
+    "Koi fish swimming around Pickle",
+    "Georgie mixing potions like a witch's cat",
+    "A llama wearing Derp's poncho",
+    "A giant mushroom village where Pickle lives",
+    "Paper airplanes flying around Moriah's studio",
+    "A walrus playing jazz for Derp",
+    "Windmills spinning in Pickle's countryside",
+    "An iguana surfing with Derp",
+    "A cozy blanket fort for Georgie and Pickle",
+    "Bumblebear having a relaxing spa day",
+    "A peacock modelling outfits designed by Derp",
+    "Origami animals coming to life in Moriah's sketchbook",
+    "A badger cooking in Pickle's underground kitchen",
+    "A hummingbird talking to Bumblebear",
+    "Stargazing with Pickle and Georgie",
+    "Derp's giant treasure hoard",
+    "A panda playing in snow with Pickle",
+    "A lamp that lights up Moriah's imagination",
+    "A seal balancing the world while Derp watches",
+    "Vines growing over Pickle's old car",
+    "A flamingo ice skating with Georgie",
+    "Tide pools where tiny Pickles live",
+    "A squirrel collecting acorns for Pickle",
+    "A snowglobe with Pickle's world inside",
+    "A crow wearing jewellery that Derp collected",
+    "A platypus detective investigating missing squishies",
+    "An otter floating while reading Moriah's sketchbook",
+    "A sandcastle kingdom ruled by Pickle",
+    "A moose paddling Derp across a lake"
+  ];
+
   // ── Inline SVG Stickers ───────────────────────────────
   const STICKERS = [
     { name: 'star',        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><polygon points="32,4 40,24 62,26 46,40 50,62 32,50 14,62 18,40 2,26 24,24" fill="#f7c948" stroke="#e6b422" stroke-width="1.5"/></svg>' },
@@ -201,6 +305,8 @@
     // Brush-specific options
     sprinklesDensity: 5,
     fairylightsUseColor: false,
+    treeLeafDensity: 5,
+    treeBranchDensity: 5,
   };
 
   // ── DOM helpers ───────────────────────────────────────
@@ -961,6 +1067,8 @@
           baseHeight: maxY - minY + getActiveSize() * 2,
           sprinklesDensity: state.sprinklesDensity,
           fairylightsUseColor: state.fairylightsUseColor,
+          treeLeafDensity: state.treeLeafDensity,
+          treeBranchDensity: state.treeBranchDensity,
         };
         drawObjectTo(sctx, tmpObj);
       }
@@ -1029,6 +1137,8 @@
             baseHeight: maxY - minY + activeSize * 2 * expandFactor,
             sprinklesDensity: state.sprinklesDensity,
             fairylightsUseColor: state.fairylightsUseColor,
+            treeLeafDensity: state.treeLeafDensity,
+            treeBranchDensity: state.treeBranchDensity,
           });
           previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
           renderObjects();
@@ -2259,6 +2369,9 @@
           return `rgb(${r[0]},${r[1]},${r[2]})`;
         }
 
+        const leafDensity = (obj.treeLeafDensity || 5) / 5;   // 0.2 – 2.0
+        const branchDensity = (obj.treeBranchDensity || 5) / 5; // 0.2 – 2.0
+
         const trunkW = Math.max(5, obj.brushSize);
 
         // ── Draw tapered trunk as filled polygon ──
@@ -2552,9 +2665,63 @@
           }
         }
 
+        // ── Apply density filters (post-processing) ──
+        // Use a separate RNG so the main rng stream stays untouched
+        const filterRng = (function(s) { return function() { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; }; })(seed + 99999);
+
+        // Branch density: at 5 keep all, <5 remove thinner branches, >5 add extra forks
+        let renderBranches = branches;
+        if (branchDensity !== 1) {
+          if (branchDensity < 1) {
+            // Remove some branches — keep thick/shallow ones, thin deeper ones based on density
+            renderBranches = branches.filter(br => {
+              if (br.depth <= 1) return true; // always keep main limbs
+              return filterRng() < (0.3 + branchDensity * 0.7);
+            });
+          } else {
+            // Add extra branches by duplicating thin ones with slight offsets
+            renderBranches = [];
+            for (const br of branches) {
+              renderBranches.push(br);
+              if (br.depth >= 2 && filterRng() < (branchDensity - 1) * 0.5) {
+                const off = (filterRng() - 0.5) * br.w0 * 2;
+                renderBranches.push({
+                  ...br,
+                  sx: br.sx + off, sy: br.sy + off,
+                  mx: br.mx + off, my: br.my + off,
+                  ex: br.ex + off, ey: br.ey + off,
+                  w0: br.w0 * 0.8, w1: br.w1 * 0.8
+                });
+              }
+            }
+          }
+        }
+
+        // Leaf density: at 5 keep all, <5 remove some clusters, >5 duplicate some
+        let renderLeaves = leaves;
+        if (leafDensity !== 1) {
+          if (leafDensity < 1) {
+            renderLeaves = leaves.filter(() => filterRng() < (0.2 + leafDensity * 0.8));
+          } else {
+            renderLeaves = [];
+            for (const lc of leaves) {
+              renderLeaves.push(lc);
+              // Add extra clusters nearby
+              const extraCount = Math.floor((leafDensity - 1) * 2 * filterRng());
+              for (let ei = 0; ei < extraCount; ei++) {
+                renderLeaves.push({
+                  x: lc.x + (filterRng() - 0.5) * lc.size * 1.5,
+                  y: lc.y + (filterRng() - 0.5) * lc.size * 1.5,
+                  size: lc.size * (0.6 + filterRng() * 0.5)
+                });
+              }
+            }
+          }
+        }
+
         // ── Render branches: thick (deep=0) first, thin last ──
-        branches.sort((a, b) => a.depth - b.depth);
-        for (const br of branches) {
+        renderBranches.sort((a, b) => a.depth - b.depth);
+        for (const br of renderBranches) {
           if (br.depth < 2 && br.w0 > 2) {
             // First 2 layers: filled polygon with bark texture like the trunk
             drawLimb(br.sx, br.sy, br.mx, br.my, br.ex, br.ey, br.w0, br.w1);
@@ -2565,9 +2732,12 @@
           }
         }
 
+        // Scale leaves-per-cluster by leaf density
+        const leafCountScale = leafDensity;
+
         // ── Render leaves ──
-        for (const lc of leaves) {
-          const n = 5 + Math.floor(rng() * 7);
+        for (const lc of renderLeaves) {
+          const n = Math.max(1, Math.round((5 + Math.floor(rng() * 7)) * leafCountScale));
           for (let k = 0; k < n; k++) {
             const a = rng() * Math.PI * 2;
             const d = rng() * lc.size * 0.6;
@@ -3764,14 +3934,24 @@
     const today = new Date().toDateString();
     let seed = 0;
     for (let i = 0; i < today.length; i++) seed += today.charCodeAt(i);
-    // Pick 3 unique prompts for today using seeded pseudo-random
+    // Pick 2 from PROMPTS + 1 from MORIAH_PROMPTS using seeded pseudo-random
     const picked = [];
     let s = seed;
-    while (picked.length < 3) {
+    // Pick 2 unique standard prompts
+    while (picked.length < 2) {
       s = (s * 9301 + 49297) % 233280;
       const idx = s % PROMPTS.length;
       if (!picked.includes(PROMPTS[idx])) picked.push(PROMPTS[idx]);
     }
+    // Pick 1 Moriah prompt
+    s = (s * 9301 + 49297) % 233280;
+    const mIdx = s % MORIAH_PROMPTS.length;
+    picked.push(MORIAH_PROMPTS[mIdx]);
+    // Shuffle using seed so order is consistent for the day
+    s = (s * 9301 + 49297) % 233280;
+    const insertPos = s % 3;
+    const moriah = picked.pop();
+    picked.splice(insertPos, 0, moriah);
     return picked;
   }
 
@@ -4223,6 +4403,24 @@
       densitySlider.addEventListener('input', e => {
         state.sprinklesDensity = parseInt(e.target.value);
         $('#sprinkles-density-label').textContent = state.sprinklesDensity;
+      });
+    }
+
+    // Tree leaf density slider
+    const treeLeafSlider = $('#tree-leaf-density');
+    if (treeLeafSlider) {
+      treeLeafSlider.addEventListener('input', e => {
+        state.treeLeafDensity = parseInt(e.target.value);
+        $('#tree-leaf-density-label').textContent = state.treeLeafDensity;
+      });
+    }
+
+    // Tree branch density slider
+    const treeBranchSlider = $('#tree-branch-density');
+    if (treeBranchSlider) {
+      treeBranchSlider.addEventListener('input', e => {
+        state.treeBranchDensity = parseInt(e.target.value);
+        $('#tree-branch-density-label').textContent = state.treeBranchDensity;
       });
     }
 
