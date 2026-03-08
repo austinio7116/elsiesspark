@@ -2100,32 +2100,7 @@
         ctx.stroke();
 
       } else if (bs === 'rainbow') {
-        // Rainbow: draws a stroke with cycling rainbow colors
-        const arcLens = [0];
-        for (let i = 1; i < pts.length; i++) {
-          arcLens.push(arcLens[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
-        }
-        const totalLen = arcLens[arcLens.length - 1];
-        if (totalLen < 1) { ctx.restore(); return; }
-
-        function pointAtArcRb(d) {
-          for (let i = 1; i < arcLens.length; i++) {
-            if (arcLens[i] >= d) {
-              const segT = (d - arcLens[i - 1]) / (arcLens[i] - arcLens[i - 1] || 1);
-              return {
-                x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * segT,
-                y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * segT,
-              };
-            }
-          }
-          return { x: pts[pts.length - 1].x, y: pts[pts.length - 1].y };
-        }
-
-        const segLen = Math.max(1, obj.brushSize * 0.3);
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = obj.brushSize;
-        ctx.globalAlpha = opacity;
+        // Rainbow: smooth continuous color bands perpendicular to stroke
         const soft = obj.softness || 0;
         const useSoft = soft > 0;
         const tgt = useSoft ? _getSoftTmpCtx(ctx.canvas.width, ctx.canvas.height) : ctx;
@@ -2134,26 +2109,68 @@
           tgt.translate(obj.x, obj.y);
           tgt.rotate(obj.rotation * Math.PI / 180);
           tgt.scale(obj.scale || 1, obj.scale || 1);
-          tgt.lineCap = 'round';
-          tgt.lineJoin = 'round';
-          tgt.lineWidth = obj.brushSize;
-          tgt.globalAlpha = opacity;
         }
 
-        // Rainbow cycle period based on brush size
-        const cycleDist = obj.brushSize * 8;
-        let prevPt = pointAtArcRb(0);
-        for (let d = segLen; d <= totalLen + 0.1; d += segLen) {
-          const pt = pointAtArcRb(Math.min(d, totalLen));
-          const hue = ((d % cycleDist) / cycleDist) * 360;
+        // Many bands for a smooth continuous gradient across the stroke width
+        const numBands = Math.max(14, Math.round(obj.brushSize * 0.8));
+        const bandWidth = obj.brushSize / numBands;
+
+        // Compute raw normals at each point
+        const rawNormals = [];
+        for (let i = 0; i < pts.length; i++) {
+          let dx, dy;
+          if (pts.length === 1) { dx = 1; dy = 0; }
+          else if (i === 0) { dx = pts[1].x - pts[0].x; dy = pts[1].y - pts[0].y; }
+          else if (i === pts.length - 1) { dx = pts[i].x - pts[i - 1].x; dy = pts[i].y - pts[i - 1].y; }
+          else { dx = pts[i + 1].x - pts[i - 1].x; dy = pts[i + 1].y - pts[i - 1].y; }
+          const len = Math.hypot(dx, dy) || 1;
+          rawNormals.push({ x: -dy / len, y: dx / len });
+        }
+
+        // Smooth normals with a moving average for clean curves
+        const normals = [];
+        const smoothR = Math.min(4, Math.floor(pts.length / 6));
+        for (let i = 0; i < pts.length; i++) {
+          let sx = 0, sy = 0, cnt = 0;
+          for (let j = Math.max(0, i - smoothR); j <= Math.min(pts.length - 1, i + smoothR); j++) {
+            sx += rawNormals[j].x; sy += rawNormals[j].y; cnt++;
+          }
+          const len = Math.hypot(sx, sy) || 1;
+          normals.push({ x: sx / len, y: sy / len });
+        }
+
+        tgt.lineCap = 'round';
+        tgt.lineJoin = 'round';
+        tgt.lineWidth = bandWidth + 1.5; // overlap for seamless blending
+        tgt.globalAlpha = opacity;
+
+        // Draw bands from outer edge to outer edge, hue 0° (red) → 270° (violet)
+        for (let b = 0; b < numBands; b++) {
+          const t = b / (numBands - 1);
+          const hue = t * 270; // red → violet
           const rgb = hslToRgb(hue / 360, 1, 0.5);
+          const offset = (b - (numBands - 1) / 2) * bandWidth;
           tgt.strokeStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
           tgt.beginPath();
-          tgt.moveTo(prevPt.x, prevPt.y);
-          tgt.lineTo(pt.x, pt.y);
+          const ox0 = pts[0].x + normals[0].x * offset;
+          const oy0 = pts[0].y + normals[0].y * offset;
+          tgt.moveTo(ox0, oy0);
+          if (pts.length === 1) {
+            tgt.lineTo(ox0, oy0);
+          } else {
+            for (let i = 1; i < pts.length - 1; i++) {
+              const cx = pts[i].x + normals[i].x * offset;
+              const cy = pts[i].y + normals[i].y * offset;
+              const nx = pts[i + 1].x + normals[i + 1].x * offset;
+              const ny = pts[i + 1].y + normals[i + 1].y * offset;
+              tgt.quadraticCurveTo(cx, cy, (cx + nx) / 2, (cy + ny) / 2);
+            }
+            const last = pts.length - 1;
+            tgt.lineTo(pts[last].x + normals[last].x * offset, pts[last].y + normals[last].y * offset);
+          }
           tgt.stroke();
-          prevPt = pt;
         }
+
         if (useSoft) {
           tgt.restore();
           ctx.restore();
