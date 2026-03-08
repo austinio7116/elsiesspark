@@ -699,7 +699,7 @@
     previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
     previewCtx.save();
     // Procedural brushes handle their own opacity in drawObjectTo
-    const isProc = (brush === 'sprinkles' || brush === 'vine' || brush === 'fairylights' || brush === 'glitz');
+    const isProc = (brush === 'sprinkles' || brush === 'vine' || brush === 'fairylights' || brush === 'glitz' || brush === 'rainbow' || brush === 'tree');
     previewCtx.globalAlpha = isProc ? 1 : (brush === 'marker' ? state.brushOpacity * 0.5 : state.brushOpacity);
     if (state.brushSoftness > 0 && (brush === 'pen' || brush === 'marker')) {
       previewCtx.filter = `blur(${state.brushSoftness * getActiveSize() * 0.4}px)`;
@@ -818,7 +818,7 @@
       }
       state.scratchCanvas.width = state.canvasWidth;
       state.scratchCanvas.height = state.canvasHeight;
-      if (brush === 'pen' || brush === 'marker' || brush === 'eraser') {
+      if (brush === 'pen' || brush === 'marker' || brush === 'eraser' || brush === 'line') {
         // Draw initial dot on scratch canvas
         const sctx = state.scratchCtx;
         sctx.lineCap = 'round';
@@ -831,7 +831,7 @@
         sctx.stroke();
         compositeScratchToLayer(layer, brush);
       }
-      // Procedural brushes (glitz, sprinkles, vine, fairylights) just collect points
+      // Procedural brushes (glitz, sprinkles, vine, fairylights, rainbow, tree) just collect points
     }
   }
 
@@ -918,12 +918,16 @@
     const pos = getCanvasPos(e);
     state.strokePoints.push(pos);
     const brush = state.activeBrush;
+    // Line tool: keep only start and end points for a straight line
+    if (brush === 'line') {
+      state.strokePoints = [state.strokePoints[0], pos];
+    }
 
     {
       // Scratch canvas path: redraw entire stroke each frame
       const sctx = state.scratchCtx;
       sctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
-      if (brush === 'pen' || brush === 'marker' || brush === 'eraser') {
+      if (brush === 'pen' || brush === 'marker' || brush === 'eraser' || brush === 'line') {
         sctx.lineCap  = 'round';
         sctx.lineJoin = 'round';
         sctx.lineWidth = getActiveSize();
@@ -1011,7 +1015,7 @@
           const relPoints = pts.map(p => ({ x: p.x - cx, y: p.y - cy }));
           const activeSize = getActiveSize();
           // For procedural brushes, expand bounding box to account for decorations
-          const expandFactor = (brush === 'vine' || brush === 'fairylights') ? 3 : (brush === 'sprinkles' ? 4 : 1);
+          const expandFactor = (brush === 'vine' || brush === 'fairylights') ? 3 : (brush === 'sprinkles' ? 4 : (brush === 'tree' ? 5 : 1));
           layer.objects.push({
             id: state.pendingStrokeId, type: 'stroke',
             x: cx, y: cy, rotation: 0, scale: 1,
@@ -1601,7 +1605,7 @@
       const opacity = obj.opacity || 1;
       const bs = obj.brush;
 
-      if (bs === 'pen' || bs === 'marker' || bs === 'eraser') {
+      if (bs === 'pen' || bs === 'marker' || bs === 'eraser' || bs === 'line') {
         const soft = obj.softness || 0;
         const useSoft = soft > 0 && bs !== 'eraser';
         // If soft, draw stroke to temp canvas then composite with blur
@@ -2094,6 +2098,298 @@
           ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
         }
         ctx.stroke();
+
+      } else if (bs === 'rainbow') {
+        // Rainbow: draws a stroke with cycling rainbow colors
+        const arcLens = [0];
+        for (let i = 1; i < pts.length; i++) {
+          arcLens.push(arcLens[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+        }
+        const totalLen = arcLens[arcLens.length - 1];
+        if (totalLen < 1) { ctx.restore(); return; }
+
+        function pointAtArcRb(d) {
+          for (let i = 1; i < arcLens.length; i++) {
+            if (arcLens[i] >= d) {
+              const segT = (d - arcLens[i - 1]) / (arcLens[i] - arcLens[i - 1] || 1);
+              return {
+                x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * segT,
+                y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * segT,
+              };
+            }
+          }
+          return { x: pts[pts.length - 1].x, y: pts[pts.length - 1].y };
+        }
+
+        const segLen = Math.max(1, obj.brushSize * 0.3);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = obj.brushSize;
+        ctx.globalAlpha = opacity;
+        const soft = obj.softness || 0;
+        const useSoft = soft > 0;
+        const tgt = useSoft ? _getSoftTmpCtx(ctx.canvas.width, ctx.canvas.height) : ctx;
+        if (useSoft) {
+          tgt.save();
+          tgt.translate(obj.x, obj.y);
+          tgt.rotate(obj.rotation * Math.PI / 180);
+          tgt.scale(obj.scale || 1, obj.scale || 1);
+          tgt.lineCap = 'round';
+          tgt.lineJoin = 'round';
+          tgt.lineWidth = obj.brushSize;
+          tgt.globalAlpha = opacity;
+        }
+
+        // Rainbow cycle period based on brush size
+        const cycleDist = obj.brushSize * 8;
+        let prevPt = pointAtArcRb(0);
+        for (let d = segLen; d <= totalLen + 0.1; d += segLen) {
+          const pt = pointAtArcRb(Math.min(d, totalLen));
+          const hue = ((d % cycleDist) / cycleDist) * 360;
+          const rgb = hslToRgb(hue / 360, 1, 0.5);
+          tgt.strokeStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+          tgt.beginPath();
+          tgt.moveTo(prevPt.x, prevPt.y);
+          tgt.lineTo(pt.x, pt.y);
+          tgt.stroke();
+          prevPt = pt;
+        }
+        if (useSoft) {
+          tgt.restore();
+          ctx.restore();
+          ctx.save();
+          ctx.filter = `blur(${soft * obj.brushSize * 0.4}px)`;
+          ctx.drawImage(tgt.canvas, 0, 0);
+          ctx.filter = 'none';
+        }
+
+      } else if (bs === 'tree') {
+        // Tree: draws trunk following stroke, adds branches and leaves procedurally
+        const seed = obj.id || 0;
+        const rng = (function(s) { return function() { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; }; })(seed);
+        ctx.globalAlpha = opacity;
+
+        // Compute arc lengths
+        const arcLens = [0];
+        for (let i = 1; i < pts.length; i++) {
+          arcLens.push(arcLens[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+        }
+        const totalLen = arcLens[arcLens.length - 1];
+        if (totalLen < 2) { ctx.restore(); return; }
+
+        function pointAtArcTr(d) {
+          for (let i = 1; i < arcLens.length; i++) {
+            if (arcLens[i] >= d) {
+              const segT = (d - arcLens[i - 1]) / (arcLens[i] - arcLens[i - 1] || 1);
+              return {
+                x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * segT,
+                y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * segT,
+                nx: -(pts[i].y - pts[i - 1].y), ny: pts[i].x - pts[i - 1].x,
+              };
+            }
+          }
+          const last = pts.length - 1;
+          const nx2 = last > 0 ? -(pts[last].y - pts[last - 1].y) : 0;
+          const ny2 = last > 0 ? (pts[last].x - pts[last - 1].x) : -1;
+          return { x: pts[last].x, y: pts[last].y, nx: nx2, ny: ny2 };
+        }
+
+        // Detect crown: check if the last portion of points loops back
+        let hasCrown = false;
+        let crownCenterX = 0, crownCenterY = 0, crownRadius = 0;
+        let trunkEndDist = totalLen;
+        if (pts.length > 10) {
+          // Check if end of stroke comes close to a point earlier in the stroke
+          const checkFrom = Math.floor(pts.length * 0.4);
+          const endPt = pts[pts.length - 1];
+          for (let i = checkFrom; i < pts.length - 5; i++) {
+            const dist = Math.hypot(endPt.x - pts[i].x, endPt.y - pts[i].y);
+            if (dist < obj.brushSize * 3) {
+              hasCrown = true;
+              // Crown is the loop portion
+              const crownPts = pts.slice(i);
+              let cx = 0, cy = 0;
+              crownPts.forEach(p => { cx += p.x; cy += p.y; });
+              cx /= crownPts.length;
+              cy /= crownPts.length;
+              crownCenterX = cx;
+              crownCenterY = cy;
+              let maxR = 0;
+              crownPts.forEach(p => { maxR = Math.max(maxR, Math.hypot(p.x - cx, p.y - cy)); });
+              crownRadius = maxR;
+              trunkEndDist = arcLens[i];
+              break;
+            }
+          }
+        }
+
+        // Bark colors from selected color (or brown default)
+        const hex = obj.color;
+        const cr = parseInt(hex.slice(1, 3), 16), cg = parseInt(hex.slice(3, 5), 16), cb = parseInt(hex.slice(5, 7), 16);
+        const baseHsl = rgbToHsl(cr, cg, cb);
+        // Use color as leaf color; bark is always brown-ish
+        const barkH = 25 / 360, barkS = 0.55, barkL = 0.32;
+        const barkRgb = hslToRgb(barkH, barkS, barkL);
+        const darkBarkRgb = hslToRgb(barkH, barkS, barkL * 0.6);
+
+        // Draw trunk — thick line that tapers
+        const trunkW = Math.max(4, obj.brushSize);
+        for (let pass = 0; pass < 2; pass++) {
+          // Pass 0: dark outline, Pass 1: bark color
+          const w = pass === 0 ? trunkW + 2 : trunkW;
+          const col = pass === 0 ? darkBarkRgb : barkRgb;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.lineWidth = w;
+          ctx.strokeStyle = `rgb(${col[0]},${col[1]},${col[2]})`;
+          ctx.beginPath();
+          ctx.moveTo(pts[0].x, pts[0].y);
+          const endIdx = hasCrown ? Math.floor(pts.length * 0.4) + 5 : pts.length;
+          const drawPts = pts.slice(0, endIdx);
+          if (drawPts.length <= 2) {
+            ctx.lineTo(drawPts[drawPts.length - 1].x, drawPts[drawPts.length - 1].y);
+          } else {
+            for (let i = 1; i < drawPts.length - 1; i++) {
+              const mx = (drawPts[i].x + drawPts[i + 1].x) / 2;
+              const my = (drawPts[i].y + drawPts[i + 1].y) / 2;
+              ctx.quadraticCurveTo(drawPts[i].x, drawPts[i].y, mx, my);
+            }
+            ctx.lineTo(drawPts[drawPts.length - 1].x, drawPts[drawPts.length - 1].y);
+          }
+          ctx.stroke();
+        }
+
+        // Bark texture lines
+        ctx.lineWidth = Math.max(0.5, trunkW * 0.08);
+        ctx.strokeStyle = `rgba(${darkBarkRgb[0]},${darkBarkRgb[1]},${darkBarkRgb[2]},0.3)`;
+        for (let d = trunkW; d < trunkEndDist - trunkW; d += trunkW * (0.4 + rng() * 0.6)) {
+          const p = pointAtArcTr(d);
+          const nLen = Math.hypot(p.nx, p.ny) || 1;
+          const nx = p.nx / nLen * trunkW * 0.4;
+          const ny = p.ny / nLen * trunkW * 0.4;
+          ctx.beginPath();
+          ctx.moveTo(p.x + nx * (rng() - 0.3), p.y + ny * (rng() - 0.3));
+          ctx.lineTo(p.x - nx * (rng() - 0.3), p.y - ny * (rng() - 0.3));
+          ctx.stroke();
+        }
+
+        // Helper: draw a leaf cluster
+        function drawLeafCluster(lx, ly, clusterSize) {
+          const numLeaves = 3 + Math.floor(rng() * 5);
+          for (let k = 0; k < numLeaves; k++) {
+            const angle = rng() * Math.PI * 2;
+            const dist = rng() * clusterSize * 0.6;
+            const leafX = lx + Math.cos(angle) * dist;
+            const leafY = ly + Math.sin(angle) * dist;
+            const leafSize = clusterSize * (0.3 + rng() * 0.4);
+            const leafAngle = rng() * Math.PI * 2;
+
+            // Leaf color variations
+            const lShift = (rng() - 0.4) * 0.15;
+            const hShift = (rng() - 0.5) * 0.08;
+            const leafRgb = hslToRgb(
+              baseHsl[0] + hShift,
+              Math.min(1, baseHsl[1] + 0.1),
+              Math.max(0.25, Math.min(0.75, baseHsl[2] + lShift))
+            );
+
+            ctx.save();
+            ctx.translate(leafX, leafY);
+            ctx.rotate(leafAngle);
+            ctx.fillStyle = `rgb(${leafRgb[0]},${leafRgb[1]},${leafRgb[2]})`;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.bezierCurveTo(leafSize * 0.3, -leafSize * 0.4, leafSize * 0.8, -leafSize * 0.25, leafSize, 0);
+            ctx.bezierCurveTo(leafSize * 0.8, leafSize * 0.25, leafSize * 0.3, leafSize * 0.4, 0, 0);
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+
+        // Helper: draw a branch with sub-branches
+        function drawBranch(startX, startY, angle, length, width, depth) {
+          if (depth <= 0 || length < 3) return;
+          const endX = startX + Math.cos(angle) * length;
+          const endY = startY + Math.sin(angle) * length;
+
+          // Draw branch line
+          const branchRgb = depth > 1 ? barkRgb : darkBarkRgb;
+          ctx.lineCap = 'round';
+          ctx.lineWidth = width;
+          ctx.strokeStyle = `rgb(${branchRgb[0]},${branchRgb[1]},${branchRgb[2]})`;
+          ctx.beginPath();
+          ctx.moveTo(startX, startY);
+          // Add slight curve
+          const midX = (startX + endX) / 2 + (rng() - 0.5) * length * 0.2;
+          const midY = (startY + endY) / 2 + (rng() - 0.5) * length * 0.15;
+          ctx.quadraticCurveTo(midX, midY, endX, endY);
+          ctx.stroke();
+
+          // Sub-branches
+          const numSub = 1 + Math.floor(rng() * 3);
+          for (let i = 0; i < numSub; i++) {
+            const t = 0.4 + rng() * 0.5;
+            const bx = startX + (endX - startX) * t + (rng() - 0.5) * width;
+            const by = startY + (endY - startY) * t + (rng() - 0.5) * width;
+            const subAngle = angle + (rng() - 0.5) * 1.2;
+            const subLen = length * (0.4 + rng() * 0.3);
+            const subW = Math.max(0.5, width * 0.6);
+            drawBranch(bx, by, subAngle, subLen, subW, depth - 1);
+          }
+
+          // Leaves at the tip
+          drawLeafCluster(endX, endY, obj.brushSize * (0.8 + rng() * 0.6));
+        }
+
+        if (hasCrown) {
+          // Draw crown: fill the looped area with branches and leaves
+          const numBranches = 8 + Math.floor(rng() * 8);
+          for (let i = 0; i < numBranches; i++) {
+            const angle = rng() * Math.PI * 2;
+            const dist = rng() * crownRadius * 0.7;
+            const bx = crownCenterX + Math.cos(angle) * dist;
+            const by = crownCenterY + Math.sin(angle) * dist;
+            const branchAngle = Math.atan2(by - crownCenterY, bx - crownCenterX) + (rng() - 0.5) * 0.8;
+            const branchLen = crownRadius * (0.3 + rng() * 0.5);
+            const branchW = Math.max(1, trunkW * (0.15 + rng() * 0.15));
+            drawBranch(bx, by, branchAngle, branchLen, branchW, 2);
+          }
+          // Fill crown with extra leaf clusters
+          const numClusters = 12 + Math.floor(rng() * 10);
+          for (let i = 0; i < numClusters; i++) {
+            const angle = rng() * Math.PI * 2;
+            const dist = rng() * crownRadius * 0.9;
+            const cx = crownCenterX + Math.cos(angle) * dist;
+            const cy = crownCenterY + Math.sin(angle) * dist;
+            drawLeafCluster(cx, cy, obj.brushSize * (0.6 + rng() * 0.8));
+          }
+        } else {
+          // No crown: add branches along the trunk
+          const branchSpacing = Math.max(20, trunkW * 2);
+          let side = 1;
+          // Start branches from ~30% of trunk, denser toward top
+          const startDist = trunkEndDist * 0.3;
+          for (let d = startDist; d < trunkEndDist - branchSpacing * 0.5; d += branchSpacing * (0.5 + rng() * 0.6)) {
+            const p = pointAtArcTr(d);
+            const nLen = Math.hypot(p.nx, p.ny) || 1;
+            const nx = p.nx / nLen, ny = p.ny / nLen;
+            side *= -1;
+
+            // Branch angle: outward from trunk + slightly upward
+            const baseAngle = Math.atan2(ny * side, nx * side);
+            const upBias = -0.3 - rng() * 0.4; // slightly upward
+            const branchAngle = baseAngle + upBias;
+            const progress = (d - startDist) / (trunkEndDist - startDist);
+            const branchLen = obj.brushSize * (1.5 + rng() * 2) * (0.5 + progress * 0.8);
+            const branchW = Math.max(1, trunkW * (0.2 + rng() * 0.15) * (1 - progress * 0.3));
+
+            drawBranch(p.x, p.y, branchAngle, branchLen, branchW, 2 + Math.floor(rng() * 2));
+          }
+          // Leaves at the very top
+          const topPt = pointAtArcTr(trunkEndDist);
+          drawLeafCluster(topPt.x, topPt.y, obj.brushSize * (1.5 + rng()));
+          drawLeafCluster(topPt.x + (rng() - 0.5) * obj.brushSize, topPt.y + (rng() - 0.5) * obj.brushSize, obj.brushSize * (1 + rng()));
+        }
       }
     }
     ctx.restore();
@@ -2569,7 +2865,7 @@
   function updateBrushPreview() {
     const canvas = $('#brush-preview-canvas');
     if (!canvas) return;
-    const show = state.activeBrush === 'pen' || state.activeBrush === 'marker';
+    const show = state.activeBrush === 'pen' || state.activeBrush === 'marker' || state.activeBrush === 'line';
     canvas.style.display = show ? '' : 'none';
     if (!show) return;
 
@@ -2585,41 +2881,42 @@
     const soft = state.brushSoftness;
     const color = state.color;
     const isMarker = state.activeBrush === 'marker';
+    const isLine = state.activeBrush === 'line';
     const alpha = isMarker ? state.brushOpacity * 0.5 : state.brushOpacity;
 
-    // Draw a smooth S-curve stroke preview
+    // Draw a smooth S-curve stroke preview (or diagonal line for line tool)
     const pad = Math.max(size * 0.5 + soft * size * 0.5, 12 * dpr);
     const x0 = pad, x1 = w - pad;
     const cy = h / 2;
     const amp = Math.min((h - size) / 2 - soft * size * 0.3, h * 0.28);
 
-    if (soft > 0) {
-      // Soft brush: draw to temp canvas, blit with blur
-      const tmp = document.createElement('canvas');
-      tmp.width = w; tmp.height = h;
-      const tc = tmp.getContext('2d');
+    function drawPreviewStroke(tc) {
       tc.lineCap = 'round';
       tc.lineJoin = 'round';
       tc.lineWidth = size;
       tc.strokeStyle = color;
       tc.globalAlpha = alpha;
       tc.beginPath();
-      tc.moveTo(x0, cy);
-      tc.bezierCurveTo(x0 + (x1 - x0) * 0.33, cy - amp, x0 + (x1 - x0) * 0.66, cy + amp, x1, cy);
+      if (isLine) {
+        tc.moveTo(x0, cy + amp);
+        tc.lineTo(x1, cy - amp);
+      } else {
+        tc.moveTo(x0, cy);
+        tc.bezierCurveTo(x0 + (x1 - x0) * 0.33, cy - amp, x0 + (x1 - x0) * 0.66, cy + amp, x1, cy);
+      }
       tc.stroke();
+    }
+
+    if (soft > 0) {
+      const tmp = document.createElement('canvas');
+      tmp.width = w; tmp.height = h;
+      const tc = tmp.getContext('2d');
+      drawPreviewStroke(tc);
       ctx.filter = `blur(${soft * size * 0.4}px)`;
       ctx.drawImage(tmp, 0, 0);
       ctx.filter = 'none';
     } else {
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.lineWidth = size;
-      ctx.strokeStyle = color;
-      ctx.globalAlpha = alpha;
-      ctx.beginPath();
-      ctx.moveTo(x0, cy);
-      ctx.bezierCurveTo(x0 + (x1 - x0) * 0.33, cy - amp, x0 + (x1 - x0) * 0.66, cy + amp, x1, cy);
-      ctx.stroke();
+      drawPreviewStroke(ctx);
     }
   }
 
@@ -2630,7 +2927,7 @@
     // Show softness slider only for pen and marker
     const softnessRow = $('#softness-row');
     if (softnessRow) {
-      const show = state.activeBrush === 'pen' || state.activeBrush === 'marker';
+      const show = state.activeBrush === 'pen' || state.activeBrush === 'marker' || state.activeBrush === 'line';
       softnessRow.style.display = show ? '' : 'none';
     }
     updateBrushPreview();
@@ -3022,31 +3319,18 @@
       label.className = 'gallery-thumb-label';
       label.textContent = p.date || '';
       el.appendChild(label);
-      // Delete button — use pointerup within threshold to avoid drag-through
+      // Delete button
       const delBtn = document.createElement('button');
       delBtn.className = 'gallery-thumb-delete';
       delBtn.innerHTML = '&times;';
-      let delDown = null;
-      delBtn.addEventListener('pointerdown', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        delDown = { x: e.clientX, y: e.clientY };
-      });
-      delBtn.addEventListener('pointerup', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        if (delDown) {
-          const dx = e.clientX - delDown.x, dy = e.clientY - delDown.y;
-          if (dx * dx + dy * dy < 20 * 20) {
-            showDeleteModal(p.id);
-          }
-        }
-        delDown = null;
-      });
-      // Prevent click from bubbling to thumb
       delBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
+        showDeleteModal(p.id);
+      });
+      // Block pointer events from reaching the thumb underneath
+      delBtn.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
       });
       el.appendChild(delBtn);
       // Thumb click — open project for editing

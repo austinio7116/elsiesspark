@@ -1515,10 +1515,8 @@ button:active { transform: scale(0.95); }
 #gallery-grid {
   flex: 1;
   overflow-y: auto;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
-  align-content: start;
+  columns: 2;
+  column-gap: 14px;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
   padding: 16px;
@@ -1528,13 +1526,13 @@ button:active { transform: scale(0.95); }
 }
 
 @media (min-width: 600px) {
-  #gallery-grid { grid-template-columns: repeat(3, 1fr); }
+  #gallery-grid { columns: 3; }
 }
 @media (min-width: 900px) {
-  #gallery-grid { grid-template-columns: repeat(4, 1fr); }
+  #gallery-grid { columns: 4; }
 }
 @media (min-width: 1200px) {
-  #gallery-grid { grid-template-columns: repeat(5, 1fr); }
+  #gallery-grid { columns: 5; }
 }
 
 .gallery-thumb {
@@ -1545,6 +1543,10 @@ button:active { transform: scale(0.95); }
   border-radius: 16px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.10);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+  break-inside: avoid;
+  margin-bottom: 14px;
+  display: inline-block;
+  width: 100%;
 }
 
 .gallery-thumb:active {
@@ -1574,10 +1576,10 @@ button:active { transform: scale(0.95); }
 
 .gallery-thumb-delete {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 28px;
-  height: 28px;
+  top: 4px;
+  right: 4px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: rgba(0,0,0,0.45);
   color: white;
@@ -1586,7 +1588,7 @@ button:active { transform: scale(0.95); }
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   line-height: 1;
   z-index: 2;
@@ -1594,6 +1596,8 @@ button:active { transform: scale(0.95); }
   transition: opacity 0.15s, background 0.15s;
   box-shadow: none;
   padding: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .gallery-thumb-delete:hover,
