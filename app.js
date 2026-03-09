@@ -5120,20 +5120,24 @@
     deco.innerHTML = shapes.join('');
     deco.setAttribute('viewBox', `0 0 ${w} ${h}`);
 
-    // Central shape
+    // Central shape — build SVG without destroying the prompt text element
     const shapeEl = $('#inspire-shape');
+    let shapeSvg;
     if (shapeType === 'circle') {
-      shapeEl.innerHTML = '<svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="110" fill="white"/></svg>';
+      shapeSvg = '<svg viewBox="0 0 260 260"><circle cx="130" cy="130" r="130" fill="white"/></svg>';
     } else if (shapeType === 'pentagon') {
       let pts = '';
       for (let i = 0; i < 5; i++) {
         const a = (Math.PI * 2 * i / 5) - Math.PI / 2;
-        pts += `${110 + 110 * Math.cos(a)},${110 + 110 * Math.sin(a)} `;
+        pts += `${130 + 130 * Math.cos(a)},${130 + 130 * Math.sin(a)} `;
       }
-      shapeEl.innerHTML = `<svg viewBox="0 0 220 220"><polygon points="${pts.trim()}" fill="white"/></svg>`;
+      shapeSvg = `<svg viewBox="0 0 260 260"><polygon points="${pts.trim()}" fill="white"/></svg>`;
     } else {
-      shapeEl.innerHTML = '<svg viewBox="0 0 220 200"><rect x="0" y="0" width="220" height="200" rx="6" fill="white"/></svg>';
+      shapeSvg = '<svg viewBox="0 0 260 240"><rect x="0" y="0" width="260" height="240" rx="6" fill="white"/></svg>';
     }
+
+    // Set shape SVG + re-create prompt text and go label inside
+    shapeEl.innerHTML = shapeSvg + `<p id="inspire-prompt-text" class="inspire-prompt-text"></p><span class="inspire-go-label" style="text-decoration-color:${palette.bg}">Let's go</span>`;
 
     // Prompt text
     $('#inspire-prompt-text').textContent = promptText;
@@ -5199,14 +5203,14 @@
     const content = $('.inspire-content');
     content.innerHTML = `
       <div class="inspire-shape-wrap">
-        <div id="inspire-shape" class="inspire-shape">
+        <button id="inspire-shape" class="inspire-shape" aria-label="Start drawing with this prompt">
           <p id="inspire-prompt-text" class="inspire-prompt-text"></p>
-        </div>
-        <button id="btn-inspire-go" class="inspire-go-btn">Let's go</button>
+          <span class="inspire-go-label">Let's go</span>
+        </button>
       </div>
     `;
-    // Re-bind buttons
-    $('#btn-inspire-go').addEventListener('click', onInspireGo);
+    // Re-bind shape as button
+    $('#inspire-shape').addEventListener('click', onInspireGo);
   }
 
   function onInspireGo() {
@@ -5351,7 +5355,7 @@
     $('#btn-back-news').addEventListener('click', () => showView('room'));
 
     // ── Inspire (Spark cards) ──
-    $('#btn-inspire-go').addEventListener('click', onInspireGo);
+    $('#inspire-shape').addEventListener('click', onInspireGo);
     $('#btn-inspire-back-room').addEventListener('click', () => showView('room'));
     $('#btn-inspire-next').addEventListener('click', () => {
       inspireIndex++;
