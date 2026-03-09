@@ -4166,6 +4166,7 @@
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.clientWidth * dpr;
     const h = canvas.clientHeight * dpr;
+    if (w === 0 || h === 0) return;
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext('2d');
