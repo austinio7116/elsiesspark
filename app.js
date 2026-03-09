@@ -461,6 +461,8 @@
     renderStickers();
     loadCustomGradients();
     bindEvents();
+    // Seed history so popstate has a root entry
+    history.replaceState({ view: 'room' }, '', '');
     showView('room');
     // Load dynamic assets (stickers & background images from folders)
     loadDynamicStickers();
@@ -499,6 +501,8 @@
   // ═══════════════════════════════════════════════════════
   // VIEW ROUTER
   // ═══════════════════════════════════════════════════════
+  let _navFromPopstate = false;
+
   function showView(id) {
     $$('.view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-' + id).classList.add('active');
@@ -508,7 +512,31 @@
     if (id === 'profile') onEnterProfile();
     if (id === 'inspire') onEnterInspire();
     if (id === 'room')    centerRoomPan();
+
+    // Push history so the Android / browser back button navigates within the app
+    if (!_navFromPopstate) {
+      history.pushState({ view: id }, '', '');
+    }
+    _navFromPopstate = false;
   }
+
+  // Handle back button: navigate to parent view or stay on room
+  window.addEventListener('popstate', e => {
+    const target = e.state && e.state.view;
+    if (target) {
+      _navFromPopstate = true;
+      showView(target);
+    } else {
+      // At the root of history — go to room if not already there, else re-push to trap
+      if (state.currentView !== 'room') {
+        _navFromPopstate = true;
+        showView('room');
+      } else {
+        // Push a dummy entry so back doesn't exit the app
+        history.pushState({ view: 'room' }, '', '');
+      }
+    }
+  });
 
   // ═══════════════════════════════════════════════════════
   // ROOM HORIZONTAL PAN
