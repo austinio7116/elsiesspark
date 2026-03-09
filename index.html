@@ -4,6 +4,25 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Elsie's Spark</title>
+
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#f8bbd0">
+
+  <!-- Favicon -->
+  <link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/icon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/icons/icon-16x16.png">
+
+  <!-- iOS / Apple -->
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Spark">
+
+  <!-- Android tweaks -->
+  <meta name="mobile-web-app-capable" content="yes">
+
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -682,5 +701,10 @@
 
 </div><!-- #app -->
 <script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
+</script>
 </body>
 </html>
