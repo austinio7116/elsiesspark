@@ -1617,6 +1617,81 @@ button:active { transform: scale(0.95); }
   -webkit-tap-highlight-color: transparent;
 }
 
+.gallery-thumb-export {
+  position: absolute;
+  top: 4px;
+  right: 44px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.45);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  z-index: 2;
+  opacity: 0.7;
+  transition: opacity 0.15s, background 0.15s;
+  box-shadow: none;
+  padding: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.gallery-thumb-export:hover,
+.gallery-thumb-export:active {
+  opacity: 1;
+  background: rgba(60,120,200,0.75);
+}
+.gallery-thumb-archive {
+  position: absolute;
+  top: 4px;
+  right: 84px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.45);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  z-index: 2;
+  opacity: 0.7;
+  transition: opacity 0.15s, background 0.15s;
+  box-shadow: none;
+  padding: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.gallery-thumb-archive:hover,
+.gallery-thumb-archive:active {
+  opacity: 1;
+  background: rgba(80,160,80,0.75);
+}
+.gallery-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: background 0.15s;
+}
+.gallery-action-btn:hover {
+  background: var(--accent-hover, #e06090);
+}
+
 .gallery-thumb-delete:hover,
 .gallery-thumb-delete:active {
   opacity: 1;

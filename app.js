@@ -314,6 +314,122 @@
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => document.querySelectorAll(sel);
 
+  // ═══════════════════════════════════════════════════════
+  // IndexedDB Storage (replaces localStorage for projects)
+  // ═══════════════════════════════════════════════════════
+  const DB_NAME = 'elsiespark-db';
+  const DB_VERSION = 1;
+  const STORE_NAME = 'projects';
+  let _db = null;
+
+  function openDB() {
+    if (_db) return Promise.resolve(_db);
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+          store.createIndex('date', 'sortOrder', { unique: false });
+        }
+      };
+      req.onsuccess = () => { _db = req.result; resolve(_db); };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function dbPut(project) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).put(project);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function dbGetAll() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const req = tx.objectStore(STORE_NAME).getAll();
+      req.onsuccess = () => {
+        const results = req.result || [];
+        results.sort((a, b) => (b.sortOrder || 0) - (a.sortOrder || 0));
+        resolve(results);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function dbDelete(id) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function dbGetStorageEstimate() {
+    if (navigator.storage && navigator.storage.estimate) {
+      const est = await navigator.storage.estimate();
+      return { used: est.usage || 0, quota: est.quota || 0 };
+    }
+    return null;
+  }
+
+  // Migrate from localStorage to IndexedDB (one-time)
+  async function migrateFromLocalStorage() {
+    const migrated = localStorage.getItem('elsiespark-migrated-to-idb');
+    if (migrated) return;
+    try {
+      let projects = [];
+      const raw = localStorage.getItem('elsiespark-projects');
+      if (raw) projects = JSON.parse(raw);
+      else {
+        const legacy = localStorage.getItem('elsiespark-project');
+        if (legacy) { const p = JSON.parse(legacy); p.id = Date.now(); projects = [p]; }
+      }
+      for (let i = 0; i < projects.length; i++) {
+        const p = projects[i];
+        p.sortOrder = p.id || Date.now() - i;
+        // Convert base64 layer data to blobs for space savings
+        if (p.layers) {
+          for (const layer of p.layers) {
+            if (layer.data && typeof layer.data === 'string') {
+              layer.dataBlob = await dataURLtoBlob(layer.data);
+              delete layer.data;
+            }
+          }
+        }
+        if (p.thumbnail && typeof p.thumbnail === 'string') {
+          p.thumbnailBlob = await dataURLtoBlob(p.thumbnail);
+          delete p.thumbnail;
+        }
+        await dbPut(p);
+      }
+      localStorage.setItem('elsiespark-migrated-to-idb', '1');
+      // Keep localStorage data for a while as backup; user can clear manually
+    } catch (e) {
+      console.warn('Migration from localStorage failed:', e);
+    }
+  }
+
+  function dataURLtoBlob(dataURL) {
+    return fetch(dataURL).then(r => r.blob());
+  }
+
+  function blobToDataURL(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
   // Canvas elements (resolved after DOM ready)
   let container, traceCanvas, traceCtx, previewCanvas, previewCtx;
   let objectsCanvas, objectsCtx;
@@ -325,7 +441,7 @@
   // ═══════════════════════════════════════════════════════
   // INIT
   // ═══════════════════════════════════════════════════════
-  function init() {
+  async function init() {
     container     = $('#canvas-container');
     traceCanvas   = $('#trace-canvas');
     traceCtx      = traceCanvas.getContext('2d');
@@ -333,6 +449,10 @@
     objectsCtx    = objectsCanvas.getContext('2d');
     previewCanvas = $('#preview-canvas');
     previewCtx    = previewCanvas.getContext('2d');
+
+    // Initialize IndexedDB and migrate from localStorage
+    await openDB();
+    await migrateFromLocalStorage();
 
     loadSavedSwatches();
     renderSavedSwatches();
@@ -488,9 +608,9 @@
     }
   }
 
-  function onEnterGallery() {
+  async function onEnterGallery() {
     loadProfileAvatar();
-    renderGallery();
+    await renderGallery();
   }
 
   // ═══════════════════════════════════════════════════════
@@ -4226,25 +4346,28 @@
   // ═══════════════════════════════════════════════════════
   // SAVE / LOAD (multi-project)
   // ═══════════════════════════════════════════════════════
-  function saveProject(silent) {
+  async function saveProject(silent) {
     try {
+      const id = state.currentProjectId || Date.now();
+      state.currentProjectId = id;
+
       const projectData = {
-        id: Date.now(),
+        id: id,
+        sortOrder: id,
         date: new Date().toLocaleDateString(),
         prompt: $('#draw-prompt-text')?.textContent || '',
         canvasWidth: state.canvasWidth,
         canvasHeight: state.canvasHeight,
         background: state.selectedBackground,
-        layers: state.layers.map(l => ({
+        layers: await Promise.all(state.layers.map(async l => ({
           id: l.id, name: l.name, visible: l.visible, opacity: l.opacity ?? 1,
-          data: l.canvas.toDataURL(),
+          dataBlob: await new Promise(resolve => l.canvas.toBlob(resolve, 'image/png')),
           objects: (l.objects || []).map(o => {
             const s = { ...o };
-            // Can't serialize Image — save reference info instead
             if (s.type === 'sticker') { delete s.img; }
             return s;
           }),
-        })),
+        }))),
         activeLayerId: state.activeLayerId,
       };
       // Thumbnail: merge all visible layers onto background
@@ -4255,36 +4378,23 @@
       renderBackground(tctx, thumbCanvas.width, thumbCanvas.height);
       state.layers.forEach(l => renderLayerToCanvas(tctx, l));
       tctx.globalAlpha = 1;
-      projectData.thumbnail = thumbCanvas.toDataURL('image/png');
+      projectData.thumbnailBlob = await new Promise(resolve => thumbCanvas.toBlob(resolve, 'image/png'));
 
-      let projects = loadAllProjects();
-      // Check if updating an existing project (same session) — use current ID if set
-      if (state.currentProjectId) {
-        const idx = projects.findIndex(p => p.id === state.currentProjectId);
-        if (idx >= 0) { projects[idx] = { ...projectData, id: state.currentProjectId }; }
-        else { projects.unshift(projectData); state.currentProjectId = projectData.id; }
-      } else {
-        state.currentProjectId = projectData.id;
-        projects.unshift(projectData);
-      }
-      // Keep max 20 projects
-      projects = projects.slice(0, 20);
-      localStorage.setItem('elsiespark-projects', JSON.stringify(projects));
+      await dbPut(projectData);
       if (!silent) showToast('Saved!');
     } catch (e) {
-      if (!silent) showToast('Save failed — storage may be full.');
+      console.error('Save failed:', e);
+      if (!silent) showToast('Save failed.');
     }
   }
 
-  function loadAllProjects() {
+  async function loadAllProjects() {
     try {
-      const raw = localStorage.getItem('elsiespark-projects');
-      if (raw) return JSON.parse(raw);
-      // Migrate legacy single-project save
-      const legacy = localStorage.getItem('elsiespark-project');
-      if (legacy) { const p = JSON.parse(legacy); p.id = Date.now(); return [p]; }
-    } catch (_) {}
-    return [];
+      return await dbGetAll();
+    } catch (e) {
+      console.error('Failed to load projects:', e);
+      return [];
+    }
   }
 
   function loadProject(projectData) {
@@ -4329,7 +4439,6 @@
           layer.objects = ld.objects.map(o => {
             const obj = { ...o };
             if (obj.type === 'sticker' && !obj.img) {
-              // Reconstruct Image from sticker name
               const sticker = STICKERS.find(s => s.name === obj.name);
               const fileSt  = FILE_STICKERS.find(s => s.name === obj.name);
               if (sticker) {
@@ -4349,7 +4458,18 @@
           });
         }
       };
-      img.src = ld.data;
+      // Support both blob (IndexedDB) and data URL (imported file) formats
+      if (ld.dataBlob instanceof Blob) {
+        const origOnload = img.onload;
+        const blobURL = URL.createObjectURL(ld.dataBlob);
+        img.onload = function() {
+          URL.revokeObjectURL(blobURL);
+          origOnload.call(this);
+        };
+        img.src = blobURL;
+      } else if (ld.data) {
+        img.src = ld.data;
+      }
     });
 
     layerIdCounter = Math.max(...(projectData.layers || []).map(l => l.id || 0), 0);
@@ -4366,14 +4486,24 @@
   // ═══════════════════════════════════════════════════════
   // GALLERY VIEW
   // ═══════════════════════════════════════════════════════
-  function renderGallery() {
+  async function renderGallery() {
     const grid  = $('#gallery-grid');
     const empty = $('#gallery-empty');
     if (!grid) return;
     grid.innerHTML = '';
-    const projects = loadAllProjects();
+    const projects = await loadAllProjects();
     const count = $('#gallery-count');
-    if (count) count.textContent = projects.length + (projects.length === 1 ? ' drawing' : ' drawings');
+    if (count) {
+      let storageInfo = '';
+      try {
+        const est = await dbGetStorageEstimate();
+        if (est) {
+          const usedMB = (est.used / 1024 / 1024).toFixed(1);
+          storageInfo = ' · ' + usedMB + ' MB used';
+        }
+      } catch (_) {}
+      count.textContent = projects.length + (projects.length === 1 ? ' drawing' : ' drawings') + storageInfo;
+    }
 
     if (projects.length === 0) {
       if (empty) empty.classList.remove('hidden');
@@ -4385,13 +4515,34 @@
       const el = document.createElement('div');
       el.className = 'gallery-thumb';
       const img = document.createElement('img');
-      img.src = p.thumbnail || '';
+      // Support both blob and data URL thumbnails
+      if (p.thumbnailBlob instanceof Blob) {
+        img.src = URL.createObjectURL(p.thumbnailBlob);
+      } else {
+        img.src = p.thumbnail || '';
+      }
       img.alt = p.prompt || 'Drawing';
       el.appendChild(img);
       const label = document.createElement('div');
       label.className = 'gallery-thumb-label';
       label.textContent = p.date || '';
       el.appendChild(label);
+      // Archive button (export + delete)
+      const archBtn = document.createElement('button');
+      archBtn.className = 'gallery-thumb-archive';
+      archBtn.title = 'Archive (export & remove)';
+      archBtn.innerHTML = '<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="5" rx="1"/><path d="M4 8v8a1 1 0 001 1h10a1 1 0 001-1V8"/><path d="M8 12h4"/></svg>';
+      archBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); archiveProject(p.id); });
+      archBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+      el.appendChild(archBtn);
+      // Export button
+      const expBtn = document.createElement('button');
+      expBtn.className = 'gallery-thumb-export';
+      expBtn.title = 'Export to file';
+      expBtn.innerHTML = '<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14v3h14v-3"/><polyline points="10,12 10,3"/><polyline points="6,7 10,3 14,7"/></svg>';
+      expBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); exportProject(p.id); });
+      expBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+      el.appendChild(expBtn);
       // Delete button
       const delBtn = document.createElement('button');
       delBtn.className = 'gallery-thumb-delete';
@@ -4409,11 +4560,11 @@
       // Thumb click — open project for editing
       let thumbDown = null;
       el.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('.gallery-thumb-delete')) return;
+        if (e.target.closest('.gallery-thumb-delete, .gallery-thumb-export, .gallery-thumb-archive')) return;
         thumbDown = { x: e.clientX, y: e.clientY };
       });
       el.addEventListener('pointerup', (e) => {
-        if (e.target.closest('.gallery-thumb-delete')) return;
+        if (e.target.closest('.gallery-thumb-delete, .gallery-thumb-export, .gallery-thumb-archive')) return;
         if (thumbDown) {
           const dx = e.clientX - thumbDown.x, dy = e.clientY - thumbDown.y;
           if (dx * dx + dy * dy < 15 * 15) {
@@ -4447,20 +4598,107 @@
     document.body.appendChild(overlay);
     overlay.querySelector('.modal-btn-cancel').addEventListener('click', () => overlay.remove());
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-    overlay.querySelector('.modal-btn-danger').addEventListener('click', () => {
-      deleteProject(projectId);
+    overlay.querySelector('.modal-btn-danger').addEventListener('click', async () => {
+      await deleteProject(projectId);
       overlay.remove();
       renderGallery();
     });
   }
 
-  function deleteProject(projectId) {
-    let projects = loadAllProjects();
-    projects = projects.filter(p => p.id !== projectId);
-    localStorage.setItem('elsiespark-projects', JSON.stringify(projects));
+  async function deleteProject(projectId) {
+    await dbDelete(projectId);
     if (state.currentProjectId === projectId) {
       state.currentProjectId = null;
     }
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // EXPORT / IMPORT / ARCHIVE
+  // ═══════════════════════════════════════════════════════
+  async function exportProject(projectId) {
+    const projects = await loadAllProjects();
+    const p = projects.find(pr => pr.id === projectId);
+    if (!p) { showToast('Project not found'); return; }
+    // Convert blobs to base64 data URLs for portable JSON export
+    const exportData = { ...p };
+    if (exportData.thumbnailBlob instanceof Blob) {
+      exportData.thumbnail = await blobToDataURL(exportData.thumbnailBlob);
+      delete exportData.thumbnailBlob;
+    }
+    if (exportData.layers) {
+      exportData.layers = await Promise.all(exportData.layers.map(async l => {
+        const lCopy = { ...l };
+        if (lCopy.dataBlob instanceof Blob) {
+          lCopy.data = await blobToDataURL(lCopy.dataBlob);
+          delete lCopy.dataBlob;
+        }
+        return lCopy;
+      }));
+    }
+    const data = JSON.stringify(exportData);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const name = (p.prompt || 'drawing').replace(/[^a-z0-9]+/gi, '_').substring(0, 40);
+    a.download = name + '.elsie';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Exported!');
+  }
+
+  async function archiveProject(projectId) {
+    await exportProject(projectId);
+    await deleteProject(projectId);
+    renderGallery();
+    showToast('Archived & removed from storage');
+  }
+
+  async function importProjectFromFile(file) {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!data.layers || !Array.isArray(data.layers)) {
+          showToast('Invalid file format');
+          return;
+        }
+        // Assign a new ID to avoid collisions
+        data.id = Date.now();
+        data.sortOrder = data.id;
+        // Convert base64 data URLs to blobs for IndexedDB storage
+        for (const layer of data.layers) {
+          if (layer.data && typeof layer.data === 'string') {
+            layer.dataBlob = await dataURLtoBlob(layer.data);
+            delete layer.data;
+          }
+        }
+        if (data.thumbnail && typeof data.thumbnail === 'string') {
+          data.thumbnailBlob = await dataURLtoBlob(data.thumbnail);
+          delete data.thumbnail;
+        }
+        await dbPut(data);
+        renderGallery();
+        showToast('Imported!');
+      } catch (e) {
+        showToast('Failed to import — invalid file');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // Import button wiring
+  const importBtn = $('#btn-gallery-import');
+  const importInput = $('#import-file-input');
+  if (importBtn && importInput) {
+    importBtn.addEventListener('click', () => importInput.click());
+    importInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) importProjectFromFile(file);
+      importInput.value = '';
+    });
   }
 
   // ═══════════════════════════════════════════════════════
@@ -4530,8 +4768,8 @@
       resetToNewCanvas();
       if (afterReset) afterReset();
     });
-    overlay.querySelector('.modal-btn-primary').addEventListener('click', () => {
-      saveProject(false);
+    overlay.querySelector('.modal-btn-primary').addEventListener('click', async () => {
+      await saveProject(false);
       overlay.remove();
       resetToNewCanvas();
       if (afterReset) afterReset();
@@ -4973,8 +5211,8 @@
       exitSelectMode();
       showView('room');
     });
-    $('#btn-done').addEventListener('click', () => {
-      saveProject();
+    $('#btn-done').addEventListener('click', async () => {
+      await saveProject();
       closeSheet();
       exitStickerMode();
       exitTextMode();
