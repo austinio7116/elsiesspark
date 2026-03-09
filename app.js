@@ -4464,6 +4464,81 @@
   }
 
   // ═══════════════════════════════════════════════════════
+  // CANVAS RESET HELPERS
+  // ═══════════════════════════════════════════════════════
+  function canvasHasContent() {
+    return state.layers.some(l => {
+      const d = l.ctx.getImageData(0, 0, l.canvas.width, l.canvas.height).data;
+      for (let i = 3; i < d.length; i += 4) { if (d[i] > 0) return true; }
+      return false;
+    });
+  }
+
+  function resetToNewCanvas() {
+    // Remove existing layer canvases
+    state.layers.forEach(l => l.canvas.remove());
+    state.layers = [];
+    layerIdCounter = 0;
+    // Clear history so undo can't restore old drawing
+    state.undoStack = [];
+    state.redoStack = [];
+    updateUndoRedoButtons();
+    // Detach from any saved project so future saves won't overwrite it
+    state.currentProjectId = null;
+    autosaveDirty = false;
+    if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null; }
+    // Clear trace image and objects
+    traceCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+    state.traceImage = null;
+    traceCanvas.style.display = 'none';
+    const clearTraceBtn = $('#btn-clear-trace');
+    if (clearTraceBtn) clearTraceBtn.hidden = true;
+    objectsCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+    previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+    // Reset background
+    state.selectedBackground = 'white';
+    applyBackground('white');
+    // Leave layers empty — onEnterDraw will call setupCanvas + addLayer
+    // when showView('draw') runs, ensuring correct dimensions
+  }
+
+  function promptSaveAndReset(afterReset) {
+    // If canvas is empty or brand-new, just reset
+    if (!canvasHasContent()) {
+      resetToNewCanvas();
+      if (afterReset) afterReset();
+      return;
+    }
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-box">
+        <h3>Save your drawing?</h3>
+        <p>You have unsaved changes. Would you like to save before starting a new drawing?</p>
+        <div class="modal-actions modal-actions-triple">
+          <button class="modal-btn-cancel">Cancel</button>
+          <button class="modal-btn-secondary">Don't Save</button>
+          <button class="modal-btn-primary">Save</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('.modal-btn-cancel').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    overlay.querySelector('.modal-btn-secondary').addEventListener('click', () => {
+      overlay.remove();
+      resetToNewCanvas();
+      if (afterReset) afterReset();
+    });
+    overlay.querySelector('.modal-btn-primary').addEventListener('click', () => {
+      saveProject(false);
+      overlay.remove();
+      resetToNewCanvas();
+      if (afterReset) afterReset();
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════
   // PROFILE PICTURE EDITOR
   // ═══════════════════════════════════════════════════════
   function initProfileEditor() {
@@ -4752,6 +4827,7 @@
       deco.setAttribute('viewBox', '0 0 400 780');
       deco.innerHTML = '<rect width="400" height="780" fill="#d4cfc8"/>';
       nextBtn.style.display = 'none';
+      $('#btn-inspire-back-room').style.display = 'none';
 
       $('#btn-inspire-cycle').addEventListener('click', () => {
         inspireIndex = 0;
@@ -4767,6 +4843,7 @@
 
     buildInspireCard(inspireSparks[inspireIndex], inspireIndex);
     nextBtn.style.display = '';
+    $('#btn-inspire-back-room').style.display = '';
   }
 
   function restoreInspireContent() {
@@ -4776,21 +4853,28 @@
         <div id="inspire-shape" class="inspire-shape"></div>
         <p id="inspire-prompt-text" class="inspire-prompt-text"></p>
         <button id="btn-inspire-go" class="inspire-go-btn">Let's go</button>
-        <button id="btn-inspire-back-room" class="inspire-back-btn">Back to room</button>
       </div>
     `;
     // Re-bind buttons
     $('#btn-inspire-go').addEventListener('click', onInspireGo);
-    $('#btn-inspire-back-room').addEventListener('click', () => showView('room'));
   }
 
   function onInspireGo() {
     const prompt = inspireSparks[inspireIndex];
-    activeSparkPrompt = prompt;
-    // Set the drawing prompt and switch to draw view
-    const el = $('#draw-prompt-text');
-    if (el) el.textContent = prompt;
-    showView('draw');
+    function startNewDrawing() {
+      activeSparkPrompt = prompt;
+      const el = $('#draw-prompt-text');
+      if (el) el.textContent = prompt;
+      showView('draw');
+    }
+    // If there's unsaved drawn content, offer to save first
+    if (state.layers.length > 0 && autosaveDirty && canvasHasContent()) {
+      promptSaveAndReset(startNewDrawing);
+    } else {
+      // Always reset to a fresh canvas for the new spark
+      resetToNewCanvas();
+      startNewDrawing();
+    }
   }
 
   // ═══════════════════════════════════════════════════════
@@ -5015,6 +5099,30 @@
     $('#btn-layer-export')?.addEventListener('click', () => {
       const exportBtn = $('#btn-export');
       if (exportBtn) exportBtn.click();
+    });
+
+    $('#btn-clear-canvas')?.addEventListener('click', () => {
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal-box">
+          <h3>Clear Canvas?</h3>
+          <p>This will erase all layers and start fresh. Are you sure?</p>
+          <div class="modal-actions">
+            <button class="modal-btn-cancel">Cancel</button>
+            <button class="modal-btn-danger">Clear</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      overlay.querySelector('.modal-btn-cancel').addEventListener('click', () => overlay.remove());
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+      overlay.querySelector('.modal-btn-danger').addEventListener('click', () => {
+        overlay.remove();
+        resetToNewCanvas();
+        onEnterDraw();
+        closeSheet();
+      });
     });
 
     // ── Sheet overlay dismiss ──
