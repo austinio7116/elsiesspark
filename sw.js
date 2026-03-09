@@ -1,18 +1,21 @@
 const CACHE_NAME = 'elsie-spark-v1';
 
-// Core app files to pre-cache
+// Derive base path from service worker location so it works on any subpath
+const BASE = self.registration.scope;
+
+// Core app files to pre-cache (relative to scope)
 const PRECACHE_URLS = [
-  '/',
-  '/index.html',
-  '/styles.css',
-  '/app.js',
-  '/manifest.json',
-  '/favicon.ico',
-  '/assets/favicon.png',
-  '/assets/icons/icon-192x192.png',
-  '/assets/icons/icon-512x512.png',
-  '/assets/home/home.png'
-];
+  './',
+  'index.html',
+  'styles.css',
+  'app.js',
+  'manifest.json',
+  'favicon.ico',
+  'assets/favicon.png',
+  'assets/icons/icon-192x192.png',
+  'assets/icons/icon-512x512.png',
+  'assets/home/home.png'
+].map(u => new URL(u, BASE).href);
 
 // Install: pre-cache core assets
 self.addEventListener('install', event => {

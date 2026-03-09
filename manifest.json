@@ -2,7 +2,7 @@
   "name": "Elsie's Spark",
   "short_name": "Spark",
   "description": "A creative drawing app for kids",
-  "start_url": "/",
+  "start_url": ".",
   "display": "fullscreen",
   "background_color": "#fdf6ec",
   "theme_color": "#f8bbd0",
