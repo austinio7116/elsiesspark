@@ -166,6 +166,14 @@
           </svg>
           <span>Text</span>
         </button>
+        <button class="tb-sub-btn" data-subtool="shapes" aria-label="Shapes">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+            <circle cx="8" cy="8" r="5"/>
+            <rect x="14" y="3" width="7" height="7"/>
+            <polygon points="8,14 13,23 3,23"/>
+          </svg>
+          <span>Shapes</span>
+        </button>
         <button class="tb-sub-btn" data-subtool="stickers" aria-label="Sticker">
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
             <circle cx="12" cy="12" r="9"/>
@@ -491,6 +499,20 @@
       </div>
     </div>
 
+    <!-- ── Bottom Sheet: Shapes ── -->
+    <div id="sheet-shapes" class="bottom-sheet hidden">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title">Shapes</span>
+        <button class="sheet-close-btn" data-sheet="shapes">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
+        </button>
+      </div>
+      <div class="sheet-body">
+        <div id="shape-list"></div>
+      </div>
+    </div>
+
     <!-- ── Bottom Sheet: Text ── -->
     <div id="sheet-text" class="bottom-sheet hidden">
       <div class="sheet-handle"></div>
@@ -642,8 +664,9 @@
       <svg id="inspire-deco" class="inspire-deco" preserveAspectRatio="none"></svg>
       <div class="inspire-content">
         <div class="inspire-shape-wrap">
-          <div id="inspire-shape" class="inspire-shape"></div>
-          <p id="inspire-prompt-text" class="inspire-prompt-text"></p>
+          <div id="inspire-shape" class="inspire-shape">
+            <p id="inspire-prompt-text" class="inspire-prompt-text"></p>
+          </div>
           <button id="btn-inspire-go" class="inspire-go-btn">Let's go</button>
         </div>
       </div>

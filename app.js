@@ -223,6 +223,28 @@
     { name: 'music',       svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><ellipse cx="18" cy="50" rx="10" ry="7" fill="#555"/><ellipse cx="50" cy="44" rx="10" ry="7" fill="#555"/><line x1="28" y1="50" x2="28" y2="10" stroke="#555" stroke-width="3"/><line x1="60" y1="44" x2="60" y2="8" stroke="#555" stroke-width="3"/><path d="M28 10 Q44 4 60 8" fill="none" stroke="#555" stroke-width="3"/></svg>' },
   ];
 
+  // ── Vector Shapes ────────────────────────────────────
+  const SHAPES = [
+    { name: 'circle',       svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>' },
+    { name: 'semicircle',   svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 44"><path d="M4 40 A28 28 0 0 1 60 40 Z" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>' },
+    { name: 'oval',         svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 64"><ellipse cx="24" cy="32" rx="20" ry="28" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>' },
+    { name: 'square',       svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="4" y="4" width="56" height="56" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>' },
+    { name: 'rectangle',    svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 56"><rect x="4" y="4" width="72" height="48" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>' },
+    { name: 'rounded rect', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="4" y="4" width="56" height="56" rx="12" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>' },
+    { name: 'diamond',      svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><polygon points="32,4 60,32 32,60 4,32" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>' },
+    { name: 'triangle',     svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 60"><polygon points="32,4 60,56 4,56" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>' },
+    { name: 'right triangle', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><polygon points="4,60 60,60 4,4" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>' },
+    { name: 'pentagon',     svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><polygon points="32,4 61,24 50,58 14,58 3,24" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>' },
+    { name: 'hexagon',      svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 58"><polygon points="16,2 48,2 62,29 48,56 16,56 2,29" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>' },
+    { name: 'star',         svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><polygon points="32,4 40,24 62,26 46,40 50,60 32,50 14,60 18,40 2,26 24,24" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>' },
+    { name: 'heart',        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path d="M32 56 C16 42 4 30 4 18 A14 14 0 0 1 32 14 A14 14 0 0 1 60 18 C60 30 48 42 32 56Z" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>' },
+    { name: 'cross',        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><polygon points="24,4 40,4 40,24 60,24 60,40 40,40 40,60 24,60 24,40 4,40 4,24 24,24" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>' },
+    { name: 'arrow right',  svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 48"><polygon points="4,16 40,16 40,4 60,24 40,44 40,32 4,32" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>' },
+    { name: 'arch',         svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path d="M4 60 L4 28 A28 28 0 0 1 60 28 L60 60" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>' },
+    { name: 'crescent',     svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path d="M40 8 A24 24 0 1 0 40 56 A18 18 0 1 1 40 8Z" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>' },
+    { name: 'speech bubble', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 56"><rect x="4" y="4" width="56" height="36" rx="8" fill="none" stroke="currentColor" stroke-width="2.5"/><polygon points="16,40 24,52 32,40" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>' },
+  ];
+
   // ── File-based stickers (PNG assets) ─────────────────
   // Dynamically loaded from assets/stickers/manifest.json
   let FILE_STICKERS = [];
@@ -459,6 +481,7 @@
     buildColorGrid();
     buildBackgroundGrid();
     renderStickers();
+    renderShapes();
     loadCustomGradients();
     bindEvents();
     // Seed history so popstate has a root entry
@@ -1428,6 +1451,25 @@
       renderObjects();
       drawSelectionHandles();
     }
+    if (state.selectMode && state.selectedObject && state.selectedObject.type === 'sticker' && state.selectedObject.name && state.selectedObject.name.startsWith('shape:')) {
+      pushUndo();
+      const shapeName = state.selectedObject.name.slice(6);
+      const shape = SHAPES.find(s => s.name === shapeName);
+      if (shape) {
+        state.selectedObject.shapeColor = hex;
+        const svgStr = shape.svg.replace(/currentColor/g, hex);
+        const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const simg = new Image();
+        simg.onload = () => {
+          URL.revokeObjectURL(url);
+          state.selectedObject.img = simg;
+          renderObjects();
+          drawSelectionHandles();
+        };
+        simg.src = url;
+      }
+    }
   }
 
   function updateColorSwatch() {
@@ -1681,6 +1723,35 @@
   }
 
   // ═══════════════════════════════════════════════════════
+  // SHAPES SYSTEM (vector shapes placed like stickers)
+  // ═══════════════════════════════════════════════════════
+  function renderShapes() {
+    const list = $('#shape-list');
+    if (!list) return;
+    list.innerHTML = '';
+    SHAPES.forEach(sh => {
+      const btn = document.createElement('button');
+      btn.className = 'sticker-btn';
+      btn.title = sh.name;
+      btn.innerHTML = sh.svg;
+      btn.querySelector('svg').style.cssText = 'width:36px;height:36px';
+      btn.addEventListener('click', () => { enterShapeMode(sh); closeSheet(); });
+      list.appendChild(btn);
+    });
+  }
+
+  function enterShapeMode(shape) {
+    // Shapes use the sticker pipeline — generate an SVG with the current color
+    const coloredSvg = shape.svg.replace(/currentColor/g, state.color);
+    const aspect = parseSvgAspect(coloredSvg);
+    const blob   = new Blob([coloredSvg], { type: 'image/svg+xml' });
+    const url    = URL.createObjectURL(blob);
+    const img    = new Image();
+    img.onload   = () => { URL.revokeObjectURL(url); _startStickerMode('shape:' + shape.name, img, aspect); };
+    img.src      = url;
+  }
+
+  // ═══════════════════════════════════════════════════════
   // STICKER SYSTEM
   // ═══════════════════════════════════════════════════════
   function renderStickers() {
@@ -1797,11 +1868,13 @@
     pushUndo();
     const { img, name, aspect, size } = state.stickerMode;
     const { x, y } = state.stickerPos;
-    layer.objects.push({
+    const obj = {
       id: ++objectIdCounter, type: 'sticker',
       x, y, rotation: state.stickerRotation,
       img, name, aspect, size,
-    });
+    };
+    if (name && name.startsWith('shape:')) obj.shapeColor = state.color;
+    layer.objects.push(obj);
     exitStickerMode();
     renderObjects();
     scheduleAutosave();
@@ -4469,8 +4542,18 @@
             if (obj.type === 'sticker' && !obj.img) {
               const sticker = STICKERS.find(s => s.name === obj.name);
               const fileSt  = FILE_STICKERS.find(s => s.name === obj.name);
+              // Check for shape objects (name starts with "shape:")
+              const shapeName = obj.name && obj.name.startsWith('shape:') ? obj.name.slice(6) : null;
+              const shape = shapeName ? SHAPES.find(s => s.name === shapeName) : null;
               if (sticker) {
                 const blob = new Blob([sticker.svg], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(blob);
+                const simg = new Image();
+                simg.onload = () => { URL.revokeObjectURL(url); obj.img = simg; renderObjects(); };
+                simg.src = url;
+              } else if (shape) {
+                const svgStr = shape.svg.replace(/currentColor/g, obj.shapeColor || '#000000');
+                const blob = new Blob([svgStr], { type: 'image/svg+xml' });
                 const url = URL.createObjectURL(blob);
                 const simg = new Image();
                 simg.onload = () => { URL.revokeObjectURL(url); obj.img = simg; renderObjects(); };
@@ -5116,8 +5199,9 @@
     const content = $('.inspire-content');
     content.innerHTML = `
       <div class="inspire-shape-wrap">
-        <div id="inspire-shape" class="inspire-shape"></div>
-        <p id="inspire-prompt-text" class="inspire-prompt-text"></p>
+        <div id="inspire-shape" class="inspire-shape">
+          <p id="inspire-prompt-text" class="inspire-prompt-text"></p>
+        </div>
         <button id="btn-inspire-go" class="inspire-go-btn">Let's go</button>
       </div>
     `;

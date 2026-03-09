@@ -1146,7 +1146,8 @@ button:active { transform: scale(0.95); }
 }
 
 /* ── Sticker Sheet ── */
-#sticker-list {
+#sticker-list,
+#shape-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -2075,26 +2076,33 @@ button:active { transform: scale(0.95); }
 .inspire-shape {
   width: 220px;
   height: 220px;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 8px;
+  margin-bottom: 16px;
 }
 
 .inspire-shape svg {
   width: 100%;
   height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 .inspire-prompt-text {
+  position: relative;
+  z-index: 1;
   font-family: 'Nunito', sans-serif;
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 800;
   color: var(--text);
   text-align: center;
   line-height: 1.25;
-  max-width: 260px;
-  margin-bottom: 16px;
+  max-width: 180px;
+  margin: 0;
+  padding: 10px;
 }
 
 .inspire-go-btn {
