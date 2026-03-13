@@ -177,6 +177,18 @@ export function initToolbar() {
     });
   }
 
+  // ── Tree mode selector ──
+  const treeModeGroup = $('#tree-mode-group');
+  if (treeModeGroup) {
+    treeModeGroup.addEventListener('click', e => {
+      const btn = e.target.closest('.mode-btn');
+      if (!btn) return;
+      treeModeGroup.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.treeMode = btn.dataset.mode;
+    });
+  }
+
   // ── Tree leaf density slider ──
   const treeLeafSlider = $('#tree-leaf-density');
   if (treeLeafSlider) {

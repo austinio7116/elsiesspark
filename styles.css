@@ -993,6 +993,44 @@ button:active { transform: scale(0.95); }
 .brush-options { margin-top: 6px; }
 .brush-options.hidden { display: none; }
 
+.mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+.mode-row label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-right: 8px;
+}
+.mode-group {
+  display: flex;
+  gap: 2px;
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 2px;
+}
+.mode-btn {
+  font-size: 11px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.15s, color 0.15s;
+}
+.mode-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+.mode-btn:hover:not(.active) {
+  background: var(--border-light);
+}
+
 .toggle-row {
   display: flex;
   align-items: center;

@@ -64,6 +64,7 @@ const state = {
   fairylightsUseColor: false,
   treeLeafDensity: 5,
   treeBranchDensity: 5,
+  treeMode: 'default',
   // Project
   currentProjectId: null,
 };

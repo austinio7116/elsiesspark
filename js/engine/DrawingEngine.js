@@ -356,6 +356,7 @@ function moveStroke(e) {
         fairylightsUseColor: state.fairylightsUseColor,
         treeLeafDensity: state.treeLeafDensity,
         treeBranchDensity: state.treeBranchDensity,
+        treeMode: state.treeMode,
       };
       ObjectRenderer.drawObjectTo(sctx, tmpObj);
     }
@@ -431,6 +432,7 @@ function endStroke(e) {
           fairylightsUseColor: state.fairylightsUseColor,
           treeLeafDensity: state.treeLeafDensity,
           treeBranchDensity: state.treeBranchDensity,
+          treeMode: state.treeMode,
         });
         previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
         bus.emit('renderObjects');
