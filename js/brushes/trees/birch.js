@@ -165,50 +165,78 @@ export default function renderBirch(ctx, h) {
 
   const foliage = filterByDensity(fg.foliage, leafDensity, seed + 99998);
 
-  function leaf() {
+  // Pre-generate leaf colour palette
+  const leafPalette = [];
+  for (let i = 0; i < 8; i++) {
     const r = hslToRgb(
       leafHsl[0] + (rng() - 0.5) * 0.06,
       Math.min(1, leafHsl[1] + (rng() - 0.2) * 0.12),
       Math.max(0.3, Math.min(0.65, leafHsl[2] + 0.05 + (rng() - 0.4) * 0.15))
     );
-    return `rgb(${r[0]},${r[1]},${r[2]})`;
+    leafPalette.push(`rgb(${r[0]},${r[1]},${r[2]})`);
   }
 
-  // Render leaves — small triangular/diamond birch leaves
-  for (const lc of foliage) {
-    const n = Math.max(1, Math.round((5 + Math.floor(rng() * 6)) * leafDensity));
-    for (let k = 0; k < n; k++) {
-      const a = rng() * Math.PI * 2;
-      const d = rng() * lc.size * 0.5;
-      const lx = lc.x + Math.cos(a) * d;
-      const ly = lc.y + Math.sin(a) * d;
-      const ls = lc.size * (0.2 + rng() * 0.3);
-      const la = rng() * Math.PI * 2;
+  // Batch leaves by colour — compute rotated points directly, no save/restore
+  for (let ci = 0; ci < leafPalette.length; ci++) {
+    ctx.fillStyle = leafPalette[ci];
+    ctx.globalAlpha = opacity;
+    ctx.beginPath();
+    let count = 0;
 
-      ctx.save();
-      ctx.translate(lx, ly);
-      ctx.rotate(la);
-      ctx.fillStyle = leaf();
-      ctx.globalAlpha = opacity * (0.75 + rng() * 0.25);
+    for (const lc of foliage) {
+      const n = Math.max(1, Math.round((5 + Math.floor(rng() * 6)) * leafDensity));
+      for (let k = 0; k < n; k++) {
+        const colIdx = Math.floor(rng() * leafPalette.length);
+        const a = rng() * Math.PI * 2;
+        const d = rng() * lc.size * 0.5;
+        const lx = lc.x + Math.cos(a) * d;
+        const ly = lc.y + Math.sin(a) * d;
+        const ls = lc.size * (0.2 + rng() * 0.3);
+        const la = rng() * Math.PI * 2;
+        // Consume alpha RNG to maintain determinism
+        rng();
 
-      ctx.beginPath();
-      ctx.moveTo(0, -ls * 0.05);
-      ctx.bezierCurveTo(ls * 0.15, -ls * 0.35, ls * 0.35, -ls * 0.45, ls * 0.45, -ls * 0.15);
-      ctx.bezierCurveTo(ls * 0.5, 0, ls * 0.48, ls * 0.1, ls * 0.55, 0);
-      ctx.bezierCurveTo(ls * 0.35, ls * 0.45, ls * 0.15, ls * 0.35, 0, ls * 0.05);
-      ctx.closePath();
-      ctx.fill();
+        if (colIdx !== ci) continue;
+        count++;
 
-      ctx.strokeStyle = leaf();
-      ctx.lineWidth = Math.max(0.2, ls * 0.03);
-      ctx.globalAlpha = opacity * 0.2;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(ls * 0.4, 0);
-      ctx.stroke();
+        // Compute rotated bezier points directly
+        const cos = Math.cos(la), sin = Math.sin(la);
+        // Birch leaf shape control points (triangular/diamond)
+        // Original: moveTo(0, -ls*0.05), bezier to (ls*0.45, -ls*0.15),
+        //           bezier to (ls*0.55, 0), bezier back to (0, ls*0.05)
+        const p0x = 0, p0y = -ls * 0.05;
+        const c1x = ls * 0.15, c1y = -ls * 0.35;
+        const c2x = ls * 0.35, c2y = -ls * 0.45;
+        const e1x = ls * 0.45, e1y = -ls * 0.15;
+        const c3x = ls * 0.5, c3y = 0;
+        const c4x = ls * 0.48, c4y = ls * 0.1;
+        const e2x = ls * 0.55, e2y = 0;
+        const c5x = ls * 0.35, c5y = ls * 0.45;
+        const c6x = ls * 0.15, c6y = ls * 0.35;
+        const e3x = 0, e3y = ls * 0.05;
 
-      ctx.restore();
-      ctx.globalAlpha = opacity;
+        ctx.moveTo(
+          lx + p0x * cos - p0y * sin,
+          ly + p0x * sin + p0y * cos
+        );
+        ctx.bezierCurveTo(
+          lx + c1x * cos - c1y * sin, ly + c1x * sin + c1y * cos,
+          lx + c2x * cos - c2y * sin, ly + c2x * sin + c2y * cos,
+          lx + e1x * cos - e1y * sin, ly + e1x * sin + e1y * cos
+        );
+        ctx.bezierCurveTo(
+          lx + c3x * cos - c3y * sin, ly + c3x * sin + c3y * cos,
+          lx + c4x * cos - c4y * sin, ly + c4x * sin + c4y * cos,
+          lx + e2x * cos - e2y * sin, ly + e2x * sin + e2y * cos
+        );
+        ctx.bezierCurveTo(
+          lx + c5x * cos - c5y * sin, ly + c5x * sin + c5y * cos,
+          lx + c6x * cos - c6y * sin, ly + c6x * sin + c6y * cos,
+          lx + e3x * cos - e3y * sin, ly + e3x * sin + e3y * cos
+        );
+      }
     }
+    if (count > 0) ctx.fill();
   }
+  ctx.globalAlpha = opacity;
 }

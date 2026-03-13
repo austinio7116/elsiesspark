@@ -91,30 +91,34 @@ export default function renderPalm(ctx, h) {
   const crownY = topP.y;
   const crownSpread = capRadius * 0.8;
 
-  // Frond colours — two shades per leaflet for the fold effect
-  function frondColLight() {
+  // Pre-generate colour palettes to avoid per-leaflet hslToRgb calls
+  const NUM_LIGHT = 6, NUM_DARK = 6, NUM_SPINE = 4;
+  const lightCols = [];
+  for (let i = 0; i < NUM_LIGHT; i++) {
     const r = hslToRgb(
       leafHsl[0] + (rng() - 0.5) * 0.04,
       Math.min(1, leafHsl[1] + 0.05 + rng() * 0.08),
       Math.max(0.22, Math.min(0.52, leafHsl[2] + 0.03 + (rng() - 0.4) * 0.12))
     );
-    return `rgb(${r[0]},${r[1]},${r[2]})`;
+    lightCols.push(`rgb(${r[0]},${r[1]},${r[2]})`);
   }
-  function frondColDark() {
+  const darkCols = [];
+  for (let i = 0; i < NUM_DARK; i++) {
     const r = hslToRgb(
       leafHsl[0] + (rng() - 0.5) * 0.04,
       Math.min(1, leafHsl[1] + 0.08 + rng() * 0.08),
       Math.max(0.12, Math.min(0.38, leafHsl[2] - 0.08 + (rng() - 0.4) * 0.1))
     );
-    return `rgb(${r[0]},${r[1]},${r[2]})`;
+    darkCols.push(`rgb(${r[0]},${r[1]},${r[2]})`);
   }
-  function spineCol() {
+  const spineCols = [];
+  for (let i = 0; i < NUM_SPINE; i++) {
     const r = hslToRgb(
       leafHsl[0] + (rng() - 0.5) * 0.04,
       Math.min(1, leafHsl[1] + 0.05 + rng() * 0.08),
       Math.max(0.18, Math.min(0.42, leafHsl[2] - 0.02 + (rng() - 0.4) * 0.1))
     );
-    return `rgb(${r[0]},${r[1]},${r[2]})`;
+    spineCols.push(`rgb(${r[0]},${r[1]},${r[2]})`);
   }
 
   // Build fronds
@@ -133,6 +137,13 @@ export default function renderPalm(ctx, h) {
 
   fronds.sort((a, b) => Math.sin(a.angle) - Math.sin(b.angle));
 
+  // Collect all leaflet geometry, then batch-render by colour.
+  // lightHalves[colIdx] and darkHalves[colIdx] each hold arrays of bezier path data.
+  const lightHalves = [];
+  for (let i = 0; i < NUM_LIGHT; i++) lightHalves.push([]);
+  const darkHalves = [];
+  for (let i = 0; i < NUM_DARK; i++) darkHalves.push([]);
+
   for (const fr of fronds) {
     const frondLen = fr.len;
     const archAmount = fr.arch;
@@ -148,8 +159,8 @@ export default function renderPalm(ctx, h) {
     const endX = startX + outDx * frondLen * 0.85;
     const endY = startY + outDy * frondLen * 0.5 + frondLen * archAmount * 0.55;
 
-    // Draw spine
-    ctx.strokeStyle = spineCol();
+    // Draw spine (few per tree, keep as-is with pre-generated colours)
+    ctx.strokeStyle = spineCols[fr.ox & (NUM_SPINE - 1)] || spineCols[0];
     ctx.lineWidth = Math.max(1.2, trunkW * 0.06);
     ctx.lineCap = 'round';
     ctx.globalAlpha = opacity;
@@ -158,8 +169,7 @@ export default function renderPalm(ctx, h) {
     ctx.bezierCurveTo(c1x, c1y, c2x, c2y, endX, endY);
     ctx.stroke();
 
-    // Leaflets — long, skinny, with central fold (two-tone halves)
-    // More leaflets, packed tighter
+    // Collect leaflet geometry
     const nLeaflets = Math.max(12, Math.round((22 + Math.floor(rng() * 12)) * leafDensity));
     for (let li = 0; li < nLeaflets; li++) {
       const t = 0.06 + (li / nLeaflets) * 0.9;
@@ -169,9 +179,7 @@ export default function renderPalm(ctx, h) {
       const lpNext = cubicBez(startX, startY, c1x, c1y, c2x, c2y, endX, endY, tNext);
       const tangent = Math.atan2(lpNext.y - lp.y, lpNext.x - lp.x);
 
-      // Longer, skinnier leaflets
       const leafletLen = frondLen * (0.16 + rng() * 0.08) * (1 - t * 0.4);
-      // Very narrow
       const leafletWidth = leafletLen * 0.07;
 
       for (const side of [-1, 1]) {
@@ -181,56 +189,69 @@ export default function renderPalm(ctx, h) {
         const lex = lsx + Math.cos(leafAngle) * leafletLen;
         const ley = lsy + Math.sin(leafAngle) * leafletLen;
 
-        // Perpendicular to the leaflet for width
         const perpDx = -Math.sin(leafAngle);
         const perpDy = Math.cos(leafAngle);
 
-        // Draw two halves with different shades to show the central fold
-        // The fold runs along the leaflet's centre line
-        // Light half (upper/left side of fold)
-        ctx.fillStyle = frondColLight();
-        ctx.globalAlpha = opacity * (0.8 + rng() * 0.2);
-        ctx.beginPath();
-        ctx.moveTo(lsx, lsy);
-        // Centre line (the fold crease)
-        ctx.lineTo(lex, ley);
-        // Back along the light side
-        ctx.bezierCurveTo(
+        // Consume rng() to keep the sequence aligned (was used for globalAlpha per half)
+        const lightAlpha = opacity * (0.8 + rng() * 0.2);
+        const darkAlpha = opacity * (0.75 + rng() * 0.2);
+
+        const lci = li % NUM_LIGHT;
+        const dci = li % NUM_DARK;
+
+        // Light half: moveTo(lsx,lsy) -> lineTo(lex,ley) -> bezierCurveTo back
+        lightHalves[lci].push(
+          lsx, lsy, lex, ley,
+          // bezier control points and end (back to start)
           lsx + (lex - lsx) * 0.7 + perpDx * leafletWidth * 0.8,
           lsy + (ley - lsy) * 0.7 + perpDy * leafletWidth * 0.8,
           lsx + (lex - lsx) * 0.3 + perpDx * leafletWidth,
-          lsy + (ley - lsy) * 0.3 + perpDy * leafletWidth,
-          lsx, lsy
+          lsy + (ley - lsy) * 0.3 + perpDy * leafletWidth
         );
-        ctx.fill();
 
-        // Dark half (lower/right side of fold — in shadow)
-        ctx.fillStyle = frondColDark();
-        ctx.globalAlpha = opacity * (0.75 + rng() * 0.2);
-        ctx.beginPath();
-        ctx.moveTo(lsx, lsy);
-        ctx.lineTo(lex, ley);
-        ctx.bezierCurveTo(
+        // Dark half: moveTo(lsx,lsy) -> lineTo(lex,ley) -> bezierCurveTo back (opposite side)
+        darkHalves[dci].push(
+          lsx, lsy, lex, ley,
           lsx + (lex - lsx) * 0.7 - perpDx * leafletWidth * 0.8,
           lsy + (ley - lsy) * 0.7 - perpDy * leafletWidth * 0.8,
           lsx + (lex - lsx) * 0.3 - perpDx * leafletWidth,
-          lsy + (ley - lsy) * 0.3 - perpDy * leafletWidth,
-          lsx, lsy
+          lsy + (ley - lsy) * 0.3 - perpDy * leafletWidth
         );
-        ctx.fill();
-
-        // Central fold line (the crease)
-        ctx.strokeStyle = frondColDark();
-        ctx.lineWidth = Math.max(0.2, leafletLen * 0.008);
-        ctx.globalAlpha = opacity * 0.3;
-        ctx.beginPath();
-        ctx.moveTo(lsx, lsy);
-        ctx.lineTo(lex, ley);
-        ctx.stroke();
       }
     }
-    ctx.globalAlpha = opacity;
   }
+
+  // Batch render light halves — one beginPath + fill per colour bucket
+  ctx.globalAlpha = opacity * 0.9;
+  for (let ci = 0; ci < NUM_LIGHT; ci++) {
+    const arr = lightHalves[ci];
+    if (arr.length === 0) continue;
+    ctx.fillStyle = lightCols[ci];
+    ctx.beginPath();
+    for (let j = 0; j < arr.length; j += 8) {
+      ctx.moveTo(arr[j], arr[j + 1]);
+      ctx.lineTo(arr[j + 2], arr[j + 3]);
+      ctx.bezierCurveTo(arr[j + 4], arr[j + 5], arr[j + 6], arr[j + 7], arr[j], arr[j + 1]);
+    }
+    ctx.fill();
+  }
+
+  // Batch render dark halves
+  ctx.globalAlpha = opacity * 0.85;
+  for (let ci = 0; ci < NUM_DARK; ci++) {
+    const arr = darkHalves[ci];
+    if (arr.length === 0) continue;
+    ctx.fillStyle = darkCols[ci];
+    ctx.beginPath();
+    for (let j = 0; j < arr.length; j += 8) {
+      ctx.moveTo(arr[j], arr[j + 1]);
+      ctx.lineTo(arr[j + 2], arr[j + 3]);
+      ctx.bezierCurveTo(arr[j + 4], arr[j + 5], arr[j + 6], arr[j + 7], arr[j], arr[j + 1]);
+    }
+    ctx.fill();
+  }
+
+  ctx.globalAlpha = opacity;
 
   // Coconuts
   if (rng() > 0.4) {
