@@ -7,6 +7,7 @@ import { $, $$, showToast, hslToHex, hexToHsl } from '../utils.js';
 import { updateBrushPreview } from './SheetManager.js';
 import ObjectRenderer from '../engine/ObjectRenderer.js';
 import CanvasManager from '../engine/CanvasManager.js';
+import { renderBackground, renderLayerToCanvas } from '../io/ProjectManager.js';
 
 // ── Spectrum drag state ──
 let spectrumDragging = false;
@@ -288,6 +289,157 @@ function renderSavedSwatches() {
 }
 
 // ═══════════════════════════════════════════════════════
+// EYEDROPPER — pick any color from the canvas
+// ═══════════════════════════════════════════════════════
+let _eyedropperActive = false;
+let _eyedropperCanvas = null; // merged snapshot of all visible layers + background
+let _eyedropperCtx = null;
+
+function _buildEyedropperSnapshot() {
+  if (!_eyedropperCanvas) {
+    _eyedropperCanvas = document.createElement('canvas');
+    _eyedropperCtx = _eyedropperCanvas.getContext('2d', { willReadFrequently: true });
+  }
+  _eyedropperCanvas.width = state.canvasWidth;
+  _eyedropperCanvas.height = state.canvasHeight;
+  renderBackground(_eyedropperCtx, state.canvasWidth, state.canvasHeight);
+  state.layers.forEach(l => renderLayerToCanvas(_eyedropperCtx, l));
+  _eyedropperCtx.globalAlpha = 1;
+}
+
+function _eyedropperCanvasPos(e) {
+  const rect = CanvasManager.previewCanvas.getBoundingClientRect();
+  return {
+    x: Math.round((e.clientX - rect.left) * (state.canvasWidth / rect.width)),
+    y: Math.round((e.clientY - rect.top) * (state.canvasHeight / rect.height)),
+  };
+}
+
+function _rgbToHex(r, g, b) {
+  return '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
+}
+
+function _updateLoupe(e, cx, cy) {
+  const loupe = $('#eyedropper-loupe');
+  const loupeCanvas = $('#loupe-canvas');
+  const label = $('#loupe-color-label');
+  if (!loupe || !loupeCanvas || !_eyedropperCtx) return;
+
+  // Position loupe above the finger/cursor (offset up so it's visible)
+  const offsetY = 90;
+  loupe.style.left = (e.clientX - 60) + 'px';
+  loupe.style.top = (e.clientY - 120 - offsetY) + 'px';
+
+  // Draw magnified view (8x zoom, 15x15 pixel area -> 120x120 canvas)
+  const lctx = loupeCanvas.getContext('2d');
+  const zoom = 8;
+  const sampleSize = Math.floor(120 / zoom); // 15 pixels
+  const half = Math.floor(sampleSize / 2);
+  lctx.clearRect(0, 0, 120, 120);
+  lctx.imageSmoothingEnabled = false;
+  // Source rect from the snapshot
+  const sx = Math.max(0, cx - half);
+  const sy = Math.max(0, cy - half);
+  const sw = Math.min(sampleSize, state.canvasWidth - sx);
+  const sh = Math.min(sampleSize, state.canvasHeight - sy);
+  if (sw > 0 && sh > 0) {
+    lctx.drawImage(_eyedropperCanvas, sx, sy, sw, sh, 0, 0, sw * zoom, sh * zoom);
+  }
+
+  // Read center pixel color
+  const px = Math.max(0, Math.min(cx, state.canvasWidth - 1));
+  const py = Math.max(0, Math.min(cy, state.canvasHeight - 1));
+  const data = _eyedropperCtx.getImageData(px, py, 1, 1).data;
+  const hex = _rgbToHex(data[0], data[1], data[2]);
+  label.textContent = hex.toUpperCase();
+  label.style.background = hex;
+  // Use contrasting text
+  const luma = data[0] * 0.299 + data[1] * 0.587 + data[2] * 0.114;
+  label.style.color = luma > 140 ? '#000' : '#fff';
+}
+
+function _eyedropperDown(e) {
+  if (!_eyedropperActive) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const loupe = $('#eyedropper-loupe');
+  if (loupe) loupe.classList.remove('hidden');
+  const pos = _eyedropperCanvasPos(e);
+  _updateLoupe(e, pos.x, pos.y);
+}
+
+function _eyedropperMove(e) {
+  if (!_eyedropperActive) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const loupe = $('#eyedropper-loupe');
+  if (!loupe || loupe.classList.contains('hidden')) return;
+  const pos = _eyedropperCanvasPos(e);
+  _updateLoupe(e, pos.x, pos.y);
+}
+
+function _eyedropperUp(e) {
+  if (!_eyedropperActive) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const loupe = $('#eyedropper-loupe');
+  if (loupe) loupe.classList.add('hidden');
+  // Sample the final pixel
+  const pos = _eyedropperCanvasPos(e);
+  const px = Math.max(0, Math.min(pos.x, state.canvasWidth - 1));
+  const py = Math.max(0, Math.min(pos.y, state.canvasHeight - 1));
+  if (_eyedropperCtx) {
+    const data = _eyedropperCtx.getImageData(px, py, 1, 1).data;
+    const hex = _rgbToHex(data[0], data[1], data[2]);
+    setColor(hex);
+    showToast('Color picked!');
+  }
+  exitEyedropper();
+}
+
+function _eyedropperKeydown(e) {
+  if (e.key === 'Escape') exitEyedropper();
+}
+
+function enterEyedropper() {
+  _eyedropperActive = true;
+  _buildEyedropperSnapshot();
+  const btn = $('#btn-eyedropper');
+  if (btn) btn.classList.add('active');
+  // Close the color sheet so the canvas is visible
+  bus.emit('closeSheet');
+  // Intercept pointer events on the preview canvas
+  const preview = CanvasManager.previewCanvas;
+  preview.style.cursor = 'crosshair';
+  preview.addEventListener('pointerdown', _eyedropperDown, { capture: true });
+  preview.addEventListener('pointermove', _eyedropperMove, { capture: true });
+  preview.addEventListener('pointerup', _eyedropperUp, { capture: true });
+  preview.addEventListener('pointercancel', _eyedropperCancel, { capture: true });
+  preview.style.touchAction = 'none';
+  document.addEventListener('keydown', _eyedropperKeydown);
+}
+
+function _eyedropperCancel(e) {
+  if (!_eyedropperActive) return;
+  const loupe = $('#eyedropper-loupe');
+  if (loupe) loupe.classList.add('hidden');
+  exitEyedropper();
+}
+
+function exitEyedropper() {
+  _eyedropperActive = false;
+  const btn = $('#btn-eyedropper');
+  if (btn) btn.classList.remove('active');
+  const preview = CanvasManager.previewCanvas;
+  preview.style.cursor = state.selectMode ? 'default' : 'crosshair';
+  preview.removeEventListener('pointerdown', _eyedropperDown, { capture: true });
+  preview.removeEventListener('pointermove', _eyedropperMove, { capture: true });
+  preview.removeEventListener('pointerup', _eyedropperUp, { capture: true });
+  preview.removeEventListener('pointercancel', _eyedropperCancel, { capture: true });
+  document.removeEventListener('keydown', _eyedropperKeydown);
+}
+
+// ═══════════════════════════════════════════════════════
 // INIT — build grid, bind spectrum & slider events
 // ═══════════════════════════════════════════════════════
 export function initColorPicker() {
@@ -335,6 +487,12 @@ export function initColorPicker() {
 
   // ── Save swatch button ──
   $('#btn-save-swatch')?.addEventListener('click', saveSwatch);
+
+  // ── Eyedropper button ──
+  $('#btn-eyedropper')?.addEventListener('click', () => {
+    if (_eyedropperActive) exitEyedropper();
+    else enterEyedropper();
+  });
 
   // ── Bus events for lazy-init spectrum from SheetManager ──
   bus.on('color:drawSpectrum', drawSpectrum);

@@ -637,6 +637,26 @@ button:active { transform: scale(0.95); }
   color: var(--text);
 }
 
+.sheet-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sheet-action-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0ebe4;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+.sheet-action-btn.active {
+  background: var(--primary);
+  color: #fff;
+}
 .sheet-close-btn {
   width: 30px;
   height: 30px;
@@ -647,6 +667,53 @@ button:active { transform: scale(0.95); }
   background: #f0ebe4;
   color: var(--text-muted);
   box-shadow: none;
+}
+
+/* ── Eyedropper loupe ── */
+#eyedropper-loupe {
+  position: fixed;
+  width: 120px;
+  height: 140px;
+  pointer-events: none;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+#eyedropper-loupe.hidden { display: none; }
+#loupe-canvas {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.35);
+  image-rendering: pixelated;
+}
+#loupe-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  margin-left: -6px;
+  border: 2px solid rgba(0,0,0,0.7);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.8);
+  pointer-events: none;
+  /* position relative to the canvas center, offset up by label area */
+  top: 60px;
+}
+#loupe-color-label {
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
 }
 
 .sheet-body {
