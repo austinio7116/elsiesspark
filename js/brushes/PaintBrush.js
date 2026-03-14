@@ -12,11 +12,18 @@ import Brush from './Brush.js';
 // Offscreen canvas at full opacity; single composite with user opacity.
 
 const HEADS = {
-  flat:    { widthRatio: 1.0,  bristleDensity: 0.70, edgeSoftness: 0.0,  blurPx: 0.8 },
-  round:   { widthRatio: 0.6,  bristleDensity: 0.75, edgeSoftness: 0.5,  blurPx: 1.0 },
-  fan:     { widthRatio: 1.6,  bristleDensity: 0.45, edgeSoftness: 0.0,  blurPx: 0.5 },
-  filbert: { widthRatio: 0.8,  bristleDensity: 0.70, edgeSoftness: 0.3,  blurPx: 0.9 },
-  detail:  { widthRatio: 0.3,  bristleDensity: 0.80, edgeSoftness: 0.5,  blurPx: 1.2 },
+  // startW/endW: fraction of full width at the very start/end of stroke
+  // rampIn/rampOut: how many brush-widths to reach full / taper from
+  flat:    { widthRatio: 1.0,  bristleDensity: 0.70, edgeSoftness: 0.0,  blurPx: 0.8,
+             startW: 0.85, endW: 0.6, rampIn: 1.0, rampOut: 1.5 },
+  round:   { widthRatio: 0.6,  bristleDensity: 0.75, edgeSoftness: 0.5,  blurPx: 1.0,
+             startW: 0.3,  endW: 0.15, rampIn: 3.0, rampOut: 2.5 },
+  fan:     { widthRatio: 1.6,  bristleDensity: 0.45, edgeSoftness: 0.0,  blurPx: 0.5,
+             startW: 0.25, endW: 0.35, rampIn: 4.0, rampOut: 2.0 },
+  filbert: { widthRatio: 0.8,  bristleDensity: 0.70, edgeSoftness: 0.3,  blurPx: 0.9,
+             startW: 0.45, endW: 0.25, rampIn: 2.5, rampOut: 2.0 },
+  detail:  { widthRatio: 0.3,  bristleDensity: 0.80, edgeSoftness: 0.5,  blurPx: 1.2,
+             startW: 0.5,  endW: 0.3,  rampIn: 1.5, rampOut: 1.5 },
 };
 
 export { HEADS as PAINT_HEADS };
@@ -119,17 +126,20 @@ export default class PaintBrush extends Brush {
       const nx = -Math.sin(brushAngle);
       const ny = Math.cos(brushAngle);
 
-      // Spread envelope based on absolute distance from start/end,
-      // not percentage — so already-painted areas stay stable as the
-      // stroke grows.
-      const rampIn = halfW * 3;   // spread over ~3x brush width at start
-      const rampOut = halfW * 2;  // gather over ~2x brush width at end
+      // Spread envelope — per-head shape, absolute distance based.
+      // Flat brush: nearly full width immediately (rigid bristles).
+      // Round/detail: starts narrow (tip contact), widens with pressure.
+      // Fan: starts narrow, fans out wide.
+      const rampIn = halfW * head.rampIn;
+      const rampOut = halfW * head.rampOut;
       const distFromEnd = totalLen - d;
-      const spreadIn = 0.5 + 0.5 * Math.min(1, d / rampIn);
-      const spreadOut = 0.3 + 0.7 * Math.min(1, distFromEnd / rampOut);
+      const tIn = Math.min(1, d / Math.max(1, rampIn));
+      const tOut = Math.min(1, distFromEnd / Math.max(1, rampOut));
+      const spreadIn = head.startW + (1 - head.startW) * smoothStep(tIn);
+      const spreadOut = head.endW + (1 - head.endW) * smoothStep(tOut);
       const spread = spreadIn * spreadOut;
 
-      samples[si] = { x: p.x - ox, y: p.y - oy, nx, ny, spread };
+      samples[si] = { x: p.x - ox, y: p.y - oy, nx, ny, spread, d };
     }
 
     // ── Draw bristles ──
@@ -164,8 +174,29 @@ export default class PaintBrush extends Brush {
       const waveFreq = 0.03 + rng() * 0.04;
       const wavePhase = rng() * Math.PI * 2;
 
+      // ── Per-bristle start/end along the path ──
+      // Simulates brush tip shape: center bristles protrude most,
+      // edge bristles are recessed.  Uses a convex (circular) profile
+      // so the tip shape is rounded, not linear.
+      const edgeDist = Math.abs(bt); // 0 = center, 1 = edge
+      const tipShape = head.edgeSoftness; // 0 = flat tip, 0.5 = rounded
+
+      // Convex profile: sqrt(1 - x^2) gives a circular/dome shape
+      // Center bristles (edgeDist=0) get 0 delay, edge bristles get max
+      const profile = 1 - Math.sqrt(Math.max(0, 1 - edgeDist * edgeDist));
+      const startDelay = profile * tipShape * halfW * 2.0
+                       + rng() * halfW * 0.35;
+      const endLift = profile * tipShape * halfW * 1.5
+                    + rng() * halfW * 0.25;
+
+      // Convert to sample indices, clamped safely
+      const firstSi = Math.min(stepCount - 1,
+        Math.max(0, Math.floor((startDelay / totalLen) * stepCount)));
+      const lastSi = Math.min(stepCount,
+        Math.max(firstSi + 1, stepCount - Math.floor((endLift / totalLen) * stepCount)));
+
       // Edge bristles slightly thinner
-      const edgeThin = 1 - Math.pow(Math.abs(bt), 4) * 0.25;
+      const edgeThin = 1 - Math.pow(edgeDist, 4) * 0.25;
       const w = Math.max(0.5, bristleWidth * edgeThin);
 
       oc.strokeStyle = `rgb(${br},${bg},${bb})`;
@@ -173,15 +204,14 @@ export default class PaintBrush extends Brush {
       oc.globalAlpha = 1;
 
       oc.beginPath();
-      for (let si = 0; si <= stepCount; si++) {
+      for (let si = firstSi; si <= lastSi; si++) {
         const s = samples[si];
         const wave = Math.sin(si * waveFreq + wavePhase) * waveAmp;
-        // Offset modulated by spread envelope
         const off = (baseOffset + jitter + wave) * s.spread;
         const bx = s.x + s.nx * off;
         const by = s.y + s.ny * off;
 
-        if (si === 0) oc.moveTo(bx, by);
+        if (si === firstSi) oc.moveTo(bx, by);
         else oc.lineTo(bx, by);
       }
       oc.stroke();
