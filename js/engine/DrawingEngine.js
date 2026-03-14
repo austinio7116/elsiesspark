@@ -343,6 +343,10 @@ function moveStroke(e) {
       sctx.stroke();
     } else {
       // Procedural brushes (glitz, sprinkles, vine, fairylights): render via drawObjectTo
+      // Skip preview for paint brush until moved — single-point dab renders on endStroke
+      if (brush === 'paint' && state.strokePoints.length < 2) {
+        return;
+      }
       const pts = state.strokePoints;
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       pts.forEach(p => { if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y; if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y; });

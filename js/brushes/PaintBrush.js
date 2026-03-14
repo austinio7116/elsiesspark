@@ -64,21 +64,29 @@ export default class PaintBrush extends Brush {
     const size = obj.brushSize;
     const headName = obj.paintHead || 'flat';
     const head = HEADS[headName] || HEADS.flat;
-    const seed = obj.id || 0;
+    const seed = obj.id || 1;
     const rng = this.createRng(seed);
+    // Warm up the RNG — first few values from small seeds cluster near zero
+    rng(); rng(); rng();
     const { r, g, b } = this.parseColor(obj.color);
 
     const arcLens = this.computeArcLengths(pts);
     const totalLen = arcLens[arcLens.length - 1];
     const halfW = size * head.widthRatio * 0.5;
 
-    // Single dot
+    // Single dot — render as a short brush-shaped stamp
     if (totalLen < 0.5) {
-      ctx.globalAlpha = opacity;
-      ctx.fillStyle = obj.color;
-      ctx.beginPath();
-      ctx.arc(pts[0].x, pts[0].y, halfW, 0, Math.PI * 2);
-      ctx.fill();
+      const stampLen = size * 0.5;
+      const angle = rng() * Math.PI * 2;
+      const dx = Math.cos(angle) * stampLen;
+      const dy = Math.sin(angle) * stampLen;
+      const stampPts = [
+        { x: pts[0].x - dx, y: pts[0].y - dy },
+        { x: pts[0].x, y: pts[0].y },
+        { x: pts[0].x + dx, y: pts[0].y + dy },
+      ];
+      const stampObj = { ...obj, points: stampPts };
+      this.render(ctx, stampObj);
       return;
     }
 
@@ -239,6 +247,7 @@ export default class PaintBrush extends Brush {
     ctx.globalAlpha = opacity;
     ctx.drawImage(bl.c, ox, oy);
   }
+
 }
 
 function smoothStep(t) {
