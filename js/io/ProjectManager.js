@@ -152,19 +152,19 @@ function loadProject(projectData) {
               const blob = new Blob([sticker.svg], { type: 'image/svg+xml' });
               const url = URL.createObjectURL(blob);
               const simg = new Image();
-              simg.onload = () => { URL.revokeObjectURL(url); obj.img = simg; bus.emit('renderObjects'); };
+              simg.onload = () => { URL.revokeObjectURL(url); obj.img = simg; ObjectRenderer.invalidateAllLayerCaches(); bus.emit('renderObjects'); };
               simg.src = url;
             } else if (shape) {
               const svgStr = shape.svg.replace(/currentColor/g, obj.shapeColor || '#000000');
               const blob = new Blob([svgStr], { type: 'image/svg+xml' });
               const url = URL.createObjectURL(blob);
               const simg = new Image();
-              simg.onload = () => { URL.revokeObjectURL(url); obj.img = simg; bus.emit('renderObjects'); };
+              simg.onload = () => { URL.revokeObjectURL(url); obj.img = simg; ObjectRenderer.invalidateAllLayerCaches(); bus.emit('renderObjects'); };
               simg.src = url;
             } else if (fileSt) {
               const simg = new Image();
               simg.crossOrigin = 'anonymous';
-              simg.onload = () => { obj.img = simg; bus.emit('renderObjects'); };
+              simg.onload = () => { obj.img = simg; ObjectRenderer.invalidateAllLayerCaches(); bus.emit('renderObjects'); };
               simg.src = fileSt.src;
             }
           }
@@ -190,6 +190,7 @@ function loadProject(projectData) {
   state.activeLayerId = projectData.activeLayerId || state.layers[0]?.id;
   cmRef.renderLayerList();
   bus.emit('updateUndoRedoButtons');
+  ObjectRenderer.invalidateAllLayerCaches();
   setTimeout(() => bus.emit('renderObjects'), 100);
   if (projectData.prompt) {
     const el = $('#draw-prompt-text');

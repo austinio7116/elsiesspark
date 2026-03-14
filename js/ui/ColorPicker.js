@@ -5,6 +5,8 @@ import state from '../state.js';
 import bus from '../EventBus.js';
 import { $, $$, showToast, hslToHex, hexToHsl } from '../utils.js';
 import { updateBrushPreview } from './SheetManager.js';
+import ObjectRenderer from '../engine/ObjectRenderer.js';
+import CanvasManager from '../engine/CanvasManager.js';
 
 // ── Spectrum drag state ──
 let spectrumDragging = false;
@@ -22,6 +24,7 @@ export function setColor(hex) {
   if (state.selectMode && state.selectedObject && (state.selectedObject.type === 'stroke' || state.selectedObject.type === 'text')) {
     bus.emit('pushUndo');
     state.selectedObject.color = hex;
+    ObjectRenderer.markLayerDirty(CanvasManager.getActiveLayer());
     bus.emit('renderObjects');
     bus.emit('drawSelectionHandles');
   }

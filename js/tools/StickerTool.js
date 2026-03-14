@@ -124,6 +124,7 @@ export function commitSticker() {
   };
   if (name && name.startsWith('shape:')) obj.shapeColor = state.color;
   layer.objects.push(obj);
+  ObjectRenderer.appendToLayerCache(layer, obj);
   exitStickerMode();
   ObjectRenderer.renderObjects();
   bus.emit('scheduleAutosave');

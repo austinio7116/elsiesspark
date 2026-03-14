@@ -32,6 +32,71 @@ function getLayerTmpCanvas() {
   return { canvas: _layerTmpCanvas, ctx: _layerTmpCtx };
 }
 
+// ── Per-layer render cache ──
+// Each layer gets a cached canvas. We track a revision counter per layer;
+// when objects change, bump the revision and the cache is invalidated.
+const _layerCaches = new Map(); // layerId -> { rev, canvas, ctx }
+
+function _getLayerCache(layerId) {
+  let entry = _layerCaches.get(layerId);
+  if (!entry) {
+    const canvas = document.createElement('canvas');
+    canvas.width = state.canvasWidth;
+    canvas.height = state.canvasHeight;
+    entry = { rev: -1, canvas, ctx: canvas.getContext('2d') };
+    _layerCaches.set(layerId, entry);
+  }
+  if (entry.canvas.width !== state.canvasWidth || entry.canvas.height !== state.canvasHeight) {
+    entry.canvas.width = state.canvasWidth;
+    entry.canvas.height = state.canvasHeight;
+    entry.rev = -1; // force re-render on resize
+  }
+  return entry;
+}
+
+function invalidateLayerCache(layerId) {
+  const entry = _layerCaches.get(layerId);
+  if (entry) entry.rev = -1;
+}
+
+function invalidateAllLayerCaches() {
+  for (const entry of _layerCaches.values()) entry.rev = -1;
+}
+
+// ── Temp canvas for pixel-level hit testing ──
+let _hitCanvas, _hitCtx;
+function _getHitCtx() {
+  if (!_hitCanvas) {
+    _hitCanvas = document.createElement('canvas');
+    _hitCtx = _hitCanvas.getContext('2d', { willReadFrequently: true });
+  }
+  return { canvas: _hitCanvas, ctx: _hitCtx };
+}
+
+// ── Mark a layer's object cache as dirty ──
+function markLayerDirty(layer) {
+  if (!layer) return;
+  layer._objectRev = (layer._objectRev || 0) + 1;
+}
+
+// ── Incrementally add a single new object to the layer cache ──
+// Avoids re-rendering all existing objects on the layer.
+function appendToLayerCache(layer, obj) {
+  if (!layer) return;
+  const cache = _getLayerCache(layer.id);
+  const rev = layer._objectRev || 0;
+  if (cache.rev !== rev) {
+    // Cache already stale — fall back to full re-render
+    markLayerDirty(layer);
+    return;
+  }
+  // Draw just the new object onto the existing cached canvas
+  drawObjectTo(cache.ctx, obj);
+  // Keep cache and layer revision in sync (no full re-render needed)
+  layer._objectRev = rev + 1;
+  cache.rev = layer._objectRev;
+}
+
 // ═══════════════════════════════════════════════════════
 // FONT STRING
 // ═══════════════════════════════════════════════════════
@@ -109,18 +174,22 @@ function renderObjects() {
   objectsCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
   state.layers.forEach(l => {
     if (!l.visible || !l.objects || l.objects.length === 0) return;
-    const hasEraser = l.objects.some(o => o.brush === 'eraser');
-    if (hasEraser) {
-      // Render layer to temp canvas so eraser stays layer-scoped
-      const tmp = getLayerTmpCanvas();
-      tmp.ctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
-      l.objects.forEach(obj => drawObjectTo(tmp.ctx, obj));
-      objectsCtx.globalAlpha = l.opacity ?? 1;
-      objectsCtx.drawImage(tmp.canvas, 0, 0);
-    } else {
-      objectsCtx.globalAlpha = l.opacity ?? 1;
-      l.objects.forEach(obj => drawObjectTo(objectsCtx, obj));
+    // Use per-layer cache: only re-render if revision changed
+    const rev = l._objectRev || 0;
+    const cache = _getLayerCache(l.id);
+    if (cache.rev !== rev) {
+      cache.ctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+      const hasEraser = l.objects.some(o => o.brush === 'eraser');
+      if (hasEraser) {
+        // Render to cache with eraser compositing
+        l.objects.forEach(obj => drawObjectTo(cache.ctx, obj));
+      } else {
+        l.objects.forEach(obj => drawObjectTo(cache.ctx, obj));
+      }
+      cache.rev = rev;
     }
+    objectsCtx.globalAlpha = l.opacity ?? 1;
+    objectsCtx.drawImage(cache.canvas, 0, 0);
   });
   objectsCtx.globalAlpha = 1;
   drawSelectionHandles();
@@ -138,12 +207,39 @@ function isPointInObject(px, py, obj) {
   return Math.abs(lx) <= w / 2 + 8 && Math.abs(ly) <= h / 2 + 8;
 }
 
+function hitTestPixel(px, py, obj) {
+  // Render the object to an offscreen canvas and check the pixel alpha
+  const { canvas, ctx } = _getHitCtx();
+  if (canvas.width !== state.canvasWidth || canvas.height !== state.canvasHeight) {
+    canvas.width = state.canvasWidth;
+    canvas.height = state.canvasHeight;
+  } else {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  drawObjectTo(ctx, obj);
+  // Sample a small area around the click point for tolerance
+  const radius = 3;
+  const x0 = Math.max(0, Math.floor(px - radius));
+  const y0 = Math.max(0, Math.floor(py - radius));
+  const x1 = Math.min(canvas.width, Math.ceil(px + radius + 1));
+  const y1 = Math.min(canvas.height, Math.ceil(py + radius + 1));
+  const w = x1 - x0, h = y1 - y0;
+  if (w <= 0 || h <= 0) return false;
+  const data = ctx.getImageData(x0, y0, w, h).data;
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] > 0) return true;
+  }
+  return false;
+}
+
 function hitTestObject(px, py) {
   // Only test objects on the active layer
   const layer = CanvasManager.getActiveLayer();
   if (!layer || !layer.objects) return null;
   for (let i = layer.objects.length - 1; i >= 0; i--) {
-    if (isPointInObject(px, py, layer.objects[i])) return layer.objects[i];
+    const obj = layer.objects[i];
+    // Quick bounding-box pre-check, then pixel-level verification
+    if (isPointInObject(px, py, obj) && hitTestPixel(px, py, obj)) return obj;
   }
   return null;
 }
@@ -262,6 +358,7 @@ function deleteSelectedObject() {
   pushUndo();
   const idx = layer.objects.findIndex(o => o.id === state.selectedObject.id);
   if (idx >= 0) layer.objects.splice(idx, 1);
+  markLayerDirty(layer);
   state.selectedObject = null;
   const previewCtx = CanvasManager.previewCtx;
   previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
@@ -283,6 +380,7 @@ function copySelectedObject() {
   // Preserve non-serializable properties (e.g. img for stickers)
   if (orig.img) clone.img = orig.img;
   layer.objects.push(clone);
+  markLayerDirty(layer);
   state.selectedObject = clone;
   renderObjects();
   drawSelectionHandles();
@@ -296,6 +394,7 @@ function moveSelectedObjectUp() {
   if (idx < 0 || idx >= layer.objects.length - 1) return;
   pushUndo();
   [layer.objects[idx], layer.objects[idx + 1]] = [layer.objects[idx + 1], layer.objects[idx]];
+  markLayerDirty(layer);
   renderObjects();
   drawSelectionHandles();
 }
@@ -308,6 +407,7 @@ function moveSelectedObjectDown() {
   if (idx <= 0) return;
   pushUndo();
   [layer.objects[idx], layer.objects[idx - 1]] = [layer.objects[idx - 1], layer.objects[idx]];
+  markLayerDirty(layer);
   renderObjects();
   drawSelectionHandles();
 }
@@ -321,6 +421,7 @@ function moveSelectedObjectToFront() {
   pushUndo();
   const [obj] = layer.objects.splice(idx, 1);
   layer.objects.push(obj);
+  markLayerDirty(layer);
   renderObjects();
   drawSelectionHandles();
 }
@@ -334,6 +435,7 @@ function moveSelectedObjectToBack() {
   pushUndo();
   const [obj] = layer.objects.splice(idx, 1);
   layer.objects.unshift(obj);
+  markLayerDirty(layer);
   renderObjects();
   drawSelectionHandles();
 }
@@ -344,12 +446,15 @@ function mirrorSelectedObject() {
   const obj = state.selectedObject;
   if (obj.scaleX === undefined) obj.scaleX = 1;
   obj.scaleX *= -1;
+  const layer = CanvasManager.getActiveLayer();
+  markLayerDirty(layer);
   renderObjects();
   drawSelectionHandles();
 }
 
 // ── Listen for bus events ──
 bus.on('renderObjects', renderObjects);
+bus.on('invalidateAllLayerCaches', invalidateAllLayerCaches);
 
 // ═══════════════════════════════════════════════════════
 // EXPORTS
@@ -374,6 +479,9 @@ const ObjectRenderer = {
   getLayerTmpCanvas,
   isPointInObject,
   getSelectionCorners,
+  markLayerDirty,
+  invalidateAllLayerCaches,
+  appendToLayerCache,
 };
 
 export default ObjectRenderer;

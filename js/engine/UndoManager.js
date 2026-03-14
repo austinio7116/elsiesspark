@@ -58,6 +58,7 @@ function restoreState(snapshot) {
     layer.canvas.style.opacity = layer.opacity;
   });
   state.selectedObject = null;
+  bus.emit('invalidateAllLayerCaches');
   bus.emit('renderLayerList');
   bus.emit('renderObjects');
   bus.emit('updateSelectToolbar');

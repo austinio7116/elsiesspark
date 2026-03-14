@@ -76,12 +76,14 @@ export function commitText() {
   pushUndo();
   const { text, font, size, bold, italic } = state.textMode;
   const { x, y } = state.textPos;
-  layer.objects.push({
+  const newObj = {
     id: CanvasManager.nextObjectId(), type: 'text',
     x, y, rotation: 0,
     text, font, fontSize: size, bold, italic,
     color: state.color, opacity: state.brushOpacity,
-  });
+  };
+  layer.objects.push(newObj);
+  ObjectRenderer.appendToLayerCache(layer, newObj);
   exitTextMode();
   ObjectRenderer.renderObjects();
   bus.emit('scheduleAutosave');

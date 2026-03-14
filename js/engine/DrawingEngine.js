@@ -293,6 +293,7 @@ function moveStroke(e) {
         obj.scale = Math.max(0.1, Math.min(10, d.origSize * scaleVal));
       }
     }
+    ObjectRenderer.markLayerDirty(CanvasManager.getActiveLayer());
     previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
     bus.emit('renderObjects');
     return;
@@ -426,7 +427,7 @@ function endStroke(e) {
         const activeSize = getActiveSize();
         // For procedural brushes, expand bounding box to account for decorations
         const expandFactor = (brush === 'vine' || brush === 'fairylights') ? 3 : (brush === 'sprinkles' ? 4 : (brush === 'tree' ? 5 : (brush === 'water' || brush === 'grass' || brush === 'fur' || brush === 'paint') ? 3 : 1));
-        layer.objects.push({
+        const newObj = {
           id: state.pendingStrokeId, type: 'stroke',
           x: cx, y: cy, rotation: 0, scale: 1,
           points: relPoints,
@@ -445,7 +446,10 @@ function endStroke(e) {
           rainbowBlur: state.rainbowBlur,
           furBlur: state.furBlur,
           paintHead: state.paintHead,
-        });
+        };
+        layer.objects.push(newObj);
+        // Incrementally append to cache — avoids re-rendering all existing objects
+        ObjectRenderer.appendToLayerCache(layer, newObj);
         previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
         bus.emit('renderObjects');
       }
