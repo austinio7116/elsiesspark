@@ -20,6 +20,18 @@ function _getSoftTmpCtx(w, h) {
   return _softTmpCtx;
 }
 
+// ── Temp canvas for eraser compositing (reused) ──
+let _eraserTmpCanvas, _eraserTmpCtx;
+function _getEraserTmpCtx(w, h) {
+  if (!_eraserTmpCanvas) {
+    _eraserTmpCanvas = document.createElement('canvas');
+    _eraserTmpCtx = _eraserTmpCanvas.getContext('2d');
+  }
+  _eraserTmpCanvas.width = w;
+  _eraserTmpCanvas.height = h;
+  return _eraserTmpCtx;
+}
+
 // ── Temp canvas for per-layer rendering (reused) ──
 let _layerTmpCanvas, _layerTmpCtx;
 function getLayerTmpCanvas() {
@@ -165,7 +177,7 @@ function getObjectDims(obj) {
 // ═══════════════════════════════════════════════════════
 // DRAW OBJECT TO CANVAS
 // ═══════════════════════════════════════════════════════
-function drawObjectTo(ctx, obj) {
+function _drawObjectDirect(ctx, obj) {
   ctx.save();
   ctx.translate(obj.x, obj.y);
   ctx.rotate(obj.rotation * Math.PI / 180);
@@ -190,6 +202,50 @@ function drawObjectTo(ctx, obj) {
     }
   }
   ctx.restore();
+}
+
+function drawObjectTo(ctx, obj) {
+  if (obj.eraserPaths && obj.eraserPaths.length > 0) {
+    // Render to temp canvas, apply erase paths, then composite
+    const w = state.canvasWidth, h = state.canvasHeight;
+    const tmpCtx = _getEraserTmpCtx(w, h);
+    tmpCtx.clearRect(0, 0, w, h);
+    _drawObjectDirect(tmpCtx, obj);
+    // Apply erase paths with destination-out
+    tmpCtx.save();
+    tmpCtx.globalCompositeOperation = 'destination-out';
+    tmpCtx.globalAlpha = 1;
+    tmpCtx.translate(obj.x, obj.y);
+    tmpCtx.rotate(obj.rotation * Math.PI / 180);
+    if (obj.scaleX && obj.scaleX !== 1) tmpCtx.scale(obj.scaleX, 1);
+    const scale = obj.type === 'stroke' ? (obj.scale || 1) : 1;
+    tmpCtx.scale(scale, scale);
+    for (const ep of obj.eraserPaths) {
+      tmpCtx.lineCap = 'round';
+      tmpCtx.lineJoin = 'round';
+      tmpCtx.lineWidth = ep.brushSize / scale;
+      tmpCtx.strokeStyle = '#000';
+      tmpCtx.beginPath();
+      const pts = ep.points;
+      tmpCtx.moveTo(pts[0].x, pts[0].y);
+      if (pts.length === 1) {
+        tmpCtx.lineTo(pts[0].x, pts[0].y);
+      } else {
+        for (let i = 1; i < pts.length - 1; i++) {
+          const mx = (pts[i].x + pts[i + 1].x) / 2;
+          const my = (pts[i].y + pts[i + 1].y) / 2;
+          tmpCtx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+        }
+        tmpCtx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+      }
+      tmpCtx.stroke();
+    }
+    tmpCtx.restore();
+    // Composite result to target
+    ctx.drawImage(_eraserTmpCanvas, 0, 0);
+  } else {
+    _drawObjectDirect(ctx, obj);
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -485,9 +541,22 @@ function mirrorSelectedObject() {
   drawSelectionHandles();
 }
 
+// ── Clear erase paths from selected object ──
+function clearErasePaths() {
+  if (!state.selectedObject) return;
+  if (!state.selectedObject.eraserPaths || state.selectedObject.eraserPaths.length === 0) return;
+  pushUndo();
+  state.selectedObject.eraserPaths = [];
+  const layer = CanvasManager.getActiveLayer();
+  markLayerDirty(layer);
+  renderObjects();
+  drawSelectionHandles();
+}
+
 // ── Listen for bus events ──
 bus.on('renderObjects', renderObjects);
 bus.on('invalidateAllLayerCaches', invalidateAllLayerCaches);
+bus.on('clearErasePaths', clearErasePaths);
 
 // ═══════════════════════════════════════════════════════
 // EXPORTS

@@ -69,16 +69,7 @@ function compositeScratchToLayer(layer, brush) {
   const objectsCtx = CanvasManager.objectsCtx;
   const previewCtx = CanvasManager.previewCtx;
 
-  if (brush === 'eraser') {
-    // Eraser: re-render objects, then apply eraser stroke with destination-out on objectsCanvas
-    bus.emit('renderObjects');
-    objectsCtx.save();
-    objectsCtx.globalCompositeOperation = 'destination-out';
-    objectsCtx.globalAlpha = 1;
-    objectsCtx.drawImage(state.scratchCanvas, 0, 0);
-    objectsCtx.restore();
-    return;
-  }
+  // Eraser no longer composites here — it targets individual objects
   // Draw live stroke preview onto previewCanvas (sits on top of everything)
   previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
   previewCtx.save();
@@ -126,6 +117,28 @@ function startStroke(e) {
   if (touch.isGesture || touch.pointers.size > 1) return;
 
   const previewCtx = CanvasManager.previewCtx;
+
+  // ── Eraser mode ──
+  if (state.eraserMode) {
+    const pos = getCanvasPos(e);
+    // Start erasing — works on targeted object or all objects in layer
+    bus.emit('pushUndo');
+    state.isErasing = true;
+    state.strokePoints = [pos];
+    // Draw initial dot on preview
+    previewCtx.save();
+    previewCtx.globalCompositeOperation = 'source-over';
+    previewCtx.lineCap = 'round';
+    previewCtx.lineJoin = 'round';
+    previewCtx.lineWidth = state.eraserSize;
+    previewCtx.strokeStyle = 'rgba(255,255,255,0.5)';
+    previewCtx.beginPath();
+    previewCtx.moveTo(pos.x, pos.y);
+    previewCtx.lineTo(pos.x, pos.y);
+    previewCtx.stroke();
+    previewCtx.restore();
+    return;
+  }
 
   // ── Select mode ──
   if (state.selectMode) {
@@ -212,13 +225,13 @@ function startStroke(e) {
     }
     state.scratchCanvas.width = state.canvasWidth;
     state.scratchCanvas.height = state.canvasHeight;
-    if (brush === 'pen' || brush === 'marker' || brush === 'eraser' || brush === 'line') {
+    if (brush === 'pen' || brush === 'marker' || brush === 'line') {
       // Draw initial dot on scratch canvas
       const sctx = state.scratchCtx;
       sctx.lineCap = 'round';
       sctx.lineJoin = 'round';
       sctx.lineWidth = getActiveSize();
-      sctx.strokeStyle = brush === 'eraser' ? '#fff' : state.color;
+      sctx.strokeStyle = state.color;
       sctx.beginPath();
       sctx.moveTo(pos.x, pos.y);
       sctx.lineTo(pos.x, pos.y);
@@ -272,6 +285,33 @@ function moveStroke(e) {
   }
 
   const previewCtx = CanvasManager.previewCtx;
+
+  // ── Eraser mode drawing ──
+  if (state.eraserMode && state.isErasing) {
+    const pos = getCanvasPos(e);
+    state.strokePoints.push(pos);
+    // Draw eraser preview stroke
+    previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+    bus.emit('drawSelectionHandles');
+    previewCtx.save();
+    previewCtx.globalCompositeOperation = 'source-over';
+    previewCtx.lineCap = 'round';
+    previewCtx.lineJoin = 'round';
+    previewCtx.lineWidth = state.eraserSize;
+    previewCtx.strokeStyle = 'rgba(255,255,255,0.5)';
+    const pts = state.strokePoints;
+    previewCtx.beginPath();
+    previewCtx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length - 1; i++) {
+      const mx = (pts[i].x + pts[i + 1].x) / 2;
+      const my = (pts[i].y + pts[i + 1].y) / 2;
+      previewCtx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+    }
+    if (pts.length > 1) previewCtx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+    previewCtx.stroke();
+    previewCtx.restore();
+    return;
+  }
 
   // ── Select mode drag ──
   if (state.selectMode && state.selectDrag && state.selectedObject) {
@@ -328,11 +368,11 @@ function moveStroke(e) {
     // Scratch canvas path: redraw entire stroke each frame
     const sctx = state.scratchCtx;
     sctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
-    if (brush === 'pen' || brush === 'marker' || brush === 'eraser' || brush === 'line') {
+    if (brush === 'pen' || brush === 'marker' || brush === 'line') {
       sctx.lineCap  = 'round';
       sctx.lineJoin = 'round';
       sctx.lineWidth = getActiveSize();
-      sctx.strokeStyle = brush === 'eraser' ? '#fff' : state.color;
+      sctx.strokeStyle = state.color;
       const pts = state.strokePoints;
       sctx.beginPath();
       sctx.moveTo(pts[0].x, pts[0].y);
@@ -389,6 +429,48 @@ function endStroke(e) {
 
   const previewCtx = CanvasManager.previewCtx;
 
+  // ── Eraser mode: commit erase paths ──
+  if (state.eraserMode && state.isErasing) {
+    state.isErasing = false;
+    if (state.strokePoints.length > 0) {
+      const layer = CanvasManager.getActiveLayer();
+      if (layer && layer.objects) {
+        const toLocalCoords = (obj, points) => {
+          // Convert canvas-space points to object-local coords (un-translate, un-rotate, un-scale)
+          const angle = -(obj.rotation || 0) * Math.PI / 180;
+          const cos = Math.cos(angle), sin = Math.sin(angle);
+          const scale = obj.type === 'stroke' ? (obj.scale || 1) : 1;
+          const sx = (obj.scaleX && obj.scaleX !== 1) ? obj.scaleX : 1;
+          return points.map(p => {
+            const dx = p.x - obj.x, dy = p.y - obj.y;
+            const rx = dx * cos - dy * sin;
+            const ry = dx * sin + dy * cos;
+            return { x: rx / (scale * sx), y: ry / scale };
+          });
+        };
+
+        if (state.eraserTarget) {
+          // Erase from targeted object only
+          const obj = state.eraserTarget;
+          if (!obj.eraserPaths) obj.eraserPaths = [];
+          obj.eraserPaths.push({ points: toLocalCoords(obj, state.strokePoints), brushSize: state.eraserSize });
+        } else {
+          // No target selected — erase from all objects in the active layer
+          for (const obj of layer.objects) {
+            if (!obj.eraserPaths) obj.eraserPaths = [];
+            obj.eraserPaths.push({ points: toLocalCoords(obj, state.strokePoints), brushSize: state.eraserSize });
+          }
+        }
+        ObjectRenderer.markLayerDirty(layer);
+        previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+        bus.emit('renderObjects');
+        bus.emit('scheduleAutosave');
+      }
+    }
+    state.strokePoints = [];
+    return;
+  }
+
   if (state.selectMode && state.selectDrag) {
     if (state.selectDrag.type !== 'move' || state.selectDrag.startX !== state.selectedObject?.x) {
       // Object was modified — undo was already captured in startStroke
@@ -440,7 +522,7 @@ function endStroke(e) {
           id: state.pendingStrokeId, type: 'stroke',
           x: cx, y: cy, rotation: 0, scale: 1,
           points: relPoints,
-          color: brush === 'eraser' ? '#000' : state.color,
+          color: state.color,
           brushSize: activeSize,
           opacity: state.brushOpacity,
           softness: state.brushSoftness,

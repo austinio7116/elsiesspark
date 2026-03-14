@@ -51,6 +51,10 @@ const state = {
   selectMode: false,
   selectedObject: null,
   selectDrag: null,  // { type, startX, startY, origX, origY, origSize, origFontSize, origRotation }
+  // Eraser tool
+  eraserMode: false,
+  eraserTarget: null,  // the object being erased
+  isErasing: false,
   // Color picker
   spectrumHue: 0,
   spectrumS: 0,

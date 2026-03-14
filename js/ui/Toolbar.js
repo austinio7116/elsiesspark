@@ -45,6 +45,8 @@ export function initToolbar() {
         bus.emit('exitStickerMode');
         bus.emit('exitTextMode');
         bus.emit('exitSelectMode');
+        state.eraserMode = false;
+        state.eraserTarget = null;
         state.activeBrush = 'paint';
         $$('.tb-btn').forEach(b => b.classList.remove('active'));
         $('#btn-tools-menu')?.classList.add('active');
@@ -82,13 +84,21 @@ export function initToolbar() {
       if (tool === 'eraser') {
         bus.emit('exitStickerMode');
         bus.emit('exitTextMode');
+        // Capture selected object before exiting select mode
+        const prevSelected = state.selectedObject;
         bus.emit('exitSelectMode');
         $$('.brush-btn').forEach(b => b.classList.remove('active'));
         state.activeBrush = 'eraser';
+        state.eraserMode = true;
+        // If an object was selected, keep it as the eraser target
+        state.eraserTarget = prevSelected || null;
+        state.selectedObject = prevSelected || null;
         $$('.tb-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         openSheet('eraser');
       } else if (tool === 'pointer') {
+        state.eraserMode = false;
+        state.eraserTarget = null;
         bus.emit('enterSelectMode');
         $$('.tb-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
@@ -164,6 +174,8 @@ export function initToolbar() {
       $$('.brush-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       state.activeBrush = btn.dataset.brush;
+      state.eraserMode = false;
+      state.eraserTarget = null;
       bus.emit('exitStickerMode');
       bus.emit('exitTextMode');
       bus.emit('exitSelectMode');
@@ -202,6 +214,8 @@ export function initToolbar() {
       state.paintHead = btn.dataset.head;
       // Ensure paint brush is active when selecting a head
       state.activeBrush = 'paint';
+      state.eraserMode = false;
+      state.eraserTarget = null;
       bus.emit('exitStickerMode');
       bus.emit('exitTextMode');
       bus.emit('exitSelectMode');
@@ -305,6 +319,14 @@ export function initToolbar() {
     eraserSlider.addEventListener('input', e => {
       state.eraserSize = parseInt(e.target.value);
       $('#eraser-size-label').textContent = state.eraserSize;
+    });
+  }
+
+  // ── Clear erases button ──
+  const clearErasesBtn = $('#btn-clear-erases');
+  if (clearErasesBtn) {
+    clearErasesBtn.addEventListener('click', () => {
+      bus.emit('clearErasePaths');
     });
   }
 
