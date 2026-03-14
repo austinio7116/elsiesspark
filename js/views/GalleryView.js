@@ -8,6 +8,8 @@ import { showView } from './ViewRouter.js';
 // ═══════════════════════════════════════════════════════
 // GALLERY RENDERING
 // ═══════════════════════════════════════════════════════
+let galleryFilter = 'all'; // 'all' | 'favourites'
+
 async function loadAllProjects() {
   try {
     return await dbGetAll();
@@ -17,12 +19,24 @@ async function loadAllProjects() {
   }
 }
 
+async function toggleFavourite(projectId) {
+  const projects = await loadAllProjects();
+  const p = projects.find(pr => pr.id === projectId);
+  if (!p) return;
+  p.favourite = !p.favourite;
+  await dbPut(p);
+  renderGallery();
+}
+
 async function renderGallery() {
   const grid  = $('#gallery-grid');
   const empty = $('#gallery-empty');
   if (!grid) return;
   grid.innerHTML = '';
-  const projects = await loadAllProjects();
+  const allProjects = await loadAllProjects();
+  const projects = galleryFilter === 'favourites'
+    ? allProjects.filter(p => p.favourite)
+    : allProjects;
   const count = $('#gallery-count');
   if (count) {
     let storageInfo = '';
@@ -33,7 +47,7 @@ async function renderGallery() {
         storageInfo = ' · ' + usedMB + ' MB used';
       }
     } catch (_) {}
-    count.textContent = projects.length + (projects.length === 1 ? ' drawing' : ' drawings') + storageInfo;
+    count.textContent = allProjects.length + (allProjects.length === 1 ? ' drawing' : ' drawings') + storageInfo;
   }
 
   if (projects.length === 0) {
@@ -58,6 +72,14 @@ async function renderGallery() {
     label.className = 'gallery-thumb-label';
     label.textContent = p.date || '';
     el.appendChild(label);
+    // Favourite button
+    const favBtn = document.createElement('button');
+    favBtn.className = 'gallery-thumb-fav' + (p.favourite ? ' active' : '');
+    favBtn.title = p.favourite ? 'Remove from favourites' : 'Add to favourites';
+    favBtn.innerHTML = '<svg viewBox="0 0 20 20" width="16" height="16" fill="' + (p.favourite ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17s-7-4.5-7-9a4 4 0 018 0 4 4 0 018 0c0 4.5-7 9-7 9z"/></svg>';
+    favBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); toggleFavourite(p.id); });
+    favBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    el.appendChild(favBtn);
     // Archive button (export + delete)
     const archBtn = document.createElement('button');
     archBtn.className = 'gallery-thumb-archive';
@@ -91,11 +113,11 @@ async function renderGallery() {
     // Thumb click — open project for editing
     let thumbDown = null;
     el.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('.gallery-thumb-delete, .gallery-thumb-export, .gallery-thumb-archive')) return;
+      if (e.target.closest('.gallery-thumb-delete, .gallery-thumb-export, .gallery-thumb-archive, .gallery-thumb-fav')) return;
       thumbDown = { x: e.clientX, y: e.clientY };
     });
     el.addEventListener('pointerup', (e) => {
-      if (e.target.closest('.gallery-thumb-delete, .gallery-thumb-export, .gallery-thumb-archive')) return;
+      if (e.target.closest('.gallery-thumb-delete, .gallery-thumb-export, .gallery-thumb-archive, .gallery-thumb-fav')) return;
       if (thumbDown) {
         const dx = e.clientX - thumbDown.x, dy = e.clientY - thumbDown.y;
         if (dx * dx + dy * dy < 15 * 15) {
@@ -249,6 +271,17 @@ function initGalleryView() {
   // ── Gallery navigation ──
   $('#btn-back-gallery').addEventListener('click', () => showView('room'));
   $('#btn-gallery-draw').addEventListener('click', () => showView('draw'));
+
+  // ── Filter tabs ──
+  const tabs = document.querySelectorAll('#gallery-tabs .gallery-tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      galleryFilter = tab.dataset.filter || 'all';
+      renderGallery();
+    });
+  });
 
   // ── Import button wiring ──
   const importBtn = $('#btn-gallery-import');

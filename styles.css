@@ -1634,30 +1634,34 @@ button:active { transform: scale(0.95); }
   border-radius: 30px;
 }
 
-#gallery-filters {
-  display: flex;
-  gap: 16px;
-  width: 100%;
-  padding: 8px 4px;
-  border-bottom: 1px solid #b2ebf2;
-}
-
-.gallery-filter {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-muted);
-  background: none;
+.gallery-thumb-fav {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.45);
+  color: white;
   border: none;
-  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
+  z-index: 2;
+  opacity: 0.7;
+  transition: opacity 0.15s, background 0.15s;
   box-shadow: none;
+  padding: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
-
-.gallery-filter.active {
-  color: #26c6da;
-  border-bottom-color: #26c6da;
+.gallery-thumb-fav.active {
+  opacity: 1;
+  background: rgba(220,50,80,0.75);
+}
+.gallery-thumb-fav:hover {
+  opacity: 1;
 }
 
 #gallery-grid-scroll {
