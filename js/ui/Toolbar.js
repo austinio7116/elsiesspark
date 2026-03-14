@@ -212,7 +212,6 @@ export function initToolbar() {
       $$('.paint-head-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       state.paintHead = btn.dataset.head;
-      // Ensure paint brush is active when selecting a head
       state.activeBrush = 'paint';
       state.eraserMode = false;
       state.eraserTarget = null;
@@ -232,6 +231,16 @@ export function initToolbar() {
     paintSizeSlider.addEventListener('input', e => {
       state.paintSize = parseInt(e.target.value);
       $('#paint-size-label').textContent = state.paintSize;
+    });
+  }
+
+  // ── Paint blend toggle ──
+  const blendToggle = $('#paint-blend-toggle');
+  if (blendToggle) {
+    blendToggle.addEventListener('click', () => {
+      const on = blendToggle.dataset.on === 'true';
+      blendToggle.dataset.on = on ? 'false' : 'true';
+      state.paintBlendMode = !on;
     });
   }
 

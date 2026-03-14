@@ -69,6 +69,7 @@ export default class PaintBrush extends Brush {
     // Warm up the RNG — first few values from small seeds cluster near zero
     rng(); rng(); rng();
     const { r, g, b } = this.parseColor(obj.color);
+    const blendColors = obj.blendColors && obj.blendColors.length > 0 ? obj.blendColors : null;
 
     const arcLens = this.computeArcLengths(pts);
     const totalLen = arcLens[arcLens.length - 1];
@@ -109,7 +110,7 @@ export default class PaintBrush extends Brush {
     const oc = off.x;
 
     // ── Pre-compute path samples with brush-angle inertia ──
-    const step = Math.max(1, size * 0.05);
+    const step = blendColors ? Math.max(2, size * 0.15) : Math.max(1, size * 0.05);
     const stepCount = Math.max(3, Math.floor(totalLen / step));
     const inertia = 0.82;
 
@@ -148,6 +149,34 @@ export default class PaintBrush extends Brush {
       const spread = spreadIn * spreadOut;
 
       samples[si] = { x: p.x - ox, y: p.y - oy, nx, ny, spread, d };
+    }
+
+    // ── Pre-compute blend colours per sample (carry-colour smudge) ──
+    let sampleRGB = null;
+    if (blendColors) {
+      const mixRate = 0.35;
+      sampleRGB = new Array(stepCount + 1);
+      // Find the first opaque sample to seed the carry colour
+      let seed = null;
+      for (let i = 0; i < blendColors.length; i++) {
+        if (blendColors[i].a > 10) { seed = blendColors[i]; break; }
+      }
+      // No opaque pixels found at all — nothing to blend
+      if (!seed) { sampleRGB = null; } else {
+        const carry = { r: seed.r, g: seed.g, b: seed.b };
+        for (let si = 0; si <= stepCount; si++) {
+          const t = si / stepCount;
+          const ci = Math.min(Math.floor(t * blendColors.length), blendColors.length - 1);
+          const sc = blendColors[ci];
+          // Only blend toward samples that have actual colour; skip transparent
+          if (sc.a > 10) {
+            carry.r += (sc.r - carry.r) * mixRate;
+            carry.g += (sc.g - carry.g) * mixRate;
+            carry.b += (sc.b - carry.b) * mixRate;
+          }
+          sampleRGB[si] = { r: Math.round(carry.r), g: Math.round(carry.g), b: Math.round(carry.b), a: 255 };
+        }
+      }
     }
 
     // ── Draw bristles ──
@@ -207,22 +236,58 @@ export default class PaintBrush extends Brush {
       const edgeThin = 1 - Math.pow(edgeDist, 4) * 0.25;
       const w = Math.max(0.5, bristleWidth * edgeThin);
 
-      oc.strokeStyle = `rgb(${br},${bg},${bb})`;
       oc.lineWidth = w;
       oc.globalAlpha = 1;
 
-      oc.beginPath();
-      for (let si = firstSi; si <= lastSi; si++) {
-        const s = samples[si];
-        const wave = Math.sin(si * waveFreq + wavePhase) * waveAmp;
-        const off = (baseOffset + jitter + wave) * s.spread;
-        const bx = s.x + s.nx * off;
-        const by = s.y + s.ny * off;
-
-        if (si === firstSi) oc.moveTo(bx, by);
-        else oc.lineTo(bx, by);
+      if (sampleRGB) {
+        // Blend mode: batch consecutive segments into ~12 sub-paths
+        const totalSegs = lastSi - firstSi;
+        const BATCH = Math.max(2, Math.ceil(totalSegs / 12));
+        const cv = (rng() - 0.5) * 10;
+        // Compute first point
+        const s0 = samples[firstSi];
+        const w0 = Math.sin(firstSi * waveFreq + wavePhase) * waveAmp;
+        let prevX = s0.x + s0.nx * ((baseOffset + jitter + w0) * s0.spread);
+        let prevY = s0.y + s0.ny * ((baseOffset + jitter + w0) * s0.spread);
+        for (let bStart = firstSi + 1; bStart <= lastSi; bStart += BATCH) {
+          const bEnd = Math.min(bStart + BATCH, lastSi);
+          const midSi = (bStart + bEnd) >> 1;
+          const sc = sampleRGB[midSi];
+          if (sc.a < 2) { // skip transparent batch
+            const sEnd = samples[bEnd];
+            const wEnd = Math.sin(bEnd * waveFreq + wavePhase) * waveAmp;
+            prevX = sEnd.x + sEnd.nx * ((baseOffset + jitter + wEnd) * sEnd.spread);
+            prevY = sEnd.y + sEnd.ny * ((baseOffset + jitter + wEnd) * sEnd.spread);
+            continue;
+          }
+          oc.strokeStyle = `rgba(${Math.max(0,Math.min(255,sc.r+cv|0))},${Math.max(0,Math.min(255,sc.g+cv|0))},${Math.max(0,Math.min(255,sc.b+cv|0))},${(sc.a/255).toFixed(3)})`;
+          oc.beginPath();
+          oc.moveTo(prevX, prevY);
+          for (let si = bStart; si <= bEnd; si++) {
+            const s = samples[si];
+            const wave = Math.sin(si * waveFreq + wavePhase) * waveAmp;
+            const off = (baseOffset + jitter + wave) * s.spread;
+            prevX = s.x + s.nx * off;
+            prevY = s.y + s.ny * off;
+            oc.lineTo(prevX, prevY);
+          }
+          oc.stroke();
+        }
+      } else {
+        // Normal paint mode: single-colour bristle path
+        oc.strokeStyle = `rgb(${br},${bg},${bb})`;
+        oc.beginPath();
+        for (let si = firstSi; si <= lastSi; si++) {
+          const s = samples[si];
+          const wave = Math.sin(si * waveFreq + wavePhase) * waveAmp;
+          const off = (baseOffset + jitter + wave) * s.spread;
+          const bx = s.x + s.nx * off;
+          const by = s.y + s.ny * off;
+          if (si === firstSi) oc.moveTo(bx, by);
+          else oc.lineTo(bx, by);
+        }
+        oc.stroke();
       }
-      oc.stroke();
     }
 
     // ── Blur pass to blend bristle seams ──

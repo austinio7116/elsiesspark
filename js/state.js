@@ -73,6 +73,7 @@ const state = {
   furBlur: 0.5,
   paintHead: 'flat',
   paintSize: 20,
+  paintBlendMode: false,
   // Project
   currentProjectId: null,
 };

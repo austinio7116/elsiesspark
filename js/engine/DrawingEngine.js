@@ -5,6 +5,26 @@ import CanvasManager from './CanvasManager.js';
 import ObjectRenderer from './ObjectRenderer.js';
 
 // ═══════════════════════════════════════════════════════
+// BLEND SAMPLING HELPER
+// ═══════════════════════════════════════════════════════
+function sampleColor(canvas, x, y, radius) {
+  const ctx = canvas.getContext('2d');
+  const r = Math.max(1, Math.round(radius * 0.5));
+  const sx = Math.max(0, Math.round(x - r));
+  const sy = Math.max(0, Math.round(y - r));
+  const sw = Math.min(canvas.width - sx, r * 2);
+  const sh = Math.min(canvas.height - sy, r * 2);
+  if (sw <= 0 || sh <= 0) return { r: 0, g: 0, b: 0, a: 0 };
+  const data = ctx.getImageData(sx, sy, sw, sh).data;
+  let tr = 0, tg = 0, tb = 0, ta = 0, count = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] > 0) { tr += data[i]; tg += data[i+1]; tb += data[i+2]; ta += data[i+3]; count++; }
+  }
+  if (count === 0) return { r: 0, g: 0, b: 0, a: 0 };
+  return { r: Math.round(tr/count), g: Math.round(tg/count), b: Math.round(tb/count), a: Math.round(ta/count) };
+}
+
+// ═══════════════════════════════════════════════════════
 // MULTI-TOUCH TRACKING (module-local)
 // ═══════════════════════════════════════════════════════
 const touch = {
@@ -238,6 +258,21 @@ function startStroke(e) {
       sctx.stroke();
       compositeScratchToLayer(layer, brush);
     }
+    // Paint blend mode: build a composite of the current layer for colour sampling
+    if (brush === 'paint' && state.paintBlendMode) {
+      state.blendColors = [];
+      if (!state.blendSampleCanvas) {
+        state.blendSampleCanvas = document.createElement('canvas');
+        state.blendSampleCtx = state.blendSampleCanvas.getContext('2d', { willReadFrequently: true });
+      }
+      state.blendSampleCanvas.width = state.canvasWidth;
+      state.blendSampleCanvas.height = state.canvasHeight;
+      if (layer.objects) {
+        layer.objects.forEach(obj => ObjectRenderer.drawObjectTo(state.blendSampleCtx, obj));
+      }
+      const c = sampleColor(state.blendSampleCanvas, pos.x, pos.y, getActiveSize());
+      state.blendColors.push(c);
+    }
     // Procedural brushes (glitz, sprinkles, vine, fairylights, rainbow, tree) just collect points
   }
 }
@@ -393,6 +428,21 @@ function moveStroke(e) {
       if (brush === 'paint' && state.strokePoints.length < 2) {
         return;
       }
+      // Paint blend mode: sample colour, throttled to every ~4px of movement
+      if (brush === 'paint' && state.paintBlendMode && state.blendSampleCanvas) {
+        const lastPt = state.strokePoints[state.strokePoints.length - 1];
+        const prev = state.blendColors[state.blendColors.length - 1];
+        const pts2 = state.strokePoints;
+        const prevPt = pts2.length >= 2 ? pts2[pts2.length - 2] : lastPt;
+        const dist = Math.hypot(lastPt.x - prevPt.x, lastPt.y - prevPt.y);
+        if (!prev || dist >= 4) {
+          const c = sampleColor(state.blendSampleCanvas, lastPt.x, lastPt.y, getActiveSize());
+          state.blendColors.push(c);
+        } else {
+          // Reuse last sample
+          state.blendColors.push(prev);
+        }
+      }
       const pts = state.strokePoints;
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       pts.forEach(p => { if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y; if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y; });
@@ -412,6 +462,7 @@ function moveStroke(e) {
         rainbowBlur: state.rainbowBlur,
           furBlur: state.furBlur,
           paintHead: state.paintHead,
+          blendColors: state.paintBlendMode ? state.blendColors : null,
       };
       ObjectRenderer.drawObjectTo(sctx, tmpObj);
     }
@@ -537,6 +588,7 @@ function endStroke(e) {
           rainbowBlur: state.rainbowBlur,
           furBlur: state.furBlur,
           paintHead: state.paintHead,
+          blendColors: state.paintBlendMode ? state.blendColors : null,
         };
         layer.objects.push(newObj);
         // Incrementally append to cache — avoids re-rendering all existing objects
