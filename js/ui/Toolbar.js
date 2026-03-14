@@ -177,6 +177,15 @@ export function initToolbar() {
     });
   }
 
+  // ── Rainbow blur slider ──
+  const rainbowBlurSlider = $('#rainbow-blur');
+  if (rainbowBlurSlider) {
+    rainbowBlurSlider.addEventListener('input', e => {
+      state.rainbowBlur = parseInt(e.target.value) / 100;
+      $('#rainbow-blur-label').textContent = e.target.value + '%';
+    });
+  }
+
   // ── Sprinkles density slider ──
   const densitySlider = $('#sprinkles-density');
   if (densitySlider) {

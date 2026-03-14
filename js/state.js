@@ -65,6 +65,7 @@ const state = {
   treeLeafDensity: 5,
   treeBranchDensity: 5,
   treeMode: 'default',
+  rainbowBlur: 0.4,
   // Project
   currentProjectId: null,
 };

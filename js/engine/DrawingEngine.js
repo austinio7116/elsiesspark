@@ -357,6 +357,7 @@ function moveStroke(e) {
         treeLeafDensity: state.treeLeafDensity,
         treeBranchDensity: state.treeBranchDensity,
         treeMode: state.treeMode,
+        rainbowBlur: state.rainbowBlur,
       };
       ObjectRenderer.drawObjectTo(sctx, tmpObj);
     }
@@ -433,6 +434,7 @@ function endStroke(e) {
           treeLeafDensity: state.treeLeafDensity,
           treeBranchDensity: state.treeBranchDensity,
           treeMode: state.treeMode,
+          rainbowBlur: state.rainbowBlur,
         });
         previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
         bus.emit('renderObjects');

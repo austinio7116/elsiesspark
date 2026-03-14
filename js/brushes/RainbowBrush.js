@@ -127,17 +127,29 @@ export default class RainbowBrush extends Brush {
     tgt.rotate(obj.rotation * Math.PI / 180);
     tgt.scale(obj.scale || 1, obj.scale || 1);
 
-    // Clip to rounded outline
+    // Extra padding bands on each side so red/violet survive the blur
+    const padBands = 6;
+    const clipW = halfW + (padBands + 1) * bandSpacing;
     tgt.save();
-    this._buildClipPath(tgt, smoothPts, normals, halfW);
+    this._buildClipPath(tgt, smoothPts, normals, clipW);
     tgt.clip();
 
-    // Draw solid rainbow bands
     tgt.lineCap = 'butt';
     tgt.lineJoin = 'round';
     tgt.lineWidth = bandSpacing + 1;
     tgt.globalAlpha = 1;
 
+    // Red padding bands below the main range
+    const redRgb = hslToRgb(0, 1, 0.5);
+    tgt.strokeStyle = `rgb(${redRgb[0]},${redRgb[1]},${redRgb[2]})`;
+    for (let p = 1; p <= padBands; p++) {
+      const offset = (-(numBands - 1) / 2 - p) * bandSpacing;
+      tgt.beginPath();
+      this._tracePath(tgt, smoothPts, normals, offset, clipW);
+      tgt.stroke();
+    }
+
+    // Main rainbow bands
     for (let b = 0; b < numBands; b++) {
       const t = b / (numBands - 1);
       const hue = t * 270;
@@ -145,7 +157,17 @@ export default class RainbowBrush extends Brush {
       const offset = (b - (numBands - 1) / 2) * bandSpacing;
       tgt.strokeStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
       tgt.beginPath();
-      this._tracePath(tgt, smoothPts, normals, offset, halfW);
+      this._tracePath(tgt, smoothPts, normals, offset, clipW);
+      tgt.stroke();
+    }
+
+    // Violet padding bands above the main range
+    const violetRgb = hslToRgb(270 / 360, 1, 0.5);
+    tgt.strokeStyle = `rgb(${violetRgb[0]},${violetRgb[1]},${violetRgb[2]})`;
+    for (let p = 1; p <= padBands; p++) {
+      const offset = ((numBands - 1) / 2 + p) * bandSpacing;
+      tgt.beginPath();
+      this._tracePath(tgt, smoothPts, normals, offset, clipW);
       tgt.stroke();
     }
 
@@ -156,7 +178,8 @@ export default class RainbowBrush extends Brush {
     // ctx has been translated/scaled by drawObjectTo, so reset to identity
     ctx.restore(); // undo drawObjectTo's save/translate/scale
     ctx.save();
-    const blurAmount = effectiveSize * 0.2 + (soft > 0 ? soft * obj.brushSize * 0.4 : 0);
+    const rainbowBlur = obj.rainbowBlur != null ? obj.rainbowBlur : 0.4;
+    const blurAmount = effectiveSize * 0.5 * rainbowBlur + (soft > 0 ? soft * obj.brushSize * 0.4 : 0);
     ctx.globalAlpha = opacity;
     ctx.filter = `blur(${blurAmount}px)`;
     ctx.drawImage(tgt.canvas, 0, 0);
