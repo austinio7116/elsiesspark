@@ -8,8 +8,7 @@ export default function renderMagnolia(ctx, h) {
   const bark = makeBark(25 / 360, 0.45, 0.28);
   drawTrunk(bark);
 
-  const flowers = [];
-  const buds = [];
+  const blossoms = [];  // mixed flowers & buds in branch order
 
   const fg = fractalGrow({
     angleModifier(a, depth) {
@@ -40,13 +39,15 @@ export default function renderMagnolia(ctx, h) {
         const by = ey + (rng() - 0.5) * endW * 2;
         // ~25% of would-be flowers become buds instead
         if (openness < 0.25) {
-          buds.push({
+          blossoms.push({
+            type: 'bud',
             x: bx, y: by,
             size: flowerSize * 0.85,
             angle: branchAngle + (rng() - 0.5) * 0.3
           });
         } else {
-          flowers.push({
+          blossoms.push({
+            type: 'flower',
             x: bx, y: by,
             size: flowerSize,
             open: openness
@@ -68,38 +69,25 @@ export default function renderMagnolia(ctx, h) {
 
   const foliage = filterByDensity(fg.foliage, leafDensity, seed + 99998);
 
-  // Filter flowers and buds by leaf density
-  let renderFlowers = flowers;
-  let renderBuds = buds;
+  // Filter blossoms by leaf density (flowers & buds together, preserving order)
+  let renderBlossoms = blossoms;
   if (leafDensity < 1) {
     const fRng = h.createRng(seed + 88888);
-    renderFlowers = flowers.filter(() => fRng() < (0.3 + leafDensity * 0.7));
-    const bRng = h.createRng(seed + 88887);
-    renderBuds = buds.filter(() => bRng() < (0.3 + leafDensity * 0.7));
+    renderBlossoms = blossoms.filter(() => fRng() < (0.3 + leafDensity * 0.7));
   } else if (leafDensity > 1) {
     const fRng = h.createRng(seed + 88888);
-    renderFlowers = [];
-    for (const f of flowers) {
-      renderFlowers.push(f);
-      if (fRng() < (leafDensity - 1) * 0.4) {
-        renderFlowers.push({
-          ...f,
-          x: f.x + (fRng() - 0.5) * f.size * 2,
-          y: f.y + (fRng() - 0.5) * f.size * 2,
-          size: f.size * (0.7 + fRng() * 0.4)
-        });
-      }
-    }
-    const bRng = h.createRng(seed + 88887);
-    renderBuds = [];
-    for (const b of buds) {
-      renderBuds.push(b);
-      if (bRng() < (leafDensity - 1) * 0.3) {
-        renderBuds.push({
+    renderBlossoms = [];
+    for (const b of blossoms) {
+      renderBlossoms.push(b);
+      const threshold = b.type === 'bud' ? (leafDensity - 1) * 0.3 : (leafDensity - 1) * 0.4;
+      const spreadFactor = b.type === 'bud' ? 1.5 : 2;
+      const sizeRange = b.type === 'bud' ? 0.3 : 0.4;
+      if (fRng() < threshold) {
+        renderBlossoms.push({
           ...b,
-          x: b.x + (bRng() - 0.5) * b.size * 1.5,
-          y: b.y + (bRng() - 0.5) * b.size * 1.5,
-          size: b.size * (0.7 + bRng() * 0.3)
+          x: b.x + (fRng() - 0.5) * b.size * spreadFactor,
+          y: b.y + (fRng() - 0.5) * b.size * spreadFactor,
+          size: b.size * (0.7 + fRng() * sizeRange)
         });
       }
     }
@@ -190,256 +178,226 @@ export default function renderMagnolia(ctx, h) {
     petalMidPalette.push(`rgb(${mCol[0]},${mCol[1]},${mCol[2]})`);
   }
 
-  // Collect all stamen and petal data
-  const stamenLines = [];
-  const stamenAnthers = [];
-  const petalRecords = [];
-
-  for (const fl of renderFlowers) {
-    const fs = fl.size;
-    const nPetals = 6 + Math.floor(rng() * 3);
-    const baseX = fl.x;
-    const baseY = fl.y;
-    const openAmt = fl.open;
-
-    // Stamens behind petals — only visible on open flowers
-    if (openAmt > 0.4) {
-      const showAlpha = Math.min(1, (openAmt - 0.4) * 2.5);
-      const nStamens = 5 + Math.floor(rng() * 5);
-      for (let si = 0; si < nStamens; si++) {
-        const stamenX = baseX + (rng() - 0.5) * fs * 0.12;
-        const stamenH = fs * (0.45 + rng() * 0.3);
-        const lean = (rng() - 0.5) * fs * 0.08;
-        const sR = 160 + Math.floor(rng() * 40);
-        const sG = 170 + Math.floor(rng() * 40);
-        const sB = 100 + Math.floor(rng() * 40);
-        const lw = Math.max(0.4, fs * 0.015);
-        stamenLines.push({
-          sx: stamenX, sy: baseY,
-          ex: stamenX + lean, ey: baseY - stamenH,
-          lw,
-          strokeCol: `rgb(${sR},${sG},${sB})`,
-          alpha: opacity * 0.6 * showAlpha
-        });
-        const aR = 180 + Math.floor(rng() * 60);
-        const aG = 150 + Math.floor(rng() * 50);
-        const aB = 30 + Math.floor(rng() * 50);
-        const aRot = rng() * 0.3;
-        stamenAnthers.push({
-          cx: stamenX + lean, cy: baseY - stamenH,
-          rx: fs * 0.02, ry: fs * 0.035,
-          rot: aRot,
-          fillCol: `rgb(${aR},${aG},${aB})`,
-          alpha: opacity * 0.75 * showAlpha
-        });
-      }
-    }
-
-    // Outer petals
-    const outerCount = Math.ceil(nPetals * 0.55);
-    const outerSplay = 0.4 + openAmt * 1.2;
-    for (let k = 0; k < outerCount; k++) {
-      const splayAngle = ((k / outerCount) - 0.5) * outerSplay + (rng() - 0.5) * 0.12;
-      const ps = fs * (0.65 + rng() * 0.2);
-      const offsetX = Math.sin(splayAngle) * fs * 0.05;
-      const offsetY = Math.abs(splayAngle) * fs * 0.03;
-      const foldAmt = openAmt * (0.6 + rng() * 0.4);
-      rng(); // flowerPink
-      rng(); // baseH
-      const baseAlpha = 0.85 + rng() * 0.15;
-      let foldAlpha;
-      if (foldAmt >= 0.15) {
-        foldAlpha = 0.8 + rng() * 0.15;
-      }
-      const colIdx = Math.floor(rng() * PETAL_PAL_SIZE) % PETAL_PAL_SIZE;
-      petalRecords.push({
-        px: baseX + offsetX, py: baseY + offsetY,
-        angle: splayAngle, ps, layer: 'outer', foldAmt,
-        colIdx, baseAlpha,
-        foldAlpha: foldAmt >= 0.15 ? foldAlpha : undefined
-      });
-    }
-
-    // Inner petals
-    const innerCount = nPetals - outerCount;
-    const innerSplay = 0.25 + openAmt * 0.3;
-    for (let k = 0; k < innerCount; k++) {
-      const splayAngle = ((k / innerCount) - 0.5) * innerSplay + (rng() - 0.5) * 0.1;
-      const ps = fs * (0.45 + rng() * 0.15);
-      const offsetX = Math.sin(splayAngle) * fs * 0.02;
-      const foldAmt = openAmt * (0.1 + rng() * 0.2);
-      rng(); // flowerPink
-      rng(); // baseH
-      const baseAlpha = 0.85 + rng() * 0.15;
-      let foldAlpha;
-      if (foldAmt >= 0.15) {
-        foldAlpha = 0.8 + rng() * 0.15;
-      }
-      const colIdx = Math.floor(rng() * PETAL_PAL_SIZE) % PETAL_PAL_SIZE;
-      petalRecords.push({
-        px: baseX + offsetX, py: baseY,
-        angle: splayAngle, ps, layer: 'inner', foldAmt,
-        colIdx, baseAlpha,
-        foldAlpha: foldAmt >= 0.15 ? foldAlpha : undefined
-      });
-    }
-  }
-
-  // Batch render stamens — group by lineWidth
-  ctx.lineCap = 'round';
-  const stamensByLw = new Map();
-  for (const s of stamenLines) {
-    const lwKey = s.lw.toFixed(2);
-    if (!stamensByLw.has(lwKey)) stamensByLw.set(lwKey, []);
-    stamensByLw.get(lwKey).push(s);
-  }
-  for (const [lwKey, group] of stamensByLw) {
-    ctx.lineWidth = parseFloat(lwKey);
-    for (const s of group) {
-      ctx.strokeStyle = s.strokeCol;
-      ctx.globalAlpha = s.alpha;
-      ctx.beginPath();
-      ctx.moveTo(s.sx, s.sy);
-      ctx.lineTo(s.ex, s.ey);
-      ctx.stroke();
-    }
-  }
-
-  // Batch anther ellipses
-  for (const a of stamenAnthers) {
-    ctx.fillStyle = a.fillCol;
-    ctx.globalAlpha = a.alpha;
-    ctx.beginPath();
-    ctx.ellipse(a.cx, a.cy, a.rx, a.ry, a.rot, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.globalAlpha = opacity;
-
   // Helper: rotate point (px, py) around (cx, cy) by angle a
   function rot(cx, cy, px, py, cos, sin) {
     return [cx + px * cos - py * sin, cy + px * sin + py * cos];
   }
 
-  // Render petals with smooth pink-to-white gradient
-  for (const p of petalRecords) {
-    const { px, py, angle: a, ps, baseAlpha, colIdx } = p;
-    const cos = Math.cos(a), sin = Math.sin(a);
+  // Render flowers and buds interleaved in branch order
+  ctx.lineCap = 'round';
+  for (const item of renderBlossoms) {
+    if (item.type === 'flower') {
+      const fl = item;
+      const fs = fl.size;
+      const nPetals = 6 + Math.floor(rng() * 3);
+      const baseX = fl.x;
+      const baseY = fl.y;
+      const openAmt = fl.open;
 
-    // Gradient from base (pink) to tip (white)
-    const tipWorld = rot(px, py, 0, -ps * 0.96, cos, sin);
-    const grad = ctx.createLinearGradient(px, py, tipWorld[0], tipWorld[1]);
-    grad.addColorStop(0, petalBasePalette[colIdx]);
-    grad.addColorStop(0.35, petalBasePalette[colIdx]);
-    grad.addColorStop(0.65, petalMidPalette[colIdx]);
-    grad.addColorStop(1, '#fff');
+      // Stamens behind petals — only visible on open flowers
+      if (openAmt > 0.4) {
+        const showAlpha = Math.min(1, (openAmt - 0.4) * 2.5);
+        const nStamens = 5 + Math.floor(rng() * 5);
+        for (let si = 0; si < nStamens; si++) {
+          const stamenX = baseX + (rng() - 0.5) * fs * 0.12;
+          const stamenH = fs * (0.45 + rng() * 0.3);
+          const lean = (rng() - 0.5) * fs * 0.08;
+          const sR = 160 + Math.floor(rng() * 40);
+          const sG = 170 + Math.floor(rng() * 40);
+          const sB = 100 + Math.floor(rng() * 40);
+          const lw = Math.max(0.4, fs * 0.015);
+          ctx.lineWidth = lw;
+          ctx.strokeStyle = `rgb(${sR},${sG},${sB})`;
+          ctx.globalAlpha = opacity * 0.6 * showAlpha;
+          ctx.beginPath();
+          ctx.moveTo(stamenX, baseY);
+          ctx.lineTo(stamenX + lean, baseY - stamenH);
+          ctx.stroke();
+          const aR = 180 + Math.floor(rng() * 60);
+          const aG = 150 + Math.floor(rng() * 50);
+          const aB = 30 + Math.floor(rng() * 50);
+          const aRot = rng() * 0.3;
+          ctx.fillStyle = `rgb(${aR},${aG},${aB})`;
+          ctx.globalAlpha = opacity * 0.75 * showAlpha;
+          ctx.beginPath();
+          ctx.ellipse(stamenX + lean, baseY - stamenH, fs * 0.02, fs * 0.035, aRot, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
 
-    ctx.globalAlpha = opacity * baseAlpha;
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    const [mx, my] = rot(px, py, 0, 0, cos, sin);
-    ctx.moveTo(mx, my);
-    ctx.bezierCurveTo(
-      ...rot(px, py, -ps * 0.16, -ps * 0.28, cos, sin),
-      ...rot(px, py, -ps * 0.22, -ps * 0.65, cos, sin),
-      ...rot(px, py, -ps * 0.1, -ps * 0.88, cos, sin)
-    );
-    ctx.bezierCurveTo(
-      ...rot(px, py, -ps * 0.03, -ps * 0.97, cos, sin),
-      ...rot(px, py, ps * 0.03, -ps * 0.97, cos, sin),
-      ...rot(px, py, ps * 0.1, -ps * 0.88, cos, sin)
-    );
-    ctx.bezierCurveTo(
-      ...rot(px, py, ps * 0.22, -ps * 0.65, cos, sin),
-      ...rot(px, py, ps * 0.16, -ps * 0.28, cos, sin),
-      ...rot(px, py, 0, 0, cos, sin)
-    );
-    ctx.fill();
-  }
+      // Outer petals
+      const outerCount = Math.ceil(nPetals * 0.55);
+      const outerSplay = 0.4 + openAmt * 1.2;
+      for (let k = 0; k < outerCount; k++) {
+        const splayAngle = ((k / outerCount) - 0.5) * outerSplay + (rng() - 0.5) * 0.12;
+        const ps = fs * (0.65 + rng() * 0.2);
+        const offsetX = Math.sin(splayAngle) * fs * 0.05;
+        const offsetY = Math.abs(splayAngle) * fs * 0.03;
+        const foldAmt = openAmt * (0.6 + rng() * 0.4);
+        rng(); // flowerPink
+        rng(); // baseH
+        const baseAlpha = 0.85 + rng() * 0.15;
+        if (foldAmt >= 0.15) { rng(); } // foldAlpha
+        const colIdx = Math.floor(rng() * PETAL_PAL_SIZE) % PETAL_PAL_SIZE;
+        const px = baseX + offsetX, py = baseY + offsetY;
+        const pcos = Math.cos(splayAngle), psin = Math.sin(splayAngle);
+        const tipWorld = rot(px, py, 0, -ps * 0.96, pcos, psin);
+        const grad = ctx.createLinearGradient(px, py, tipWorld[0], tipWorld[1]);
+        grad.addColorStop(0, petalBasePalette[colIdx]);
+        grad.addColorStop(0.35, petalBasePalette[colIdx]);
+        grad.addColorStop(0.65, petalMidPalette[colIdx]);
+        grad.addColorStop(1, '#fff');
+        ctx.globalAlpha = opacity * baseAlpha;
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        const [mx, my] = rot(px, py, 0, 0, pcos, psin);
+        ctx.moveTo(mx, my);
+        ctx.bezierCurveTo(
+          ...rot(px, py, -ps * 0.16, -ps * 0.28, pcos, psin),
+          ...rot(px, py, -ps * 0.22, -ps * 0.65, pcos, psin),
+          ...rot(px, py, -ps * 0.1, -ps * 0.88, pcos, psin)
+        );
+        ctx.bezierCurveTo(
+          ...rot(px, py, -ps * 0.03, -ps * 0.97, pcos, psin),
+          ...rot(px, py, ps * 0.03, -ps * 0.97, pcos, psin),
+          ...rot(px, py, ps * 0.1, -ps * 0.88, pcos, psin)
+        );
+        ctx.bezierCurveTo(
+          ...rot(px, py, ps * 0.22, -ps * 0.65, pcos, psin),
+          ...rot(px, py, ps * 0.16, -ps * 0.28, pcos, psin),
+          ...rot(px, py, 0, 0, pcos, psin)
+        );
+        ctx.fill();
+      }
 
-  // ── Render unopened buds ──
-  // Tight pointed petal shape with two overlapping brown sepals on lower half
-  for (const bud of renderBuds) {
-    const bs = bud.size;
-    const bx = bud.x;
-    const by = bud.y;
-    const ba = bud.angle + Math.PI / 2;
-    const cos = Math.cos(ba), sin = Math.sin(ba);
+      // Inner petals
+      const innerCount = nPetals - outerCount;
+      const innerSplay = 0.25 + openAmt * 0.3;
+      for (let k = 0; k < innerCount; k++) {
+        const splayAngle = ((k / innerCount) - 0.5) * innerSplay + (rng() - 0.5) * 0.1;
+        const ps = fs * (0.45 + rng() * 0.15);
+        const offsetX = Math.sin(splayAngle) * fs * 0.02;
+        const foldAmt = openAmt * (0.1 + rng() * 0.2);
+        rng(); // flowerPink
+        rng(); // baseH
+        const baseAlpha = 0.85 + rng() * 0.15;
+        if (foldAmt >= 0.15) { rng(); } // foldAlpha
+        const colIdx = Math.floor(rng() * PETAL_PAL_SIZE) % PETAL_PAL_SIZE;
+        const px = baseX + offsetX, py = baseY;
+        const pcos = Math.cos(splayAngle), psin = Math.sin(splayAngle);
+        const tipWorld = rot(px, py, 0, -ps * 0.96, pcos, psin);
+        const grad = ctx.createLinearGradient(px, py, tipWorld[0], tipWorld[1]);
+        grad.addColorStop(0, petalBasePalette[colIdx]);
+        grad.addColorStop(0.35, petalBasePalette[colIdx]);
+        grad.addColorStop(0.65, petalMidPalette[colIdx]);
+        grad.addColorStop(1, '#fff');
+        ctx.globalAlpha = opacity * baseAlpha;
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        const [mx, my] = rot(px, py, 0, 0, pcos, psin);
+        ctx.moveTo(mx, my);
+        ctx.bezierCurveTo(
+          ...rot(px, py, -ps * 0.16, -ps * 0.28, pcos, psin),
+          ...rot(px, py, -ps * 0.22, -ps * 0.65, pcos, psin),
+          ...rot(px, py, -ps * 0.1, -ps * 0.88, pcos, psin)
+        );
+        ctx.bezierCurveTo(
+          ...rot(px, py, -ps * 0.03, -ps * 0.97, pcos, psin),
+          ...rot(px, py, ps * 0.03, -ps * 0.97, pcos, psin),
+          ...rot(px, py, ps * 0.1, -ps * 0.88, pcos, psin)
+        );
+        ctx.bezierCurveTo(
+          ...rot(px, py, ps * 0.22, -ps * 0.65, pcos, psin),
+          ...rot(px, py, ps * 0.16, -ps * 0.28, pcos, psin),
+          ...rot(px, py, 0, 0, pcos, psin)
+        );
+        ctx.fill();
+      }
 
-    // Bud petal — pointed teardrop, pink-to-white gradient
-    const colIdx = Math.floor(rng() * PETAL_PAL_SIZE) % PETAL_PAL_SIZE;
-    const tipPt = rot(bx, by, 0, -bs, cos, sin);
-    const budGrad = ctx.createLinearGradient(bx, by, tipPt[0], tipPt[1]);
-    budGrad.addColorStop(0, petalBasePalette[colIdx]);
-    budGrad.addColorStop(0.5, petalMidPalette[colIdx]);
-    budGrad.addColorStop(1, '#fff');
+    } else {
+      // ── Render bud ──
+      const bud = item;
+      const bs = bud.size;
+      const bx = bud.x;
+      const by = bud.y;
+      const ba = bud.angle + Math.PI / 2;
+      const cos = Math.cos(ba), sin = Math.sin(ba);
 
-    ctx.globalAlpha = opacity * 0.92;
-    ctx.fillStyle = budGrad;
-    ctx.beginPath();
-    const [m0x, m0y] = rot(bx, by, 0, 0, cos, sin);
-    ctx.moveTo(m0x, m0y);
-    ctx.bezierCurveTo(
-      ...rot(bx, by, -bs * 0.18, -bs * 0.15, cos, sin),
-      ...rot(bx, by, -bs * 0.2, -bs * 0.55, cos, sin),
-      ...rot(bx, by, 0, -bs, cos, sin)
-    );
-    ctx.bezierCurveTo(
-      ...rot(bx, by, bs * 0.2, -bs * 0.55, cos, sin),
-      ...rot(bx, by, bs * 0.18, -bs * 0.15, cos, sin),
-      ...rot(bx, by, 0, 0, cos, sin)
-    );
-    ctx.fill();
+      // Bud petal — pointed teardrop, pink-to-white gradient
+      const colIdx = Math.floor(rng() * PETAL_PAL_SIZE) % PETAL_PAL_SIZE;
+      const tipPt = rot(bx, by, 0, -bs, cos, sin);
+      const budGrad = ctx.createLinearGradient(bx, by, tipPt[0], tipPt[1]);
+      budGrad.addColorStop(0, petalBasePalette[colIdx]);
+      budGrad.addColorStop(0.5, petalMidPalette[colIdx]);
+      budGrad.addColorStop(1, '#fff');
 
-    // Left sepal — covers bottom half, curves past center to overlap
-    const sepalH = 30 / 360;
-    const sepalS = 0.25 + rng() * 0.1;
-    const sepalL = 0.45 + rng() * 0.12;
-    const sCol1 = hslToRgb(sepalH, sepalS, sepalL);
-    ctx.fillStyle = `rgb(${sCol1[0]},${sCol1[1]},${sCol1[2]})`;
-    ctx.globalAlpha = opacity * 0.85;
-    ctx.beginPath();
-    ctx.moveTo(...rot(bx, by, 0, bs * 0.05, cos, sin));
-    ctx.bezierCurveTo(
-      ...rot(bx, by, -bs * 0.16, -bs * 0.05, cos, sin),
-      ...rot(bx, by, -bs * 0.18, -bs * 0.25, cos, sin),
-      ...rot(bx, by, -bs * 0.11, -bs * 0.45, cos, sin)
-    );
-    // Curve past midline to overlap with right sepal
-    ctx.bezierCurveTo(
-      ...rot(bx, by, -bs * 0.04, -bs * 0.5, cos, sin),
-      ...rot(bx, by, bs * 0.04, -bs * 0.42, cos, sin),
-      ...rot(bx, by, bs * 0.03, -bs * 0.3, cos, sin)
-    );
-    ctx.bezierCurveTo(
-      ...rot(bx, by, bs * 0.01, -bs * 0.15, cos, sin),
-      ...rot(bx, by, -bs * 0.01, -bs * 0.02, cos, sin),
-      ...rot(bx, by, 0, bs * 0.05, cos, sin)
-    );
-    ctx.fill();
+      ctx.globalAlpha = opacity * 0.92;
+      ctx.fillStyle = budGrad;
+      ctx.beginPath();
+      const [m0x, m0y] = rot(bx, by, 0, 0, cos, sin);
+      ctx.moveTo(m0x, m0y);
+      ctx.bezierCurveTo(
+        ...rot(bx, by, -bs * 0.18, -bs * 0.15, cos, sin),
+        ...rot(bx, by, -bs * 0.2, -bs * 0.55, cos, sin),
+        ...rot(bx, by, 0, -bs, cos, sin)
+      );
+      ctx.bezierCurveTo(
+        ...rot(bx, by, bs * 0.2, -bs * 0.55, cos, sin),
+        ...rot(bx, by, bs * 0.18, -bs * 0.15, cos, sin),
+        ...rot(bx, by, 0, 0, cos, sin)
+      );
+      ctx.fill();
 
-    // Right sepal — covers bottom half, curves past center to overlap
-    const sepalS2 = 0.25 + rng() * 0.1;
-    const sepalL2 = 0.45 + rng() * 0.12;
-    const sCol2 = hslToRgb(sepalH, sepalS2, sepalL2);
-    ctx.fillStyle = `rgb(${sCol2[0]},${sCol2[1]},${sCol2[2]})`;
-    ctx.beginPath();
-    ctx.moveTo(...rot(bx, by, 0, bs * 0.05, cos, sin));
-    ctx.bezierCurveTo(
-      ...rot(bx, by, bs * 0.16, -bs * 0.05, cos, sin),
-      ...rot(bx, by, bs * 0.18, -bs * 0.25, cos, sin),
-      ...rot(bx, by, bs * 0.11, -bs * 0.45, cos, sin)
-    );
-    ctx.bezierCurveTo(
-      ...rot(bx, by, bs * 0.04, -bs * 0.5, cos, sin),
-      ...rot(bx, by, -bs * 0.04, -bs * 0.42, cos, sin),
-      ...rot(bx, by, -bs * 0.03, -bs * 0.3, cos, sin)
-    );
-    ctx.bezierCurveTo(
-      ...rot(bx, by, -bs * 0.01, -bs * 0.15, cos, sin),
-      ...rot(bx, by, bs * 0.01, -bs * 0.02, cos, sin),
-      ...rot(bx, by, 0, bs * 0.05, cos, sin)
-    );
-    ctx.fill();
+      // Left sepal
+      const sepalH = 30 / 360;
+      const sepalS = 0.25 + rng() * 0.1;
+      const sepalL = 0.45 + rng() * 0.12;
+      const sCol1 = hslToRgb(sepalH, sepalS, sepalL);
+      ctx.fillStyle = `rgb(${sCol1[0]},${sCol1[1]},${sCol1[2]})`;
+      ctx.globalAlpha = opacity * 0.85;
+      ctx.beginPath();
+      ctx.moveTo(...rot(bx, by, 0, bs * 0.05, cos, sin));
+      ctx.bezierCurveTo(
+        ...rot(bx, by, -bs * 0.16, -bs * 0.05, cos, sin),
+        ...rot(bx, by, -bs * 0.18, -bs * 0.25, cos, sin),
+        ...rot(bx, by, -bs * 0.11, -bs * 0.45, cos, sin)
+      );
+      ctx.bezierCurveTo(
+        ...rot(bx, by, -bs * 0.04, -bs * 0.5, cos, sin),
+        ...rot(bx, by, bs * 0.04, -bs * 0.42, cos, sin),
+        ...rot(bx, by, bs * 0.03, -bs * 0.3, cos, sin)
+      );
+      ctx.bezierCurveTo(
+        ...rot(bx, by, bs * 0.01, -bs * 0.15, cos, sin),
+        ...rot(bx, by, -bs * 0.01, -bs * 0.02, cos, sin),
+        ...rot(bx, by, 0, bs * 0.05, cos, sin)
+      );
+      ctx.fill();
+
+      // Right sepal
+      const sepalS2 = 0.25 + rng() * 0.1;
+      const sepalL2 = 0.45 + rng() * 0.12;
+      const sCol2 = hslToRgb(sepalH, sepalS2, sepalL2);
+      ctx.fillStyle = `rgb(${sCol2[0]},${sCol2[1]},${sCol2[2]})`;
+      ctx.beginPath();
+      ctx.moveTo(...rot(bx, by, 0, bs * 0.05, cos, sin));
+      ctx.bezierCurveTo(
+        ...rot(bx, by, bs * 0.16, -bs * 0.05, cos, sin),
+        ...rot(bx, by, bs * 0.18, -bs * 0.25, cos, sin),
+        ...rot(bx, by, bs * 0.11, -bs * 0.45, cos, sin)
+      );
+      ctx.bezierCurveTo(
+        ...rot(bx, by, bs * 0.04, -bs * 0.5, cos, sin),
+        ...rot(bx, by, -bs * 0.04, -bs * 0.42, cos, sin),
+        ...rot(bx, by, -bs * 0.03, -bs * 0.3, cos, sin)
+      );
+      ctx.bezierCurveTo(
+        ...rot(bx, by, -bs * 0.01, -bs * 0.15, cos, sin),
+        ...rot(bx, by, bs * 0.01, -bs * 0.02, cos, sin),
+        ...rot(bx, by, 0, bs * 0.05, cos, sin)
+      );
+      ctx.fill();
+    }
   }
 
   ctx.globalAlpha = opacity;
