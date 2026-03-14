@@ -1660,17 +1660,21 @@ button:active { transform: scale(0.95); }
   border-bottom-color: #26c6da;
 }
 
-#gallery-grid {
+#gallery-grid-scroll {
   flex: 1;
   overflow-y: auto;
-  columns: 2;
-  column-gap: 14px;
+  overflow-x: hidden;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
-  padding: 16px;
-  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   background: #fff;
   scroll-behavior: smooth;
+}
+
+#gallery-grid {
+  columns: 2;
+  column-gap: 14px;
+  padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
 }
 
 @media (min-width: 600px) {
