@@ -44,6 +44,7 @@ function initRoomPan() {
     roomPanMin = scene.clientWidth - panW;
     roomPanX = roomPanMin / 2; // center
     pan.style.transform = 'translateX(' + roomPanX + 'px)';
+    pan.classList.add('ready');
     roomPanReady = true;
   }
 

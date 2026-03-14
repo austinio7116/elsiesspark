@@ -74,6 +74,14 @@ export function updateBrushOptions() {
     const show = state.activeBrush === 'pen' || state.activeBrush === 'marker' || state.activeBrush === 'line';
     softnessRow.style.display = show ? '' : 'none';
   }
+  // Rainbow has its own opacity slider; other brushes use the main one
+  if (state.activeBrush === 'rainbow') {
+    const rSlider = $('#rainbow-opacity');
+    if (rSlider) state.brushOpacity = parseInt(rSlider.value) / 100;
+  } else {
+    const slider = $('#brush-opacity');
+    if (slider) state.brushOpacity = parseInt(slider.value) / 100;
+  }
   updateBrushPreview();
 }
 

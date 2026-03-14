@@ -31,7 +31,7 @@ export default function renderPine(ctx, h) {
     const p = ptAt(d);
     const dr = dirAt(d);
     const nx = -dr.dy, ny = dr.dx;
-    const hw = trunkW * 0.2 * (1 - t * 0.5);
+    const hw = trunkW * 0.35 * (1 - t * 0.95);
     trunkL.push({ x: p.x + nx * hw, y: p.y + ny * hw });
     trunkR.push({ x: p.x - nx * hw, y: p.y - ny * hw });
   }
@@ -58,7 +58,8 @@ export default function renderPine(ctx, h) {
     const tierWidth = maxCanopyWidth * conicalFrac * (0.85 + rng() * 0.3);
     if (tierWidth < 2) continue;
 
-    const nBranches = 4 + Math.floor(rng() * 3);
+    const widthScale = Math.max(1, tierWidth / 20);
+    const nBranches = Math.floor((4 + Math.floor(rng() * 3)) * widthScale);
     for (let bi = 0; bi < nBranches; bi++) {
       const spreadAngle = ((bi / nBranches) - 0.5) * Math.PI * 1.6 + (rng() - 0.5) * 0.4;
       const outX = perpX * Math.cos(spreadAngle) + dr.dx * Math.sin(spreadAngle) * 0.5;
@@ -72,7 +73,7 @@ export default function renderPine(ctx, h) {
       const outAngle = Math.atan2(normY, normX) + 0.08 + rng() * 0.12;
       const depthFactor = Math.abs(Math.cos(spreadAngle));
       const visualLen = tierWidth * (0.6 + rng() * 0.4) * (0.4 + depthFactor * 0.6);
-      const bW = Math.max(0.8, trunkW * 0.07 * (1 - tierFrac * 0.4) * (0.6 + rng() * 0.4));
+      const bW = Math.max(1, trunkW * 0.07 * (1 + (1 - tierFrac) * 2) * (0.6 + rng() * 0.4));
       const midA = outAngle + (rng() - 0.5) * 0.15;
       const mx = bx + Math.cos(midA) * visualLen * 0.5;
       const my = by + Math.sin(midA) * visualLen * 0.5;

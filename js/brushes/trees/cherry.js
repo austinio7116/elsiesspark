@@ -15,7 +15,7 @@ export default function renderCherry(ctx, h) {
 
   const fg = fractalGrow({
     // Wide horizontal spreading
-    spread: 0.4, spreadRange: 0.25,
+    spread: 0.55, spreadRange: 0.3,
     nKidsProb: 0.45,
     lenDecay: 0.58, lenRange: 0.14,
     widthDecay: 0.65, widthRange: 0.08,

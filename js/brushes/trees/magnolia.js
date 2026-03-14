@@ -1,4 +1,4 @@
-// Magnolia tree renderer — upward-pointing blossoms with folding petals
+// Magnolia tree renderer — upward-pointing blossoms with gradient petals
 export default function renderMagnolia(ctx, h) {
   const { rng, opacity, brushSize, leafHsl, hslToRgb,
           leafDensity, branchDensity, seed,
@@ -146,18 +146,18 @@ export default function renderMagnolia(ctx, h) {
   // Pre-generate petal colour palettes (6 shades each)
   const PETAL_PAL_SIZE = 6;
   const petalBasePalette = [];
-  const petalTipPalette = [];
+  const petalMidPalette = [];
   for (let i = 0; i < PETAL_PAL_SIZE; i++) {
-    const pinkAmt = 0.2 + (i / (PETAL_PAL_SIZE - 1)) * 0.6;
+    const pinkAmt = 0.25 + (i / (PETAL_PAL_SIZE - 1)) * 0.55;
     const baseH = (340 + (i % 3) * 7) / 360;
-    const baseS = 0.15 + Math.min(1, pinkAmt) * 0.45;
-    const baseL = 0.75 + (1 - Math.min(1, pinkAmt)) * 0.18;
-    const bCol = hslToRgb(baseH, baseS, Math.min(0.97, baseL));
+    const baseS = 0.2 + Math.min(1, pinkAmt) * 0.42;
+    const baseL = 0.72 + (1 - Math.min(1, pinkAmt)) * 0.15;
+    const bCol = hslToRgb(baseH, baseS, Math.min(0.92, baseL));
     petalBasePalette.push(`rgb(${bCol[0]},${bCol[1]},${bCol[2]})`);
-    const tipS = 0.02 + Math.min(1, pinkAmt) * 0.08;
-    const tipL = 0.93 + (1 - Math.min(1, pinkAmt)) * 0.05;
-    const tCol = hslToRgb(baseH, tipS, Math.min(0.99, tipL));
-    petalTipPalette.push(`rgb(${tCol[0]},${tCol[1]},${tCol[2]})`);
+    const midS = 0.06 + Math.min(1, pinkAmt) * 0.12;
+    const midL = 0.88 + (1 - Math.min(1, pinkAmt)) * 0.06;
+    const mCol = hslToRgb(baseH, midS, Math.min(0.97, midL));
+    petalMidPalette.push(`rgb(${mCol[0]},${mCol[1]},${mCol[2]})`);
   }
 
   // Collect all stamen and petal data
@@ -292,111 +292,40 @@ export default function renderMagnolia(ctx, h) {
     return [cx + px * cos - py * sin, cy + px * sin + py * cos];
   }
 
-  // Batch render petals grouped by base colour index
-  for (let ci = 0; ci < PETAL_PAL_SIZE; ci++) {
-    // First pass: base shapes for this colour
-    ctx.fillStyle = petalBasePalette[ci];
-    for (const p of petalRecords) {
-      if (p.colIdx !== ci) continue;
-      const { px, py, angle: a, ps, foldAmt, baseAlpha } = p;
-      const cos = Math.cos(a), sin = Math.sin(a);
-      ctx.globalAlpha = opacity * baseAlpha;
-      ctx.beginPath();
+  // Render petals with smooth pink-to-white gradient
+  for (const p of petalRecords) {
+    const { px, py, angle: a, ps, baseAlpha, colIdx } = p;
+    const cos = Math.cos(a), sin = Math.sin(a);
 
-      if (foldAmt < 0.15) {
-        // Flat petal base shape
-        const [mx, my] = rot(px, py, 0, 0, cos, sin);
-        ctx.moveTo(mx, my);
-        ctx.bezierCurveTo(
-          ...rot(px, py, -ps * 0.16, -ps * 0.28, cos, sin),
-          ...rot(px, py, -ps * 0.22, -ps * 0.65, cos, sin),
-          ...rot(px, py, -ps * 0.1, -ps * 0.88, cos, sin)
-        );
-        ctx.bezierCurveTo(
-          ...rot(px, py, -ps * 0.03, -ps * 0.97, cos, sin),
-          ...rot(px, py, ps * 0.03, -ps * 0.97, cos, sin),
-          ...rot(px, py, ps * 0.1, -ps * 0.88, cos, sin)
-        );
-        ctx.bezierCurveTo(
-          ...rot(px, py, ps * 0.22, -ps * 0.65, cos, sin),
-          ...rot(px, py, ps * 0.16, -ps * 0.28, cos, sin),
-          ...rot(px, py, 0, 0, cos, sin)
-        );
-      } else {
-        // Folded petal — lower cup
-        const bendY = -ps * 0.48;
-        const halfW = ps * 0.14;
-        const [mx, my] = rot(px, py, 0, 0, cos, sin);
-        ctx.moveTo(mx, my);
-        ctx.bezierCurveTo(
-          ...rot(px, py, -ps * 0.14, -ps * 0.15, cos, sin),
-          ...rot(px, py, -halfW, -ps * 0.35, cos, sin),
-          ...rot(px, py, -halfW, bendY, cos, sin)
-        );
-        const [lhx, lhy] = rot(px, py, halfW, bendY, cos, sin);
-        ctx.lineTo(lhx, lhy);
-        ctx.bezierCurveTo(
-          ...rot(px, py, halfW, -ps * 0.35, cos, sin),
-          ...rot(px, py, ps * 0.14, -ps * 0.15, cos, sin),
-          ...rot(px, py, 0, 0, cos, sin)
-        );
-      }
-      ctx.fill();
-    }
+    // Gradient from base (pink) to tip (white)
+    const tipWorld = rot(px, py, 0, -ps * 0.96, cos, sin);
+    const grad = ctx.createLinearGradient(px, py, tipWorld[0], tipWorld[1]);
+    grad.addColorStop(0, petalBasePalette[colIdx]);
+    grad.addColorStop(0.35, petalBasePalette[colIdx]);
+    grad.addColorStop(0.65, petalMidPalette[colIdx]);
+    grad.addColorStop(1, '#fff');
 
-    // Second pass: tip shapes for this colour
-    ctx.fillStyle = petalTipPalette[ci];
-    for (const p of petalRecords) {
-      if (p.colIdx !== ci) continue;
-      const { px, py, angle: a, ps, foldAmt, foldAlpha } = p;
-      const cos = Math.cos(a), sin = Math.sin(a);
-
-      if (foldAmt < 0.15) {
-        // Flat petal tip highlight
-        ctx.globalAlpha = opacity * 0.5;
-        ctx.beginPath();
-        ctx.moveTo(...rot(px, py, -ps * 0.12, -ps * 0.5, cos, sin));
-        ctx.bezierCurveTo(
-          ...rot(px, py, -ps * 0.18, -ps * 0.7, cos, sin),
-          ...rot(px, py, -ps * 0.08, -ps * 0.94, cos, sin),
-          ...rot(px, py, 0, -ps * 0.96, cos, sin)
-        );
-        ctx.bezierCurveTo(
-          ...rot(px, py, ps * 0.08, -ps * 0.94, cos, sin),
-          ...rot(px, py, ps * 0.18, -ps * 0.7, cos, sin),
-          ...rot(px, py, ps * 0.12, -ps * 0.5, cos, sin)
-        );
-        ctx.bezierCurveTo(
-          ...rot(px, py, ps * 0.05, -ps * 0.6, cos, sin),
-          ...rot(px, py, -ps * 0.05, -ps * 0.6, cos, sin),
-          ...rot(px, py, -ps * 0.12, -ps * 0.5, cos, sin)
-        );
-        ctx.fill();
-      } else {
-        // Folded petal — upper fold
-        const bendY = -ps * 0.48;
-        const halfW = ps * 0.14;
-        const foldDx = 0; // Math.sin(0) * ... = 0
-        const foldDy = -ps * 0.42 * (1 - foldAmt * 0.5);
-        const tipX = foldDx;
-        const tipY = bendY + foldDy;
-        const upperW = ps * 0.12;
-        ctx.globalAlpha = opacity * (foldAlpha !== undefined ? foldAlpha : 0.85);
-        ctx.beginPath();
-        ctx.moveTo(...rot(px, py, -halfW, bendY, cos, sin));
-        ctx.bezierCurveTo(
-          ...rot(px, py, -halfW + foldDx * 0.3, bendY + foldDy * 0.3, cos, sin),
-          ...rot(px, py, tipX - upperW * 1.5, tipY + ps * 0.04, cos, sin),
-          ...rot(px, py, tipX, tipY, cos, sin)
-        );
-        ctx.bezierCurveTo(
-          ...rot(px, py, tipX + upperW * 1.5, tipY + ps * 0.04, cos, sin),
-          ...rot(px, py, halfW + foldDx * 0.3, bendY + foldDy * 0.3, cos, sin),
-          ...rot(px, py, halfW, bendY, cos, sin)
-        );
-        ctx.fill();
-      }
-    }
+    ctx.globalAlpha = opacity * baseAlpha;
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    const [mx, my] = rot(px, py, 0, 0, cos, sin);
+    ctx.moveTo(mx, my);
+    ctx.bezierCurveTo(
+      ...rot(px, py, -ps * 0.16, -ps * 0.28, cos, sin),
+      ...rot(px, py, -ps * 0.22, -ps * 0.65, cos, sin),
+      ...rot(px, py, -ps * 0.1, -ps * 0.88, cos, sin)
+    );
+    ctx.bezierCurveTo(
+      ...rot(px, py, -ps * 0.03, -ps * 0.97, cos, sin),
+      ...rot(px, py, ps * 0.03, -ps * 0.97, cos, sin),
+      ...rot(px, py, ps * 0.1, -ps * 0.88, cos, sin)
+    );
+    ctx.bezierCurveTo(
+      ...rot(px, py, ps * 0.22, -ps * 0.65, cos, sin),
+      ...rot(px, py, ps * 0.16, -ps * 0.28, cos, sin),
+      ...rot(px, py, 0, 0, cos, sin)
+    );
+    ctx.fill();
   }
 
   ctx.globalAlpha = opacity;

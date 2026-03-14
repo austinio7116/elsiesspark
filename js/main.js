@@ -87,38 +87,77 @@ import { enterTextMode } from './tools/TextTool.js';
 bus.on('enterTextMode', (text, font, size, bold, italic) => enterTextMode(text, font, size, bold, italic));
 
 // ═══════════════════════════════════════════════════════
-// DYNAMIC ASSET LOADING
+// LOADING SCREEN
 // ═══════════════════════════════════════════════════════
-function loadDynamicStickers() {
-  fetch('assets/stickers/manifest.json')
-    .then(r => r.ok ? r.json() : [])
-    .then(files => {
-      FILE_STICKERS.length = 0;
-      files.forEach(f => {
-        FILE_STICKERS.push({
-          name: f.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' '),
-          src: 'assets/stickers/' + f,
-        });
-      });
-      renderStickers();
-    })
-    .catch(() => {});
+function updateLoadingBar(loaded, total) {
+  const fill = document.getElementById('loading-bar-fill');
+  if (fill) fill.style.width = Math.round((loaded / total) * 100) + '%';
 }
 
-function loadDynamicBackgrounds() {
-  fetch('assets/backgrounds/manifest.json')
-    .then(r => r.ok ? r.json() : [])
-    .then(files => {
-      files.forEach(f => {
-        const id = 'img-' + f.replace(/[^a-zA-Z0-9]/g, '_');
-        const label = f.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ').substring(0, 16);
-        if (!BACKGROUNDS.find(b => b.id === id)) {
-          BACKGROUNDS.push({ id, label, style: null, imageSrc: 'assets/backgrounds/' + f });
-        }
-      });
-      buildBackgroundGrid();
+function preloadImage(src) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = img.onerror = () => resolve();
+    img.src = src;
+  });
+}
+
+function dismissLoadingScreen() {
+  const screen = document.getElementById('loading-screen');
+  const app = document.getElementById('app');
+  if (app) app.classList.remove('app-loading');
+  if (screen) {
+    screen.classList.add('fade-out');
+    setTimeout(() => screen.remove(), 400);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// DYNAMIC ASSET LOADING (with preload)
+// ═══════════════════════════════════════════════════════
+async function loadDynamicAssets(onProgress) {
+  // Fetch manifests
+  const [stickerFiles, bgFiles] = await Promise.all([
+    fetch('assets/stickers/manifest.json').then(r => r.ok ? r.json() : []).catch(() => []),
+    fetch('assets/backgrounds/manifest.json').then(r => r.ok ? r.json() : []).catch(() => []),
+  ]);
+
+  // Populate sticker data
+  FILE_STICKERS.length = 0;
+  stickerFiles.forEach(f => {
+    FILE_STICKERS.push({
+      name: f.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' '),
+      src: 'assets/stickers/' + f,
+    });
+  });
+  renderStickers();
+
+  // Populate background data
+  bgFiles.forEach(f => {
+    const id = 'img-' + f.replace(/[^a-zA-Z0-9]/g, '_');
+    const label = f.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ').substring(0, 16);
+    if (!BACKGROUNDS.find(b => b.id === id)) {
+      BACKGROUNDS.push({ id, label, style: null, imageSrc: 'assets/backgrounds/' + f });
+    }
+  });
+  buildBackgroundGrid();
+
+  // Collect all image URLs to preload
+  const imageSrcs = [
+    'assets/home/home.png',
+    ...stickerFiles.map(f => 'assets/stickers/' + f),
+    ...bgFiles.map(f => 'assets/backgrounds/' + f),
+  ];
+
+  // Preload all images with progress
+  let loaded = 0;
+  const total = imageSrcs.length || 1;
+  await Promise.all(imageSrcs.map(src =>
+    preloadImage(src).then(() => {
+      loaded++;
+      if (onProgress) onProgress(loaded, total);
     })
-    .catch(() => {});
+  ));
 }
 
 // ═══════════════════════════════════════════════════════
@@ -175,9 +214,11 @@ async function init() {
   // Show initial view
   showView('room');
 
-  // Load dynamic assets
-  loadDynamicStickers();
-  loadDynamicBackgrounds();
+  // Load dynamic assets and preload images with progress
+  await loadDynamicAssets(updateLoadingBar);
+
+  // Dismiss loading screen
+  dismissLoadingScreen();
 }
 
 init();

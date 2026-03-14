@@ -26,7 +26,16 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div id="app">
+<!-- Loading screen (hidden by JS after assets load) -->
+<div id="loading-screen">
+  <img src="assets/favicon.png" alt="Elsie's Spark" id="loading-logo">
+  <div id="loading-bar-track">
+    <div id="loading-bar-fill"></div>
+  </div>
+  <p id="loading-label">Loading...</p>
+</div>
+
+<div id="app" class="app-loading">
 
   <!-- ═══════════════════════════════════════════
        VIEW: ROOM (Home / Hub)
@@ -456,6 +465,13 @@
             <button id="fairylights-color-toggle" class="toggle-btn" data-on="false">
               <span class="toggle-knob"></span>
             </button>
+          </div>
+        </div>
+        <div id="brush-opt-rainbow" class="brush-options hidden">
+          <div class="slider-row">
+            <label>Opacity</label>
+            <input type="range" id="rainbow-opacity" min="1" max="100" value="18">
+            <span class="slider-val" id="rainbow-opacity-label">18%</span>
           </div>
         </div>
       </div>

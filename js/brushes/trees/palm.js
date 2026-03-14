@@ -126,7 +126,8 @@ export default function renderPalm(ctx, h) {
   for (let fi = 0; fi < nFronds; fi++) {
     const baseA = trunkAngle + ((fi / nFronds) - 0.5) * Math.PI * 2;
     const frondAngle = baseA + (rng() - 0.5) * 0.35;
-    const frondLen = trunkEnd * (0.5 + rng() * 0.35);
+    const maxCrown = brushSize * 6;
+    const frondLen = Math.min(maxCrown, trunkEnd * (0.5 + rng() * 0.35));
     const archAmount = 0.4 + rng() * 0.6;
     const originOffset = (rng() - 0.5) * crownSpread;
     const perpA = trunkAngle + Math.PI / 2;
@@ -219,6 +220,95 @@ export default function renderPalm(ctx, h) {
         );
       }
     }
+
+    // Closing pair — angled more inward toward the spine
+    {
+      const t = 0.94;
+      const lp = cubicBez(startX, startY, c1x, c1y, c2x, c2y, endX, endY, t);
+      const tNext = Math.min(1, t + 0.02);
+      const lpNext = cubicBez(startX, startY, c1x, c1y, c2x, c2y, endX, endY, tNext);
+      const tangent = Math.atan2(lpNext.y - lp.y, lpNext.x - lp.x);
+      const leafletLen = frondLen * (0.16 + rng() * 0.08) * (1 - t * 0.4);
+      const leafletWidth = leafletLen * 0.07;
+      for (const side of [-1, 1]) {
+        const leafAngle = tangent + side * (0.2 + rng() * 0.1);
+        const lsx = lp.x, lsy = lp.y;
+        const lex = lsx + Math.cos(leafAngle) * leafletLen;
+        const ley = lsy + Math.sin(leafAngle) * leafletLen;
+        const perpDx = -Math.sin(leafAngle), perpDy = Math.cos(leafAngle);
+        rng(); rng(); // consume matching rng calls
+        const lci = nLeaflets % NUM_LIGHT;
+        const dci = nLeaflets % NUM_DARK;
+        lightHalves[lci].push(
+          lsx, lsy, lex, ley,
+          lsx + (lex - lsx) * 0.7 + perpDx * leafletWidth * 0.8,
+          lsy + (ley - lsy) * 0.7 + perpDy * leafletWidth * 0.8,
+          lsx + (lex - lsx) * 0.3 + perpDx * leafletWidth,
+          lsy + (ley - lsy) * 0.3 + perpDy * leafletWidth
+        );
+        darkHalves[dci].push(
+          lsx, lsy, lex, ley,
+          lsx + (lex - lsx) * 0.7 - perpDx * leafletWidth * 0.8,
+          lsy + (ley - lsy) * 0.7 - perpDy * leafletWidth * 0.8,
+          lsx + (lex - lsx) * 0.3 - perpDx * leafletWidth,
+          lsy + (ley - lsy) * 0.3 - perpDy * leafletWidth
+        );
+      }
+    }
+
+    // Tip bunch — small leaflets aligned with the frond spine
+    {
+      const tipT = 0.98;
+      const lp = cubicBez(startX, startY, c1x, c1y, c2x, c2y, endX, endY, tipT);
+      const tangent = Math.atan2(endY - lp.y, endX - lp.x);
+      const tipLen = frondLen * (0.16 + rng() * 0.08) * (1 - tipT * 0.4);
+      const tipW = tipLen * 0.07;
+      const nTip = 3;
+      for (let ti = 0; ti < nTip; ti++) {
+        const spread = (ti - 1) * 0.08 + (rng() - 0.5) * 0.06;
+        const la = tangent + spread;
+        const ll = tipLen * (0.7 + rng() * 0.3);
+        const lsx = lp.x, lsy = lp.y;
+        const lex = lsx + Math.cos(la) * ll;
+        const ley = lsy + Math.sin(la) * ll;
+        const perpDx = -Math.sin(la), perpDy = Math.cos(la);
+        const lci = ti % NUM_LIGHT;
+        const dci = ti % NUM_DARK;
+        lightHalves[lci].push(
+          lsx, lsy, lex, ley,
+          lsx + (lex - lsx) * 0.7 + perpDx * tipW * 0.8,
+          lsy + (ley - lsy) * 0.7 + perpDy * tipW * 0.8,
+          lsx + (lex - lsx) * 0.3 + perpDx * tipW,
+          lsy + (ley - lsy) * 0.3 + perpDy * tipW
+        );
+        darkHalves[dci].push(
+          lsx, lsy, lex, ley,
+          lsx + (lex - lsx) * 0.7 - perpDx * tipW * 0.8,
+          lsy + (ley - lsy) * 0.7 - perpDy * tipW * 0.8,
+          lsx + (lex - lsx) * 0.3 - perpDx * tipW,
+          lsy + (ley - lsy) * 0.3 - perpDy * tipW
+        );
+      }
+    }
+  }
+
+  // Coconuts (behind leaves)
+  if (rng() > 0.4) {
+    const nCoconuts = 2 + Math.floor(rng() * 3);
+    for (let ci = 0; ci < nCoconuts; ci++) {
+      const ca = trunkAngle + (rng() - 0.5) * 1.2;
+      const cd = capRadius * (0.6 + rng() * 0.5);
+      const cx = crownX + Math.cos(ca) * cd;
+      const cy = crownY + Math.sin(ca) * cd + brushSize * 0.15;
+      const cr = brushSize * (0.12 + rng() * 0.08);
+      const cCol = hslToRgb(30 / 360, 0.5, 0.25 + rng() * 0.1);
+      ctx.fillStyle = `rgb(${cCol[0]},${cCol[1]},${cCol[2]})`;
+      ctx.globalAlpha = opacity * 0.85;
+      ctx.beginPath();
+      ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = opacity;
   }
 
   // Batch render light halves — one beginPath + fill per colour bucket
@@ -252,23 +342,4 @@ export default function renderPalm(ctx, h) {
   }
 
   ctx.globalAlpha = opacity;
-
-  // Coconuts
-  if (rng() > 0.4) {
-    const nCoconuts = 2 + Math.floor(rng() * 3);
-    for (let ci = 0; ci < nCoconuts; ci++) {
-      const ca = trunkAngle + (rng() - 0.5) * 1.2;
-      const cd = capRadius * (0.6 + rng() * 0.5);
-      const cx = crownX + Math.cos(ca) * cd;
-      const cy = crownY + Math.sin(ca) * cd + brushSize * 0.15;
-      const cr = brushSize * (0.12 + rng() * 0.08);
-      const cCol = hslToRgb(30 / 360, 0.5, 0.25 + rng() * 0.1);
-      ctx.fillStyle = `rgb(${cCol[0]},${cCol[1]},${cCol[2]})`;
-      ctx.globalAlpha = opacity * 0.85;
-      ctx.beginPath();
-      ctx.arc(cx, cy, cr, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = opacity;
-  }
 }

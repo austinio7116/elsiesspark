@@ -15,9 +15,9 @@ export default function renderMaple(ctx, h) {
       const biasStrength = depth < 2 ? 0.3 : 0.15;
       return a * (1 - biasStrength) + upAngle * biasStrength;
     },
-    spread: 0.38, spreadRange: 0.2,
+    spread: 0.5, spreadRange: 0.25,
     nKidsProb: 0.5,
-    lenDecay: 0.6, lenRange: 0.15,
+    lenDecay: 0.65, lenRange: 0.15,
     widthDecay: 0.66, widthRange: 0.08,
     onTerminal({ sx, sy, mx, my, ex, ey, endW, depth, width }) {
       const baseLSize = Math.max(5, brushSize * (0.5 + rng() * 0.4));
@@ -72,7 +72,7 @@ export default function renderMaple(ctx, h) {
       for (let k = 0; k < n; k++) {
         const colIdx = Math.floor(rng() * leafPalette.length);
         const a = rng() * Math.PI * 2;
-        const d = rng() * lc.size * 0.6;
+        const d = rng() * lc.size * 0.9;
         const lx = lc.x + Math.cos(a) * d;
         const ly = lc.y + Math.sin(a) * d;
         const ls = lc.size * (0.3 + rng() * 0.4);

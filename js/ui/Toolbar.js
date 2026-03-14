@@ -168,6 +168,15 @@ export function initToolbar() {
     });
   });
 
+  // ── Rainbow opacity slider ──
+  const rainbowOpSlider = $('#rainbow-opacity');
+  if (rainbowOpSlider) {
+    rainbowOpSlider.addEventListener('input', e => {
+      state.brushOpacity = parseInt(e.target.value) / 100;
+      $('#rainbow-opacity-label').textContent = e.target.value + '%';
+    });
+  }
+
   // ── Sprinkles density slider ──
   const densitySlider = $('#sprinkles-density');
   if (densitySlider) {
