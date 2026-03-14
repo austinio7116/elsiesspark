@@ -140,6 +140,8 @@ function startStroke(e) {
         origSize: obj.size || obj.fontSize || obj.scale || 1,
         origRotation: obj.rotation,
       };
+      // Build drag cache: layer without the dragged object
+      ObjectRenderer.beginDragCache(CanvasManager.getActiveLayer(), obj);
     } else {
       const hit = ObjectRenderer.hitTestObject(pos.x, pos.y);
       if (hit) {
@@ -151,6 +153,8 @@ function startStroke(e) {
           origSize: hit.size || hit.fontSize || hit.scale || 1,
           origRotation: hit.rotation,
         };
+        // Build drag cache: layer without the dragged object
+        ObjectRenderer.beginDragCache(CanvasManager.getActiveLayer(), hit);
         previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
         bus.emit('drawSelectionHandles');
         bus.emit('updateSelectToolbar');
@@ -293,7 +297,8 @@ function moveStroke(e) {
         obj.scale = Math.max(0.1, Math.min(10, d.origSize * scaleVal));
       }
     }
-    ObjectRenderer.markLayerDirty(CanvasManager.getActiveLayer());
+    // Drag cache is active — renderObjects will use it to only redraw
+    // the dragged object, not the entire layer.
     previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
     bus.emit('renderObjects');
     return;
@@ -389,6 +394,10 @@ function endStroke(e) {
       // Object was modified — undo was already captured in startStroke
     }
     state.selectDrag = null;
+    // End drag cache and mark layer dirty so the full cache gets rebuilt
+    ObjectRenderer.endDragCache();
+    ObjectRenderer.markLayerDirty(CanvasManager.getActiveLayer());
+    bus.emit('renderObjects');
     return;
   }
   if (state.textMode && state.textDragging && !touch.isGesture) {

@@ -73,6 +73,34 @@ function _getHitCtx() {
   return { canvas: _hitCanvas, ctx: _hitCtx };
 }
 
+// ── Drag cache: layer rendered WITHOUT the dragged object ──
+// Built once at drag start, reused every frame during drag.
+let _dragCache = null; // { layerId, objectId, canvas, ctx }
+
+function beginDragCache(layer, draggedObj) {
+  if (!layer || !draggedObj) return;
+  if (!_dragCache) {
+    const c = document.createElement('canvas');
+    _dragCache = { layerId: null, objectId: null, canvas: c, ctx: c.getContext('2d') };
+  }
+  _dragCache.canvas.width = state.canvasWidth;
+  _dragCache.canvas.height = state.canvasHeight;
+  _dragCache.layerId = layer.id;
+  _dragCache.objectId = draggedObj.id;
+  // Render every object on the layer EXCEPT the dragged one
+  _dragCache.ctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+  layer.objects.forEach(obj => {
+    if (obj.id !== draggedObj.id) drawObjectTo(_dragCache.ctx, obj);
+  });
+}
+
+function endDragCache() {
+  if (_dragCache) {
+    _dragCache.layerId = null;
+    _dragCache.objectId = null;
+  }
+}
+
 // ── Mark a layer's object cache as dirty ──
 function markLayerDirty(layer) {
   if (!layer) return;
@@ -172,20 +200,25 @@ function renderObjects() {
   const objectsCtx = CanvasManager.objectsCtx;
   if (!objectsCanvas) return;
   objectsCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+  const dragging = _dragCache && _dragCache.layerId !== null;
   state.layers.forEach(l => {
     if (!l.visible || !l.objects || l.objects.length === 0) return;
+    // Fast path: if we're dragging an object on this layer, use the
+    // pre-built drag cache (all objects minus the dragged one) and
+    // only re-draw the single dragged object on top.
+    if (dragging && l.id === _dragCache.layerId) {
+      objectsCtx.globalAlpha = l.opacity ?? 1;
+      objectsCtx.drawImage(_dragCache.canvas, 0, 0);
+      const draggedObj = l.objects.find(o => o.id === _dragCache.objectId);
+      if (draggedObj) drawObjectTo(objectsCtx, draggedObj);
+      return;
+    }
     // Use per-layer cache: only re-render if revision changed
     const rev = l._objectRev || 0;
     const cache = _getLayerCache(l.id);
     if (cache.rev !== rev) {
       cache.ctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
-      const hasEraser = l.objects.some(o => o.brush === 'eraser');
-      if (hasEraser) {
-        // Render to cache with eraser compositing
-        l.objects.forEach(obj => drawObjectTo(cache.ctx, obj));
-      } else {
-        l.objects.forEach(obj => drawObjectTo(cache.ctx, obj));
-      }
+      l.objects.forEach(obj => drawObjectTo(cache.ctx, obj));
       cache.rev = rev;
     }
     objectsCtx.globalAlpha = l.opacity ?? 1;
@@ -482,6 +515,8 @@ const ObjectRenderer = {
   markLayerDirty,
   invalidateAllLayerCaches,
   appendToLayerCache,
+  beginDragCache,
+  endDragCache,
 };
 
 export default ObjectRenderer;
