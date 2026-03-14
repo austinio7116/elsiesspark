@@ -9,6 +9,9 @@ export function captureState() {
     objects: l.objects ? l.objects.map(o => {
       const copy = { ...o };
       if (copy.points) copy.points = copy.points.map(p => ({ ...p }));
+      if (copy.eraserPaths) copy.eraserPaths = copy.eraserPaths.map(ep => ({
+        ...ep, points: ep.points.map(p => ({ ...p })),
+      }));
       return copy;
     }) : [],
   }));
@@ -52,6 +55,9 @@ function restoreState(snapshot) {
     layer.objects = sd.objects ? sd.objects.map(o => {
       const copy = { ...o };
       if (copy.points) copy.points = copy.points.map(p => ({ ...p }));
+      if (copy.eraserPaths) copy.eraserPaths = copy.eraserPaths.map(ep => ({
+        ...ep, points: ep.points.map(p => ({ ...p })),
+      }));
       return copy;
     }) : [];
     layer.canvas.style.display = sd.visible ? '' : 'none';
