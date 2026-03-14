@@ -1,4 +1,4 @@
-const CACHE_NAME = 'elsie-spark-v1';
+const CACHE_NAME = 'elsie-spark-v8';
 
 // Derive base path from service worker location so it works on any subpath
 const BASE = self.registration.scope;

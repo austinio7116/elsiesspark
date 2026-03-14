@@ -9,6 +9,7 @@ export default function renderMagnolia(ctx, h) {
   drawTrunk(bark);
 
   const flowers = [];
+  const buds = [];
 
   const fg = fractalGrow({
     angleModifier(a, depth) {
@@ -29,16 +30,32 @@ export default function renderMagnolia(ctx, h) {
           size: baseLSize * (0.8 + rng() * 0.6)
         });
       }
-      // Flower at some branch tips
+      // Branch tip angle — buds point along the branch
+      const branchAngle = Math.atan2(ey - sy, ex - sx);
+      // Flower or bud at some branch tips (same overall count as before)
       if (rng() > 0.65) {
         const flowerSize = Math.max(7, brushSize * (0.85 + rng() * 0.7));
         const openness = rng();
-        flowers.push({
-          x: ex + (rng() - 0.5) * endW * 2,
-          y: ey + (rng() - 0.5) * endW * 2,
-          size: flowerSize,
-          open: openness
-        });
+        const bx = ex + (rng() - 0.5) * endW * 2;
+        const by = ey + (rng() - 0.5) * endW * 2;
+        // ~25% of would-be flowers become buds instead
+        if (openness < 0.25) {
+          buds.push({
+            x: bx, y: by,
+            size: flowerSize * 0.85,
+            angle: branchAngle + (rng() - 0.5) * 0.3
+          });
+        } else {
+          flowers.push({
+            x: bx, y: by,
+            size: flowerSize,
+            open: openness
+          });
+          rng(); // consume bud angle rng for determinism
+        }
+      } else {
+        // Consume same rng() calls for determinism
+        rng(); rng(); rng(); rng(); rng();
       }
       return out;
     }
@@ -51,11 +68,14 @@ export default function renderMagnolia(ctx, h) {
 
   const foliage = filterByDensity(fg.foliage, leafDensity, seed + 99998);
 
-  // Filter flowers by leaf density
+  // Filter flowers and buds by leaf density
   let renderFlowers = flowers;
+  let renderBuds = buds;
   if (leafDensity < 1) {
     const fRng = h.createRng(seed + 88888);
     renderFlowers = flowers.filter(() => fRng() < (0.3 + leafDensity * 0.7));
+    const bRng = h.createRng(seed + 88887);
+    renderBuds = buds.filter(() => bRng() < (0.3 + leafDensity * 0.7));
   } else if (leafDensity > 1) {
     const fRng = h.createRng(seed + 88888);
     renderFlowers = [];
@@ -67,6 +87,19 @@ export default function renderMagnolia(ctx, h) {
           x: f.x + (fRng() - 0.5) * f.size * 2,
           y: f.y + (fRng() - 0.5) * f.size * 2,
           size: f.size * (0.7 + fRng() * 0.4)
+        });
+      }
+    }
+    const bRng = h.createRng(seed + 88887);
+    renderBuds = [];
+    for (const b of buds) {
+      renderBuds.push(b);
+      if (bRng() < (leafDensity - 1) * 0.3) {
+        renderBuds.push({
+          ...b,
+          x: b.x + (bRng() - 0.5) * b.size * 1.5,
+          y: b.y + (bRng() - 0.5) * b.size * 1.5,
+          size: b.size * (0.7 + bRng() * 0.3)
         });
       }
     }
@@ -120,9 +153,7 @@ export default function renderMagnolia(ctx, h) {
       if (ld.colIdx !== ci) continue;
       const { lx, ly, ls, la } = ld;
       const cos = Math.cos(la), sin = Math.sin(la);
-      // moveTo(0,0) -> (lx, ly)
       ctx.moveTo(lx, ly);
-      // bezierCurveTo(ls*0.25, -ls*0.42, ls*0.75, -ls*0.42, ls, 0)
       ctx.bezierCurveTo(
         lx + ls * 0.25 * cos - (-ls * 0.42) * sin,
         ly + ls * 0.25 * sin + (-ls * 0.42) * cos,
@@ -131,7 +162,6 @@ export default function renderMagnolia(ctx, h) {
         lx + ls * cos,
         ly + ls * sin
       );
-      // bezierCurveTo(ls*0.75, ls*0.42, ls*0.25, ls*0.42, 0, 0)
       ctx.bezierCurveTo(
         lx + ls * 0.75 * cos - ls * 0.42 * sin,
         ly + ls * 0.75 * sin + ls * 0.42 * cos,
@@ -161,9 +191,9 @@ export default function renderMagnolia(ctx, h) {
   }
 
   // Collect all stamen and petal data
-  const stamenLines = [];  // { sx, sy, ex, ey, lw, strokeCol }
-  const stamenAnthers = []; // { cx, cy, rx, ry, rot, fillCol }
-  const petalRecords = []; // all petal data for batch rendering
+  const stamenLines = [];
+  const stamenAnthers = [];
+  const petalRecords = [];
 
   for (const fl of renderFlowers) {
     const fs = fl.size;
@@ -214,7 +244,6 @@ export default function renderMagnolia(ctx, h) {
       const offsetX = Math.sin(splayAngle) * fs * 0.05;
       const offsetY = Math.abs(splayAngle) * fs * 0.03;
       const foldAmt = openAmt * (0.6 + rng() * 0.4);
-      // Consume rng() values matching original drawMagnoliaPetal order
       rng(); // flowerPink
       rng(); // baseH
       const baseAlpha = 0.85 + rng() * 0.15;
@@ -239,7 +268,6 @@ export default function renderMagnolia(ctx, h) {
       const ps = fs * (0.45 + rng() * 0.15);
       const offsetX = Math.sin(splayAngle) * fs * 0.02;
       const foldAmt = openAmt * (0.1 + rng() * 0.2);
-      // Consume rng() values matching original drawMagnoliaPetal order
       rng(); // flowerPink
       rng(); // baseH
       const baseAlpha = 0.85 + rng() * 0.15;
@@ -324,6 +352,92 @@ export default function renderMagnolia(ctx, h) {
       ...rot(px, py, ps * 0.22, -ps * 0.65, cos, sin),
       ...rot(px, py, ps * 0.16, -ps * 0.28, cos, sin),
       ...rot(px, py, 0, 0, cos, sin)
+    );
+    ctx.fill();
+  }
+
+  // ── Render unopened buds ──
+  // Tight pointed petal shape with two overlapping brown sepals on lower half
+  for (const bud of renderBuds) {
+    const bs = bud.size;
+    const bx = bud.x;
+    const by = bud.y;
+    const ba = bud.angle + Math.PI / 2;
+    const cos = Math.cos(ba), sin = Math.sin(ba);
+
+    // Bud petal — pointed teardrop, pink-to-white gradient
+    const colIdx = Math.floor(rng() * PETAL_PAL_SIZE) % PETAL_PAL_SIZE;
+    const tipPt = rot(bx, by, 0, -bs, cos, sin);
+    const budGrad = ctx.createLinearGradient(bx, by, tipPt[0], tipPt[1]);
+    budGrad.addColorStop(0, petalBasePalette[colIdx]);
+    budGrad.addColorStop(0.5, petalMidPalette[colIdx]);
+    budGrad.addColorStop(1, '#fff');
+
+    ctx.globalAlpha = opacity * 0.92;
+    ctx.fillStyle = budGrad;
+    ctx.beginPath();
+    const [m0x, m0y] = rot(bx, by, 0, 0, cos, sin);
+    ctx.moveTo(m0x, m0y);
+    ctx.bezierCurveTo(
+      ...rot(bx, by, -bs * 0.18, -bs * 0.15, cos, sin),
+      ...rot(bx, by, -bs * 0.2, -bs * 0.55, cos, sin),
+      ...rot(bx, by, 0, -bs, cos, sin)
+    );
+    ctx.bezierCurveTo(
+      ...rot(bx, by, bs * 0.2, -bs * 0.55, cos, sin),
+      ...rot(bx, by, bs * 0.18, -bs * 0.15, cos, sin),
+      ...rot(bx, by, 0, 0, cos, sin)
+    );
+    ctx.fill();
+
+    // Left sepal — covers bottom half, curves past center to overlap
+    const sepalH = 30 / 360;
+    const sepalS = 0.25 + rng() * 0.1;
+    const sepalL = 0.45 + rng() * 0.12;
+    const sCol1 = hslToRgb(sepalH, sepalS, sepalL);
+    ctx.fillStyle = `rgb(${sCol1[0]},${sCol1[1]},${sCol1[2]})`;
+    ctx.globalAlpha = opacity * 0.85;
+    ctx.beginPath();
+    ctx.moveTo(...rot(bx, by, 0, bs * 0.05, cos, sin));
+    ctx.bezierCurveTo(
+      ...rot(bx, by, -bs * 0.16, -bs * 0.05, cos, sin),
+      ...rot(bx, by, -bs * 0.18, -bs * 0.25, cos, sin),
+      ...rot(bx, by, -bs * 0.11, -bs * 0.45, cos, sin)
+    );
+    // Curve past midline to overlap with right sepal
+    ctx.bezierCurveTo(
+      ...rot(bx, by, -bs * 0.04, -bs * 0.5, cos, sin),
+      ...rot(bx, by, bs * 0.04, -bs * 0.42, cos, sin),
+      ...rot(bx, by, bs * 0.03, -bs * 0.3, cos, sin)
+    );
+    ctx.bezierCurveTo(
+      ...rot(bx, by, bs * 0.01, -bs * 0.15, cos, sin),
+      ...rot(bx, by, -bs * 0.01, -bs * 0.02, cos, sin),
+      ...rot(bx, by, 0, bs * 0.05, cos, sin)
+    );
+    ctx.fill();
+
+    // Right sepal — covers bottom half, curves past center to overlap
+    const sepalS2 = 0.25 + rng() * 0.1;
+    const sepalL2 = 0.45 + rng() * 0.12;
+    const sCol2 = hslToRgb(sepalH, sepalS2, sepalL2);
+    ctx.fillStyle = `rgb(${sCol2[0]},${sCol2[1]},${sCol2[2]})`;
+    ctx.beginPath();
+    ctx.moveTo(...rot(bx, by, 0, bs * 0.05, cos, sin));
+    ctx.bezierCurveTo(
+      ...rot(bx, by, bs * 0.16, -bs * 0.05, cos, sin),
+      ...rot(bx, by, bs * 0.18, -bs * 0.25, cos, sin),
+      ...rot(bx, by, bs * 0.11, -bs * 0.45, cos, sin)
+    );
+    ctx.bezierCurveTo(
+      ...rot(bx, by, bs * 0.04, -bs * 0.5, cos, sin),
+      ...rot(bx, by, -bs * 0.04, -bs * 0.42, cos, sin),
+      ...rot(bx, by, -bs * 0.03, -bs * 0.3, cos, sin)
+    );
+    ctx.bezierCurveTo(
+      ...rot(bx, by, -bs * 0.01, -bs * 0.15, cos, sin),
+      ...rot(bx, by, bs * 0.01, -bs * 0.02, cos, sin),
+      ...rot(bx, by, 0, bs * 0.05, cos, sin)
     );
     ctx.fill();
   }

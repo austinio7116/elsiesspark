@@ -49,7 +49,9 @@ function getActiveLayer() {
 }
 
 function getActiveSize() {
-  return state.activeBrush === 'eraser' ? state.eraserSize : state.brushSize;
+  if (state.activeBrush === 'eraser') return state.eraserSize;
+  if (state.activeBrush === 'paint') return state.paintSize;
+  return state.brushSize;
 }
 
 function getCanvasPos(e) {

@@ -216,8 +216,8 @@ export function initToolbar() {
   const paintSizeSlider = $('#paint-size');
   if (paintSizeSlider) {
     paintSizeSlider.addEventListener('input', e => {
-      state.brushSize = parseInt(e.target.value);
-      $('#paint-size-label').textContent = state.brushSize;
+      state.paintSize = parseInt(e.target.value);
+      $('#paint-size-label').textContent = state.paintSize;
     });
   }
 

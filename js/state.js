@@ -68,6 +68,7 @@ const state = {
   rainbowBlur: 0.4,
   furBlur: 0.5,
   paintHead: 'flat',
+  paintSize: 20,
   // Project
   currentProjectId: null,
 };

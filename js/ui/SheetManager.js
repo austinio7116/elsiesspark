@@ -68,6 +68,18 @@ export function updateBrushOptions() {
   $$('.brush-options').forEach(el => el.classList.add('hidden'));
   const opt = $(`#brush-opt-${state.activeBrush}`);
   if (opt) opt.classList.remove('hidden');
+  // Hide shared size slider when paint is active (paint has its own)
+  const sizeRow = $('.size-row');
+  if (sizeRow) {
+    sizeRow.style.display = state.activeBrush === 'paint' ? 'none' : '';
+  }
+  // Sync shared size slider to state.brushSize when switching away from paint
+  const sizeSlider = $('#brush-size');
+  if (sizeSlider && state.activeBrush !== 'paint') {
+    sizeSlider.value = state.brushSize;
+    const sizeLabel = $('#brush-size-label');
+    if (sizeLabel) sizeLabel.textContent = state.brushSize;
+  }
   // Show softness slider only for pen, marker, and line
   const softnessRow = $('#softness-row');
   if (softnessRow) {
