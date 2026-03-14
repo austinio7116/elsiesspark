@@ -11,6 +11,7 @@ import TreeBrush from './TreeBrush.js';
 import WaterBrush from './WaterBrush.js';
 import GrassBrush from './GrassBrush.js';
 import FurBrush from './FurBrush.js';
+import PaintBrush from './PaintBrush.js';
 
 const brushes = {
   pen: new PenBrush(),
@@ -26,6 +27,7 @@ const brushes = {
   water: new WaterBrush(),
   grass: new GrassBrush(),
   fur: new FurBrush(),
+  paint: new PaintBrush(),
 };
 
 export default brushes;

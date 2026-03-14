@@ -45,6 +45,26 @@ export default class FurBrush extends Brush {
     }
     if (totalLen < 1) return;
 
+    // ── Layer 0: Soft blurred base line for body/volume ──
+    const furBlur = obj.furBlur != null ? obj.furBlur : 0.5;
+    if (furBlur > 0) {
+      ctx.save();
+      const blurRadius = Math.max(2, bSize * furBlur * 1.2);
+      ctx.filter = `blur(${blurRadius}px)`;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = bSize * (0.6 + furBlur * 1.2);
+      ctx.globalAlpha = opacity;
+      ctx.strokeStyle = `rgb(${cr},${cg},${cb})`;
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) {
+        ctx.lineTo(pts[i].x, pts[i].y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // Helper: draw a single fur strand as a tapered wavy curve
     function drawStrand(sx, sy, angle, length, baseW, waveAmp, waveFreq, rgb, alpha) {
       const steps = Math.max(4, Math.floor(length / 3));

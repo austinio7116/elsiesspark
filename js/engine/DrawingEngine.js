@@ -81,7 +81,7 @@ function compositeScratchToLayer(layer, brush) {
   previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
   previewCtx.save();
   // Procedural brushes handle their own opacity in drawObjectTo
-  const isProc = (brush === 'sprinkles' || brush === 'vine' || brush === 'fairylights' || brush === 'glitz' || brush === 'rainbow' || brush === 'tree' || brush === 'water' || brush === 'grass' || brush === 'fur');
+  const isProc = (brush === 'sprinkles' || brush === 'vine' || brush === 'fairylights' || brush === 'glitz' || brush === 'rainbow' || brush === 'tree' || brush === 'water' || brush === 'grass' || brush === 'fur' || brush === 'paint');
   previewCtx.globalAlpha = isProc ? 1 : (brush === 'marker' ? state.brushOpacity * 0.5 : state.brushOpacity);
   if (state.brushSoftness > 0 && (brush === 'pen' || brush === 'marker')) {
     previewCtx.filter = `blur(${state.brushSoftness * getActiveSize() * 0.4}px)`;
@@ -358,6 +358,8 @@ function moveStroke(e) {
         treeBranchDensity: state.treeBranchDensity,
         treeMode: state.treeMode,
         rainbowBlur: state.rainbowBlur,
+          furBlur: state.furBlur,
+          paintHead: state.paintHead,
       };
       ObjectRenderer.drawObjectTo(sctx, tmpObj);
     }
@@ -417,7 +419,7 @@ function endStroke(e) {
         const relPoints = pts.map(p => ({ x: p.x - cx, y: p.y - cy }));
         const activeSize = getActiveSize();
         // For procedural brushes, expand bounding box to account for decorations
-        const expandFactor = (brush === 'vine' || brush === 'fairylights') ? 3 : (brush === 'sprinkles' ? 4 : (brush === 'tree' ? 5 : (brush === 'water' || brush === 'grass' || brush === 'fur') ? 3 : 1));
+        const expandFactor = (brush === 'vine' || brush === 'fairylights') ? 3 : (brush === 'sprinkles' ? 4 : (brush === 'tree' ? 5 : (brush === 'water' || brush === 'grass' || brush === 'fur' || brush === 'paint') ? 3 : 1));
         layer.objects.push({
           id: state.pendingStrokeId, type: 'stroke',
           x: cx, y: cy, rotation: 0, scale: 1,
@@ -435,6 +437,8 @@ function endStroke(e) {
           treeBranchDensity: state.treeBranchDensity,
           treeMode: state.treeMode,
           rainbowBlur: state.rainbowBlur,
+          furBlur: state.furBlur,
+          paintHead: state.paintHead,
         });
         previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
         bus.emit('renderObjects');

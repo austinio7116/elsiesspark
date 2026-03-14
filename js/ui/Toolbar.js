@@ -41,6 +41,14 @@ export function initToolbar() {
         openSheet('text');
       } else if (tool === 'brushes') {
         openSheet('brushes');
+      } else if (tool === 'paint') {
+        bus.emit('exitStickerMode');
+        bus.emit('exitTextMode');
+        bus.emit('exitSelectMode');
+        state.activeBrush = 'paint';
+        $$('.tb-btn').forEach(b => b.classList.remove('active'));
+        $('#btn-tools-menu')?.classList.add('active');
+        openSheet('paint');
       } else {
         // stickers, backgrounds, etc.
         openSheet(tool);
@@ -174,6 +182,42 @@ export function initToolbar() {
     rainbowOpSlider.addEventListener('input', e => {
       state.brushOpacity = parseInt(e.target.value) / 100;
       $('#rainbow-opacity-label').textContent = e.target.value + '%';
+    });
+  }
+
+  // ── Fur blur slider ──
+  const furBlurSlider = $('#fur-blur');
+  if (furBlurSlider) {
+    furBlurSlider.addEventListener('input', e => {
+      state.furBlur = parseInt(e.target.value) / 100;
+      $('#fur-blur-label').textContent = e.target.value + '%';
+    });
+  }
+
+  // ── Paint head buttons ──
+  $$('.paint-head-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.paint-head-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.paintHead = btn.dataset.head;
+      // Ensure paint brush is active when selecting a head
+      state.activeBrush = 'paint';
+      bus.emit('exitStickerMode');
+      bus.emit('exitTextMode');
+      bus.emit('exitSelectMode');
+      $$('.tb-btn').forEach(b => b.classList.remove('active'));
+      $('#btn-tools-menu')?.classList.add('active');
+      $$('.tb-sub-btn').forEach(b => b.classList.remove('active'));
+      $$('.tb-sub-btn[data-subtool="paint"]').forEach(b => b.classList.add('active'));
+    });
+  });
+
+  // ── Paint size slider ──
+  const paintSizeSlider = $('#paint-size');
+  if (paintSizeSlider) {
+    paintSizeSlider.addEventListener('input', e => {
+      state.brushSize = parseInt(e.target.value);
+      $('#paint-size-label').textContent = state.brushSize;
     });
   }
 
