@@ -69,6 +69,7 @@ bus.on('moveSelectedObjectDown', () => ObjectRenderer.moveSelectedObjectDown());
 bus.on('moveSelectedObjectToFront', () => ObjectRenderer.moveSelectedObjectToFront());
 bus.on('moveSelectedObjectToBack', () => ObjectRenderer.moveSelectedObjectToBack());
 bus.on('mirrorSelectedObject', () => ObjectRenderer.mirrorSelectedObject());
+bus.on('groupSelectedObjects', () => ObjectRenderer.groupSelectedObjects());
 
 // IO events
 bus.on('saveProject', () => saveProject());

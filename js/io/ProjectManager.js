@@ -77,6 +77,13 @@ async function saveProject(silent) {
         objects: (l.objects || []).map(o => {
           const s = { ...o };
           if (s.type === 'sticker') { delete s.img; }
+          if (s.type === 'group' && s.children) {
+            s.children = s.children.map(c => {
+              const sc = { ...c };
+              if (sc.type === 'sticker') { delete sc.img; }
+              return sc;
+            });
+          }
           return s;
         }),
       }))),
@@ -140,12 +147,10 @@ function loadProject(projectData) {
       layer.ctx.drawImage(img, 0, 0);
       // Restore objects after raster is loaded
       if (ld.objects) {
-        layer.objects = ld.objects.map(o => {
-          const obj = { ...o };
+        const restoreStickerImg = (obj) => {
           if (obj.type === 'sticker' && !obj.img) {
             const sticker = STICKERS.find(s => s.name === obj.name);
             const fileSt  = FILE_STICKERS.find(s => s.name === obj.name);
-            // Check for shape objects (name starts with "shape:")
             const shapeName = obj.name && obj.name.startsWith('shape:') ? obj.name.slice(6) : null;
             const shape = shapeName ? SHAPES.find(s => s.name === shapeName) : null;
             if (sticker) {
@@ -167,6 +172,17 @@ function loadProject(projectData) {
               simg.onload = () => { obj.img = simg; ObjectRenderer.invalidateAllLayerCaches(); bus.emit('renderObjects'); };
               simg.src = fileSt.src;
             }
+          }
+        };
+        layer.objects = ld.objects.map(o => {
+          const obj = { ...o };
+          restoreStickerImg(obj);
+          if (obj.type === 'group' && obj.children) {
+            obj.children = obj.children.map(c => {
+              const child = { ...c };
+              restoreStickerImg(child);
+              return child;
+            });
           }
           return obj;
         });

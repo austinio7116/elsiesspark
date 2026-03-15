@@ -163,6 +163,29 @@ function startStroke(e) {
   // ── Select mode ──
   if (state.selectMode) {
     const pos = getCanvasPos(e);
+    // Check multi-selection handles first
+    if (state.selectedObjects.length > 0) {
+      const multiHandle = ObjectRenderer.hitTestMultiHandle(pos.x, pos.y);
+      if (multiHandle) {
+        bus.emit('pushUndo');
+        const bounds = ObjectRenderer.getMultiSelectionBounds(state.selectedObjects);
+        // Store original positions of all selected objects
+        const origPositions = state.selectedObjects.map(o => ({
+          id: o.id, x: o.x, y: o.y, rotation: o.rotation,
+          size: o.size, fontSize: o.fontSize, scale: o.scale,
+        }));
+        state.selectDrag = {
+          type: multiHandle, startX: pos.x, startY: pos.y,
+          origX: bounds.cx, origY: bounds.cy,
+          origPositions: origPositions,
+          origRotation: 0,
+          multi: true,
+        };
+        ObjectRenderer.beginMultiDragCache(CanvasManager.getActiveLayer(), state.selectedObjects);
+        return;
+      }
+    }
+    // Check single-selection handles
     const handle = ObjectRenderer.hitTestHandle(pos.x, pos.y);
     if (handle) {
       bus.emit('pushUndo');
@@ -173,27 +196,35 @@ function startStroke(e) {
         origSize: obj.size || obj.fontSize || obj.scale || 1,
         origRotation: obj.rotation,
       };
-      // Build drag cache: layer without the dragged object
-      ObjectRenderer.beginDragCache(CanvasManager.getActiveLayer(), obj);
+      // Build drag cache: layer without the dragged object (skip for groups — full re-render is safer)
+      if (obj.type !== 'group') {
+        ObjectRenderer.beginDragCache(CanvasManager.getActiveLayer(), obj);
+      }
     } else {
       const hit = ObjectRenderer.hitTestObject(pos.x, pos.y);
       if (hit) {
         bus.emit('pushUndo');
         state.selectedObject = hit;
+        state.selectedObjects = [];
         state.selectDrag = {
           type: 'move', startX: pos.x, startY: pos.y,
           origX: hit.x, origY: hit.y,
           origSize: hit.size || hit.fontSize || hit.scale || 1,
           origRotation: hit.rotation,
         };
-        // Build drag cache: layer without the dragged object
-        ObjectRenderer.beginDragCache(CanvasManager.getActiveLayer(), hit);
+        // Build drag cache: layer without the dragged object (skip for groups — full re-render is safer)
+        if (hit.type !== 'group') {
+          ObjectRenderer.beginDragCache(CanvasManager.getActiveLayer(), hit);
+        }
         previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
         bus.emit('drawSelectionHandles');
         bus.emit('updateSelectToolbar');
       } else {
+        // No object hit — start box selection (marquee)
         state.selectedObject = null;
+        state.selectedObjects = [];
         state.selectDrag = null;
+        state.selectBox = { startX: pos.x, startY: pos.y, endX: pos.x, endY: pos.y };
         previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
         bus.emit('renderObjects');
         bus.emit('updateSelectToolbar');
@@ -348,7 +379,70 @@ function moveStroke(e) {
     return;
   }
 
-  // ── Select mode drag ──
+  // ── Select mode: box selection drag ──
+  if (state.selectMode && state.selectBox) {
+    const pos = getCanvasPos(e);
+    state.selectBox.endX = pos.x;
+    state.selectBox.endY = pos.y;
+    previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+    ObjectRenderer.drawSelectBox();
+    return;
+  }
+  // ── Select mode: multi-selection drag ──
+  if (state.selectMode && state.selectDrag && state.selectDrag.multi && state.selectedObjects.length > 0) {
+    const pos = getCanvasPos(e);
+    const d = state.selectDrag;
+    if (d.type === 'move') {
+      const dx = pos.x - d.startX;
+      const dy = pos.y - d.startY;
+      for (let i = 0; i < state.selectedObjects.length; i++) {
+        const obj = state.selectedObjects[i];
+        const orig = d.origPositions[i];
+        obj.x = orig.x + dx;
+        obj.y = orig.y + dy;
+      }
+    } else if (d.type === 'rotate') {
+      const a1 = Math.atan2(d.startY - d.origY, d.startX - d.origX);
+      const a2 = Math.atan2(pos.y - d.origY, pos.x - d.origX);
+      const dAngle = (a2 - a1);
+      const cos = Math.cos(dAngle), sin = Math.sin(dAngle);
+      for (let i = 0; i < state.selectedObjects.length; i++) {
+        const obj = state.selectedObjects[i];
+        const orig = d.origPositions[i];
+        // Rotate position around group center
+        const rx = orig.x - d.origX;
+        const ry = orig.y - d.origY;
+        obj.x = d.origX + rx * cos - ry * sin;
+        obj.y = d.origY + rx * sin + ry * cos;
+        obj.rotation = (orig.rotation || 0) + dAngle * 180 / Math.PI;
+      }
+    } else if (d.type.startsWith('scale')) {
+      const dist0 = Math.hypot(d.startX - d.origX, d.startY - d.origY) || 1;
+      const dist1 = Math.hypot(pos.x - d.origX, pos.y - d.origY);
+      const scaleVal = Math.max(0.1, dist1 / dist0);
+      for (let i = 0; i < state.selectedObjects.length; i++) {
+        const obj = state.selectedObjects[i];
+        const orig = d.origPositions[i];
+        // Scale position relative to group center
+        obj.x = d.origX + (orig.x - d.origX) * scaleVal;
+        obj.y = d.origY + (orig.y - d.origY) * scaleVal;
+        // Scale object size
+        if (obj.type === 'sticker') {
+          obj.size = Math.max(16, Math.min(600, (orig.size || 100) * scaleVal));
+        } else if (obj.type === 'text') {
+          obj.fontSize = Math.max(12, Math.min(300, Math.round((orig.fontSize || 24) * scaleVal)));
+        } else if (obj.type === 'stroke' || obj.type === 'group') {
+          obj.scale = Math.max(0.1, Math.min(10, (orig.scale || 1) * scaleVal));
+        }
+      }
+    }
+    // Mark layer dirty so the layer cache re-renders with updated positions
+    ObjectRenderer.markLayerDirty(CanvasManager.getActiveLayer());
+    previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+    bus.emit('renderObjects');
+    return;
+  }
+  // ── Select mode: single object drag ──
   if (state.selectMode && state.selectDrag && state.selectedObject) {
     const pos = getCanvasPos(e);
     const d = state.selectDrag;
@@ -368,12 +462,15 @@ function moveStroke(e) {
         obj.size = Math.max(16, Math.min(600, d.origSize * scaleVal));
       } else if (obj.type === 'text') {
         obj.fontSize = Math.max(12, Math.min(300, Math.round(d.origSize * scaleVal)));
-      } else if (obj.type === 'stroke') {
+      } else if (obj.type === 'stroke' || obj.type === 'group') {
         obj.scale = Math.max(0.1, Math.min(10, d.origSize * scaleVal));
       }
     }
-    // Drag cache is active — renderObjects will use it to only redraw
-    // the dragged object, not the entire layer.
+    // For groups (no drag cache), mark the layer dirty so the layer cache re-renders.
+    // For other objects, the drag cache fast-path handles it.
+    if (obj.type === 'group') {
+      ObjectRenderer.markLayerDirty(CanvasManager.getActiveLayer());
+    }
     previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
     bus.emit('renderObjects');
     return;
@@ -522,10 +619,35 @@ function endStroke(e) {
     return;
   }
 
-  if (state.selectMode && state.selectDrag) {
-    if (state.selectDrag.type !== 'move' || state.selectDrag.startX !== state.selectedObject?.x) {
-      // Object was modified — undo was already captured in startStroke
+  // ── Select mode: box selection complete ──
+  if (state.selectMode && state.selectBox) {
+    const b = state.selectBox;
+    const x = Math.min(b.startX, b.endX);
+    const y = Math.min(b.startY, b.endY);
+    const w = Math.abs(b.endX - b.startX);
+    const h = Math.abs(b.endY - b.startY);
+    state.selectBox = null;
+    // Only do box select if the drag was large enough (not just a click)
+    if (w > 5 && h > 5) {
+      const matches = ObjectRenderer.boxSelectObjects({ x, y, w, h });
+      if (matches.length === 1) {
+        // Single match — use normal single selection
+        state.selectedObject = matches[0];
+        state.selectedObjects = [];
+      } else if (matches.length > 1) {
+        state.selectedObject = null;
+        state.selectedObjects = matches;
+      } else {
+        state.selectedObject = null;
+        state.selectedObjects = [];
+      }
     }
+    previewCtx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+    bus.emit('renderObjects');
+    bus.emit('updateSelectToolbar');
+    return;
+  }
+  if (state.selectMode && state.selectDrag) {
     state.selectDrag = null;
     // End drag cache and mark layer dirty so the full cache gets rebuilt
     ObjectRenderer.endDragCache();

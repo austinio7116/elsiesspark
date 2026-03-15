@@ -29,6 +29,33 @@ export function setColor(hex) {
     bus.emit('renderObjects');
     bus.emit('drawSelectionHandles');
   }
+  // Update selected group's children colors (stroke/text only)
+  if (state.selectMode && state.selectedObject && state.selectedObject.type === 'group') {
+    bus.emit('pushUndo');
+    for (const child of state.selectedObject.children) {
+      if (child.type === 'stroke' || child.type === 'text') {
+        child.color = hex;
+      }
+    }
+    ObjectRenderer.markLayerDirty(CanvasManager.getActiveLayer());
+    bus.emit('renderObjects');
+    bus.emit('drawSelectionHandles');
+  }
+  // Update multi-selected objects' colors
+  if (state.selectMode && state.selectedObjects.length > 0) {
+    bus.emit('pushUndo');
+    for (const obj of state.selectedObjects) {
+      if (obj.type === 'stroke' || obj.type === 'text') {
+        obj.color = hex;
+      } else if (obj.type === 'group') {
+        for (const child of obj.children) {
+          if (child.type === 'stroke' || child.type === 'text') child.color = hex;
+        }
+      }
+    }
+    ObjectRenderer.markLayerDirty(CanvasManager.getActiveLayer());
+    bus.emit('renderObjects');
+  }
   // Update selected shape color
   if (state.selectMode && state.selectedObject && state.selectedObject.type === 'sticker' && state.selectedObject.name && state.selectedObject.name.startsWith('shape:')) {
     bus.emit('pushUndo');

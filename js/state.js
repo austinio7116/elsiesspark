@@ -50,7 +50,9 @@ const state = {
   // Select tool
   selectMode: false,
   selectedObject: null,
+  selectedObjects: [],   // multi-select (box selection)
   selectDrag: null,  // { type, startX, startY, origX, origY, origSize, origFontSize, origRotation }
+  selectBox: null,   // { startX, startY, endX, endY } — marquee drag
   // Eraser tool
   eraserMode: false,
   eraserTarget: null,  // the object being erased

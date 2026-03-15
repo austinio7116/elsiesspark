@@ -2,18 +2,23 @@ import state from '../state.js';
 import bus from '../EventBus.js';
 import { $ } from '../utils.js';
 
+function _deepCopyObject(o) {
+  const copy = { ...o };
+  if (copy.points) copy.points = copy.points.map(p => ({ ...p }));
+  if (copy.eraserPaths) copy.eraserPaths = copy.eraserPaths.map(ep => ({
+    ...ep, points: ep.points.map(p => ({ ...p })),
+  }));
+  if (copy.type === 'group' && copy.children) {
+    copy.children = copy.children.map(c => _deepCopyObject(c));
+  }
+  return copy;
+}
+
 export function captureState() {
   return state.layers.map(l => ({
     id: l.id, name: l.name, visible: l.visible, opacity: l.opacity ?? 1,
     data: l.canvas.toDataURL(),
-    objects: l.objects ? l.objects.map(o => {
-      const copy = { ...o };
-      if (copy.points) copy.points = copy.points.map(p => ({ ...p }));
-      if (copy.eraserPaths) copy.eraserPaths = copy.eraserPaths.map(ep => ({
-        ...ep, points: ep.points.map(p => ({ ...p })),
-      }));
-      return copy;
-    }) : [],
+    objects: l.objects ? l.objects.map(o => _deepCopyObject(o)) : [],
   }));
 }
 
@@ -52,18 +57,12 @@ function restoreState(snapshot) {
     img.src = sd.data;
     layer.visible = sd.visible;
     layer.opacity = sd.opacity ?? 1;
-    layer.objects = sd.objects ? sd.objects.map(o => {
-      const copy = { ...o };
-      if (copy.points) copy.points = copy.points.map(p => ({ ...p }));
-      if (copy.eraserPaths) copy.eraserPaths = copy.eraserPaths.map(ep => ({
-        ...ep, points: ep.points.map(p => ({ ...p })),
-      }));
-      return copy;
-    }) : [];
+    layer.objects = sd.objects ? sd.objects.map(o => _deepCopyObject(o)) : [];
     layer.canvas.style.display = sd.visible ? '' : 'none';
     layer.canvas.style.opacity = layer.opacity;
   });
   state.selectedObject = null;
+  state.selectedObjects = [];
   bus.emit('invalidateAllLayerCaches');
   bus.emit('renderLayerList');
   bus.emit('renderObjects');

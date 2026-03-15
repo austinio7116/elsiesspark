@@ -66,9 +66,22 @@ export function initToolbar() {
       else if (action === 'copy') bus.emit('copySelectedObject');
       else if (action === 'up') bus.emit('moveSelectedObjectUp');
       else if (action === 'down') bus.emit('moveSelectedObjectDown');
-      else if (action === 'front') bus.emit('moveSelectedObjectToFront');
-      else if (action === 'back') bus.emit('moveSelectedObjectToBack');
+      else if (action === 'frontback') {
+        const fbBtn = $('#btn-frontback');
+        const label = fbBtn?.querySelector('span');
+        const svg = fbBtn?.querySelector('svg');
+        if (label && label.textContent === 'Front') {
+          bus.emit('moveSelectedObjectToFront');
+          label.textContent = 'Back';
+          if (svg) svg.innerHTML = '<path d="M7 7l5 5l5 -5" /><path d="M7 13l5 5l5 -5" />';
+        } else {
+          bus.emit('moveSelectedObjectToBack');
+          if (label) label.textContent = 'Front';
+          if (svg) svg.innerHTML = '<path d="M7 11l5 -5l5 5" /><path d="M7 17l5 -5l5 5" />';
+        }
+      }
       else if (action === 'mirror') bus.emit('mirrorSelectedObject');
+      else if (action === 'group') bus.emit('groupSelectedObjects');
     });
   });
 
@@ -412,8 +425,9 @@ export function initToolbar() {
   // ── Keyboard shortcuts ──
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-      if (state.selectMode && state.selectedObject) {
+      if (state.selectMode && (state.selectedObject || state.selectedObjects.length > 0)) {
         state.selectedObject = null;
+        state.selectedObjects = [];
         bus.emit('clearPreviewCanvas');
         bus.emit('renderObjects');
         bus.emit('updateSelectToolbar');
@@ -424,7 +438,7 @@ export function initToolbar() {
       closeSheet();
     }
     if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (state.selectMode && state.selectedObject && e.target.tagName !== 'INPUT') {
+      if (state.selectMode && (state.selectedObject || state.selectedObjects.length > 0) && e.target.tagName !== 'INPUT') {
         e.preventDefault();
         bus.emit('deleteSelectedObject');
         return;
