@@ -143,18 +143,28 @@ A little **preview** at the top of the brush panel shows you what your stroke wi
 
 <img align="right" width="250" src="screenshots/04c-brush-tree.png" alt="Tree brush options">
 
-**Tree** — This one is seriously cool. Draw a stroke and a whole tree grows from it! Choose from **9 tree styles**:
-- Default, Pine, Oak, Birch, Willow, Cherry, Maple, Magnolia, Palm
+**Tree** — This one is seriously cool. Draw a stroke and a whole tree grows from it! Choose from **8 tree styles**:
+- Oak, Magnolia, Willow, Cherry, Pine, Palm, Maple, Birch
 
 Each tree has **Leaf Density** and **Branch Density** sliders so you can make anything from a sparse winter tree to a lush summer one.
+
+<br clear="both"/>
+
+Here's every tree type in action — watch them grow!
+
+| Oak | Magnolia | Willow | Cherry |
+|:---:|:---:|:---:|:---:|
+| ![Oak](screenshots/trees/tree-oak.gif) | ![Magnolia](screenshots/trees/tree-magnolia.gif) | ![Willow](screenshots/trees/tree-willow.gif) | ![Cherry](screenshots/trees/tree-cherry.gif) |
+
+| Pine | Palm | Maple | Birch |
+|:---:|:---:|:---:|:---:|
+| ![Pine](screenshots/trees/tree-pine.gif) | ![Palm](screenshots/trees/tree-palm.gif) | ![Maple](screenshots/trees/tree-maple.gif) | ![Birch](screenshots/trees/tree-birch.gif) |
 
 **Grass** — Blades of grass spring up along your stroke path. Perfect for landscapes.
 
 **Water** — Creates flowing wave and ripple effects. Add a lake or river to your scene!
 
 **Fur** — Draws soft, fuzzy fur texture. Has its own **Blur** slider for extra fluffiness. Great for drawing animals.
-
-<br clear="both"/>
 
 ---
 
