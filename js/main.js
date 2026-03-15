@@ -85,7 +85,7 @@ bus.on('clearPreviewCanvas', () => {
 
 // Text tool entry via bus
 import { enterTextMode } from './tools/TextTool.js';
-bus.on('enterTextMode', (text, font, size, bold, italic) => enterTextMode(text, font, size, bold, italic));
+bus.on('enterTextMode', (text, font, size, bold, italic, align) => enterTextMode(text, font, size, bold, italic, align));
 
 // ═══════════════════════════════════════════════════════
 // LOADING SCREEN

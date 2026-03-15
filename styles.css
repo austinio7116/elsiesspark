@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Pacifico&family=Dancing+Script:wght@400;700&family=Fredoka+One&family=Caveat:wght@400;700&family=Permanent+Marker&family=Indie+Flower&family=Lobster&family=Shadows+Into+Light&family=Satisfy&family=Orbitron:wght@400;700&family=Audiowide&family=Press+Start+2P&display=swap');
 
 /* ─── Loading Screen ───────────────────────────────── */
 #loading-screen {
@@ -1404,12 +1404,14 @@ button:active { transform: scale(0.95); }
 
 #text-font-grid {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
 }
 
 .text-font-btn {
-  flex: 1;
+  flex: 0 0 calc(25% - 6px);
+  min-width: 0;
   padding: 10px 4px;
   border-radius: var(--radius-sm);
   background: #f5f0ea;
@@ -1452,6 +1454,14 @@ button:active { transform: scale(0.95); }
   background: #fde8e3;
   color: var(--accent);
   border-color: var(--accent-soft);
+}
+
+.text-style-sep {
+  width: 1px;
+  height: 28px;
+  background: #ddd;
+  align-self: center;
+  margin: 0 2px;
 }
 
 #btn-place-text {

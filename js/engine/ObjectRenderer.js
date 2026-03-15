@@ -160,15 +160,31 @@ function appendToLayerCache(layer, obj) {
 // ═══════════════════════════════════════════════════════
 // FONT STRING
 // ═══════════════════════════════════════════════════════
+const _FONT_MAP = {
+  'Nunito':            "'Nunito', sans-serif",
+  'serif':             "Georgia, 'Times New Roman', serif",
+  'monospace':         "'Courier New', monospace",
+  'cursive':           "'Segoe Script', cursive",
+  'Pacifico':          "'Pacifico', cursive",
+  'Dancing Script':    "'Dancing Script', cursive",
+  'Fredoka One':       "'Fredoka One', cursive",
+  'Caveat':            "'Caveat', cursive",
+  'Permanent Marker':  "'Permanent Marker', cursive",
+  'Indie Flower':      "'Indie Flower', cursive",
+  'Lobster':           "'Lobster', cursive",
+  'Shadows Into Light': "'Shadows Into Light', cursive",
+  'Satisfy':           "'Satisfy', cursive",
+  'Orbitron':          "'Orbitron', sans-serif",
+  'Audiowide':         "'Audiowide', cursive",
+  'Press Start 2P':    "'Press Start 2P', cursive",
+};
+
 function textObjFontStr(obj) {
   let s = '';
   if (obj.italic) s += 'italic ';
   if (obj.bold) s += 'bold ';
   s += obj.fontSize + 'px ';
-  if (obj.font === 'cursive') s += "'Segoe Script', cursive";
-  else if (obj.font === 'serif') s += "Georgia, 'Times New Roman', serif";
-  else if (obj.font === 'monospace') s += "'Courier New', monospace";
-  else s += "'Nunito', sans-serif";
+  s += _FONT_MAP[obj.font] || "'Nunito', sans-serif";
   return s;
 }
 
@@ -213,7 +229,7 @@ function _drawObjectDirect(ctx, obj) {
     ctx.font = textObjFontStr(obj);
     ctx.fillStyle = obj.color;
     ctx.globalAlpha = obj.opacity;
-    ctx.textAlign = 'center';
+    ctx.textAlign = obj.align || 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(obj.text, 0, 0);
   } else if (obj.type === 'stroke') {

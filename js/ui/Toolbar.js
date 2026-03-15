@@ -400,6 +400,12 @@ export function initToolbar() {
   $('#text-italic')?.addEventListener('click', e => {
     e.currentTarget.classList.toggle('active');
   });
+  $$('.text-align-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.text-align-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
   $('#btn-place-text')?.addEventListener('click', () => {
     const input = $('#text-input');
     const text = input?.value.trim();
@@ -409,8 +415,10 @@ export function initToolbar() {
     const size = parseInt($('#text-size')?.value || 48);
     const bold = $('#text-bold')?.classList.contains('active') || false;
     const italic = $('#text-italic')?.classList.contains('active') || false;
+    const alignBtn = document.querySelector('.text-align-btn.active');
+    const align = alignBtn?.dataset.align || 'center';
     closeSheet();
-    bus.emit('enterTextMode', text, font, size, bold, italic);
+    bus.emit('enterTextMode', text, font, size, bold, italic, align);
   });
 
   // ── Background sheet ──
