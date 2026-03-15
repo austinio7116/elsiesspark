@@ -2,8 +2,6 @@
 
 Welcome to **Elsie's Spark** — a fun, colourful drawing app made for creating art, doodling, and letting your imagination run wild! No sign-ups, no internet needed, just you and a canvas full of possibilities.
 
-![Elsie's Spark - Room View](screenshots/01-room.png)
-
 ---
 
 ## Table of Contents
@@ -49,6 +47,8 @@ Then visit `http://localhost:8000` in your browser.
 
 ## The Room (Home)
 
+<img align="right" width="250" src="screenshots/01-room.png" alt="The Room - your home base">
+
 The Room is your home base. From here you can jump to:
 
 - **Draw** — Start a new drawing or continue your current one
@@ -56,11 +56,15 @@ The Room is your home base. From here you can jump to:
 - **Inspire** — Get a daily drawing prompt to spark your creativity
 - **Profile** — Your profile and settings
 
-![The Room - your home base](screenshots/01-room.png)
+Everything is laid out like a cosy art studio — tap the easel to draw, the picture frames for your gallery, and the lightbulb for inspiration. There's even a helpful cat!
+
+<br clear="both"/>
 
 ---
 
 ## The Canvas
+
+<img align="right" width="250" src="screenshots/02-canvas.png" alt="The Canvas">
 
 Your canvas starts at a nice big square (sized to fit your screen). This is where all the magic happens — draw, stamp stickers, add text, and layer it all together.
 
@@ -69,37 +73,30 @@ The canvas has three invisible layers stacked on top of each other:
 - A live preview layer (shows your brush stroke as you draw it)
 - A trace image layer (for tracing over imported photos)
 
-![The Canvas - ready to create](screenshots/02-canvas.png)
+Your daily drawing prompt appears at the top so you always know what to create!
+
+<br clear="both"/>
 
 ---
 
 ## Toolbar
 
-The toolbar sits at the top of the screen and gives you quick access to everything:
+<img align="right" width="250" src="screenshots/03-toolbar-submenu.png" alt="Toolbar with submenu">
+
+The toolbar sits at the bottom of the screen and gives you quick access to everything:
 
 | Button | What it does |
 |--------|-------------|
-| **Menu** (three lines) | Opens the tools submenu — access Text, Paint, Brushes, Stickers, Shapes, and Backgrounds |
-| **Pointer** (arrow) | Switch to Select mode — tap things to move, resize, and rotate them |
+| **Menu** (three lines) | Opens the tools submenu |
+| **Pointer** (arrow) | Select mode — tap things to move, resize, and rotate |
 | **Eraser** | Rub out parts of your drawing |
 | **Colour** (coloured circle) | Open the colour picker |
-| **Undo** (curved arrow left) | Take back your last action |
-| **Redo** (curved arrow right) | Bring back what you just undid |
-| **Back** | Return to the Room (auto-saves your work) |
-| **Done** | Save and finish — great for completing a daily prompt |
-| **Zoom Reset** | Pops up when you've zoomed in — tap to fit the canvas back to your screen |
+| **Undo / Redo** | Take back or bring back actions |
+| **Layers** | Manage your layers |
 
-The **tools submenu** expands when you tap the menu button, showing buttons for:
-- Brushes
-- Text
-- Paint
-- Stickers
-- Shapes
-- Backgrounds
+The **tools submenu** expands when you tap the menu button, showing buttons for Brushes, Text, Paint, Stickers, Shapes, and Backgrounds. Tap any of these to open their settings panel (slides up from the bottom).
 
-Tap any of these to open their settings panel (slides up from the bottom).
-
-![Toolbar with tools submenu expanded](screenshots/03-toolbar-submenu.png)
+<br clear="both"/>
 
 ---
 
@@ -108,6 +105,8 @@ Tap any of these to open their settings panel (slides up from the bottom).
 Elsie's Spark comes packed with **14 different brushes** — from simple pens to magical trees! Tap the **Brushes** button in the submenu to see them all.
 
 ### Basic Brushes
+
+<img align="right" width="250" src="screenshots/04-brushes.png" alt="Brushes panel">
 
 **Pen** — Your trusty default. Smooth, clean lines. Perfect for drawing and writing.
 
@@ -122,9 +121,11 @@ All three basic brushes have these settings:
 
 A little **preview** at the top of the brush panel shows you what your stroke will look like before you draw.
 
-![Brushes panel with pen selected and stroke preview](screenshots/04-brushes.png)
+<br clear="both"/>
 
 ### Decorative Brushes
+
+<img align="right" width="250" src="screenshots/04b-brush-sprinkles.png" alt="Sprinkles brush options">
 
 **Sprinkles** — Scatters colourful dots along your stroke like cake sprinkles! Has a **Density** slider (1–10) to control how many sprinkles appear.
 
@@ -132,13 +133,15 @@ A little **preview** at the top of the brush panel shows you what your stroke wi
 
 **Fairy Lights** — Glowing magical orbs trail along your stroke path. You can toggle whether they use your selected colour or their own enchanting glow colours.
 
-**Glitz** — Your stroke gets showered in sparkly particles. Fabulous for adding that extra ✨ to anything.
+**Glitz** — Your stroke gets showered in sparkly particles. Fabulous for adding that extra sparkle to anything.
 
 **Rainbow** — Draws in all the colours of the rainbow at once! Has its own **Opacity** and **Blur** sliders for dreamy rainbow effects.
 
-![Sprinkles brush with density options](screenshots/04b-brush-sprinkles.png)
+<br clear="both"/>
 
 ### Nature Brushes
+
+<img align="right" width="250" src="screenshots/04c-brush-tree.png" alt="Tree brush options">
 
 **Tree** — This one is seriously cool. Draw a stroke and a whole tree grows from it! Choose from **9 tree styles**:
 - Default, Pine, Oak, Birch, Willow, Cherry, Maple, Magnolia, Palm
@@ -151,11 +154,13 @@ Each tree has **Leaf Density** and **Branch Density** sliders so you can make an
 
 **Fur** — Draws soft, fuzzy fur texture. Has its own **Blur** slider for extra fluffiness. Great for drawing animals.
 
-![Tree brush with tree type and density options](screenshots/04c-brush-tree.png)
+<br clear="both"/>
 
 ---
 
 ## Paint Brush
+
+<img align="right" width="250" src="screenshots/05-paint.png" alt="Paint brush panel">
 
 The Paint brush deserves its own section because it's so feature-rich! Open it from the **Paint** button in the submenu.
 
@@ -172,40 +177,51 @@ Choose from 5 different brush heads:
 - **Size** (2–150px) — Independent from other brush sizes
 - **Blend Mode** — When enabled, your brush picks up colours from the canvas as you paint over them and blends them together. It's like real wet paint mixing!
 
-![Paint brush head styles](screenshots/05-paint.png)
+<br clear="both"/>
 
 ---
 
 ## Colours
 
-Tap the **coloured circle** in the toolbar to open the colour picker. It has four ways to find the perfect colour:
+Tap the **coloured circle** in the toolbar to open the colour picker. It has three tabs plus some handy extras:
 
 ### Grid
+
+<img align="right" width="250" src="screenshots/06-color-grid.png" alt="Colour picker - Grid">
+
 A big grid of **130+ colours** arranged by hue and lightness, plus a grayscale column. Just tap a colour and start drawing — the panel closes automatically.
 
+Your saved swatches appear at the bottom (up to 8). Tap the **+** button to save your current colour for later.
+
+<br clear="both"/>
+
 ### Spectrum
+
+<img align="right" width="250" src="screenshots/06b-color-spectrum.png" alt="Colour picker - Spectrum">
+
 A beautiful 2D colour spectrum you can drag around on, plus a hue bar at the top. Drag anywhere to find exactly the shade you want.
 
+<br clear="both"/>
+
 ### Sliders
+
+<img align="right" width="250" src="screenshots/06c-color-sliders.png" alt="Colour picker - Sliders">
+
 Fine-tune your colour with **Hue**, **Saturation**, and **Lightness** sliders. A preview swatch shows your colour as you adjust. Great when you know exactly what you want.
 
-### Swatches
-Your recently saved colours appear here (up to 8). Tap the **Save Swatch** button to remember your current colour for later.
-
 ### Eyedropper
-Tap the **eyedropper** button to pick a colour from anywhere on your canvas. A magnifying loupe appears showing the pixels under your cursor with the hex colour code. Click to grab that colour!
+
+Tap the **eyedropper** button (pen icon, top-right of the colour panel) to pick a colour from anywhere on your canvas. A magnifying loupe appears showing the pixels under your cursor with the hex colour code. Click to grab that colour!
 
 The eyedropper also works on selected objects — pick a new colour and it updates the selected stroke, text, or shape.
 
-![Colour picker - Grid mode](screenshots/06-color-grid.png)
-
-![Colour picker - Spectrum mode](screenshots/06b-color-spectrum.png)
-
-![Colour picker - Sliders mode](screenshots/06c-color-sliders.png)
+<br clear="both"/>
 
 ---
 
 ## Text
+
+<img align="right" width="250" src="screenshots/07-text.png" alt="Text panel">
 
 Tap **Text** in the submenu to add text to your artwork.
 
@@ -230,26 +246,15 @@ Tap **Text** in the submenu to add text to your artwork.
 
 Press **Escape** to cancel placement.
 
-![Text panel with font options](screenshots/07-text.png)
+<br clear="both"/>
 
 ---
 
 ## Stickers
 
-Tap **Stickers** in the submenu to open the sticker library. Elsie's Spark comes with **10 built-in stickers**:
+<img align="right" width="250" src="screenshots/08-stickers.png" alt="Sticker library">
 
-| Sticker | What it looks like |
-|---------|-------------------|
-| Star | A bright yellow star |
-| Heart | A coral-red heart |
-| Flower | Pink petals with a yellow centre |
-| Cloud | A fluffy white cloud |
-| Moon | A yellow crescent moon |
-| Rainbow | A colourful rainbow arc |
-| Sparkle | A four-pointed golden sparkle |
-| Butterfly | A purple butterfly |
-| Leaf | A green leaf |
-| Music | Musical notes |
+Tap **Stickers** in the submenu to open the sticker library. Elsie's Spark comes with **10 built-in SVG stickers** (star, heart, flower, cloud, moon, rainbow, sparkle, butterfly, leaf, music) plus loads of fun PNG stickers!
 
 ### Placing Stickers
 1. Tap a sticker to select it
@@ -260,11 +265,13 @@ Tap **Stickers** in the submenu to open the sticker library. Elsie's Spark comes
 
 **Touch controls**: On touch devices, extra buttons appear — **Shrink**, **Grow**, **Rotate Left**, **Rotate Right**, and **Cancel**.
 
-![Sticker library](screenshots/08-stickers.png)
+<br clear="both"/>
 
 ---
 
 ## Shapes
+
+<img align="right" width="250" src="screenshots/09-shapes.png" alt="Shapes panel">
 
 Tap **Shapes** in the submenu to access **27+ vector shapes** drawn in your current colour:
 
@@ -274,32 +281,36 @@ Shapes work just like stickers — tap to select, position, resize, rotate, and 
 
 The shape takes on whatever colour you currently have selected, so pick your colour first!
 
-![Shapes panel](screenshots/09-shapes.png)
+<br clear="both"/>
 
 ---
 
 ## Layers
 
-Layers let you stack parts of your drawing on top of each other — just like sheets of tracing paper. Tap **Layers** (from the tools submenu or wherever it appears) to manage them.
+<img align="right" width="250" src="screenshots/10-layers.png" alt="Layers panel">
+
+Layers let you stack parts of your drawing on top of each other — just like sheets of tracing paper. Tap the **Layers** button in the toolbar to manage them.
 
 ### What You Can Do
 - **Add Layer** — Creates a new empty layer on top
 - **Tap a layer name** — Makes that layer active (your new strokes go here)
-- **Drag the handle** (☰) — Reorder layers by dragging them up or down
+- **Drag the handle** — Reorder layers by dragging them up or down
 - **Visibility checkbox** — Show or hide a layer (hidden layers don't appear in exports either)
 - **Opacity slider** — Make a whole layer semi-transparent (0–100%)
-- **Delete** (×) — Remove a layer (you always need at least one!)
+- **Delete** — Remove a layer (you always need at least one!)
 
 ### Tips
 - Use separate layers for background elements, main drawing, and details — makes it easy to change things without messing up the rest
 - Hide a layer temporarily to work on what's behind it
 - Lower a layer's opacity for a subtle, watercolour-like effect
 
-![Layers panel](screenshots/10-layers.png)
+<br clear="both"/>
 
 ---
 
 ## Selecting & Moving Things
+
+<img align="right" width="250" src="screenshots/13-selection.png" alt="Object selection with handles">
 
 Tap the **Pointer** (arrow) tool in the toolbar to enter Select mode.
 
@@ -329,11 +340,13 @@ Tap the **Pointer** (arrow) tool in the toolbar to enter Select mode.
 - **Resize**: Drag any corner or edge handle
 - **Rotate**: Drag the rotation handle (the one sticking out from the top)
 
-![Selected object with transform handles](screenshots/13-selection.png)
+<br clear="both"/>
 
 ---
 
 ## Eraser
+
+<img align="right" width="250" src="screenshots/14-eraser.png" alt="Eraser tool">
 
 Tap the **Eraser** in the toolbar to rub things out.
 
@@ -344,11 +357,13 @@ Tap the **Eraser** in the toolbar to rub things out.
 
 The eraser doesn't delete whole objects — it carves into them. If you want to remove an entire object, select it with the Pointer tool and hit Delete instead.
 
-![Eraser tool active](screenshots/14-eraser.png)
+<br clear="both"/>
 
 ---
 
 ## Backgrounds & Tracing
+
+<img align="right" width="250" src="screenshots/11-backgrounds.png" alt="Backgrounds panel">
 
 Tap **Backgrounds** in the submenu to customise what's behind your drawing.
 
@@ -363,7 +378,7 @@ Tap **Clear Trace** to remove the reference image when you're done.
 ### Export
 The **Export** button lives here too — tap it to save your finished artwork as a **PNG image** with all visible layers and the background merged together.
 
-![Backgrounds panel](screenshots/11-backgrounds.png)
+<br clear="both"/>
 
 ---
 
@@ -398,27 +413,31 @@ Zoom range: **5% to 800%** — get right up close for pixel-perfect details or z
 
 ## Gallery
 
+<img align="right" width="250" src="screenshots/16-gallery.png" alt="Gallery view">
+
 The Gallery shows all your saved projects as thumbnails. Tap any project to open it and keep working on it.
 
 Projects save with a thumbnail preview so you can easily find what you're looking for.
 
-![Gallery view](screenshots/16-gallery.png)
+<br clear="both"/>
 
 ---
 
 ## Daily Sparks (Inspiration)
+
+<img align="right" width="250" src="screenshots/15-inspire.png" alt="Daily Spark prompt">
 
 Stuck for ideas? Head to **Inspire** from the Room!
 
 Every day you get a fresh drawing prompt from a collection of **100 creative prompts**. The prompt for each day is picked based on the date, so everyone using the app gets the same prompt on the same day.
 
 1. Read your daily prompt
-2. Tap **Draw** to start creating
+2. Tap **Let's go** to start creating
 3. When you're happy, tap **Done** to save your work and advance to the next prompt
 
 It's a lovely way to build a daily drawing habit!
 
-![Daily Spark prompt card](screenshots/15-inspire.png)
+<br clear="both"/>
 
 ---
 
